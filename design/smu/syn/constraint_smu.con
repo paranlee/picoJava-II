@@ -1,0 +1,85 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ /*** Example of constraints file ******************/
+
+set_drive drive_of(DRIVE_OF_INV2) all_inputs();
+set_load 5 * load_of(LOAD_4_INV) all_outputs();
+
+
+/* Input from IU Unit */
+set_input_delay -clock "clk" -max 2.0 { "iu_psr_dre" };
+set_input_delay -clock "clk" -max 4.1 { "iu_int" };
+set_input_delay -clock "clk" -max 3.5 { "iu_smu_flush" };
+set_input_delay -clock "clk" -max 4.5 { "iu_rf_dout" };
+set_drive drive_of(DRIVE_OF_INV4) { "iu_smiss"};
+set_input_delay -clock "clk" -max 1.52 { "iu_smiss" };
+set_input_delay -clock "clk" -max 1.5 { "iu_address" };
+set_input_delay -clock "clk" -max 1.5 { "iu_data" };
+set_input_delay -clock "clk" -max 1.5 { "ret_optop_update" };
+set_input_delay -clock "clk" -max 1.5 { "low_mark" };
+set_input_delay -clock "clk" -max 1.5 { "high_mark" };
+set_input_delay -clock "clk" -max 1.5 { "smu_st_c" };
+
+set_input_delay -clock "clk" -max 4.3 { "iu_optop_in" };
+set_input_delay -clock "clk" -max 4.25 { "iu_optop_int_we" };
+set_input_delay -clock "clk" -max 4.0 { "iu_data_in" };
+set_input_delay -clock "clk" -max 4.0 { "iu_sbase_we" };
+
+/* Output to IU Unit */
+set_output_delay -clock "clk" -max 4.0 { "smu_we" };
+set_output_delay -clock "clk" -max 2.0 { "smu_sbase" };
+set_output_delay -clock "clk" -max 2.0 { "smu_sbase_we" };
+set_output_delay -clock "clk" -max 4.5 { "smu_rf_addr" };
+set_output_delay -clock "clk" -max 4.5 { "smu_rf_din" };
+
+set_load 30 * load_of(LOAD_1_INV) { "smu_we"};
+set_load 30 * load_of(LOAD_1_INV) { "smu_sbase"};
+set_load 30 * load_of(LOAD_1_INV) { "smu_sbase_we"};
+set_load 30 * load_of(LOAD_1_INV) { "smu_rf_addr"};
+set_load 30 * load_of(LOAD_1_INV) { "smu_rf_din"};
+
+/* Input from DCU Unit */
+set_input_delay -clock "clk" -max 4.4 { "smu_data_vld" };
+set_input_delay -clock "clk" -max 3.9 { "smu_stall" };
+set_input_delay -clock "clk" -max 4.4 { "dcu_data" };
+
+/* Output to DCU Unit */
+set_output_delay -clock "clk" -max 2.0 { "smu_addr" };
+set_output_delay -clock "clk" -max 4.0 { "smu_st" };
+set_output_delay -clock "clk" -max 4.0 { "smu_ld" };
+set_output_delay -clock "clk" -max 4.0 { "smu_data" };
+set_output_delay -clock "clk" -max 2.0 { "smu_na_st" };
+set_output_delay -clock "clk" -max 3.0 { "smu_hold" };
+set_output_delay -clock "clk" -max 1.5 { "smu_prty" };
+
+set_load 20 * load_of(LOAD_1_INV) { "smu_addr"};
+set_load 20 * load_of(LOAD_1_INV) { "smu_st"};
+set_load 20 * load_of(LOAD_1_INV) { "smu_ld"};
+set_load 20 * load_of(LOAD_1_INV) { "smu_data"};
+set_load 20 * load_of(LOAD_1_INV) { "smu_na_st"};
+set_load 30 * load_of(LOAD_1_INV) { "smu_hold"};
+set_load 20 * load_of(LOAD_1_INV) { "smu_prty"};
+
+

@@ -1,0 +1,119 @@
+<html>
+<head>
+<TITLE>IAS: Porting</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Porting IAS</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+<P>
+
+<P>
+<h2>Porting IAS to Different Platforms</h2></a>
+<BLOCKQUOTE>
+Porting IAS to platforms other than SPARCstations<sup><small>TM</small></sup>
+running Solaris should not be very difficult. 
+<BR> It will, however, require some effort.
+<P>
+There are assumptions regarding big-endianness and 32-bit words in the code.
+Porting to other 32-bit, big-endian machines should be fairly 
+straightforward. 
+<P>
+For other types of machines, some areas 
+of the code which will need to be reviewed, if not changed.<BR>
+These areas of code are:
+<UL>
+<LI>The memory access model, including <code>javamem.[ch]</code>, 
+<code>cm.[ch]</code>, calling <code>cmMemoryRead</code>,<BR> 
+<code>cmMemoryWrite</code> and so on.</LI>
+<LI>Some floating point operations code in <code>jvm_ops.c</code>, 
+such as  <code>F_RESET_SIGN_IF_NAN</code>.</LI>
+<LI>The definition of long long (int64_t) types in the
+code.
+</UL>
+<P>
+IAS contains a check inside <code>iam.c</code> to verify 
+that it is invoked on a 32-bit  big-endian machine.
+
+<P>
+<B>Note:</B> This check may as well have been inside 
+<code>initPico</code>() so it could be done only once.
+<P>
+</BLOCKQUOTE>
+<h2>Porting to a Different Big Endian, 32-bit Machine</h2></A>
+<BLOCKQUOTE>
+<P>
+Some changes which may be necessary to get IAS to work under HP-UX,
+compiling with <code>gcc</code>.<BR>
+<B>Note:</B> These changes are not tested, 
+not supported and may not be complete.
+<P>
+You need to:
+<P>
+<UL>
+<LI> Have a version of <code>libtcl7.5.a</code> and <code>libz.a</code>.<BR>
+
+<LI> Update the <code>-llibtcl7.5</code> line <code>libtcl7.6.a</code>. <BR>
+in <code>sim/src/Makefile.in</code> if it presents any problems.</LI>
+
+<LI>Have a copy of <code>libtcl</code> source or binary. <BR>
+You can get this from 
+<A href="http://www.scriptics.com/software/download.html">
+http://www.scriptics.com/software/download.html</A>.</LI>
+
+<LI>Have a copy of <code>libz.a</code> source or binary. <BR>
+You can get this from
+<A href="http://www.cdrom.com/pub/infozip/zlib">
+http://www.cdrom.com/pub/infozip/zlib</A>.</LI>
+
+<LI>Change the definition of UNAME to hpux in all makefiles.
+
+<LI>Change the name of <code>dlfcn.h</code> include file to <code>dl.h</code>.
+
+<LI>Change the names of all <code>dl</code><i>xxx</I> files, such as 
+<code>dlopen</code>, <code>dlsym</code><BR>
+to <code>shl_</code><I>xxxx</I> names, such as <code>shl_load</code>, 
+<code>shl_findsym</code>.
+
+<LI>Delete any <code>Makefile.in</code> files containing the <I>-ldl</I> option for linking.
+
+<LI>Remove the file <code>ieeefp.h</code> included in 
+<code>jmath_md.h</code>.<BR>
+It is not needed since <code>ieeefp.h</code> is not present on HP.
+<LI>Have a copy of the <code>libelf.a</code> library which may not be present
+under HP-UX.<BR>
+The <code>loadElf</code> command implemented in
+<code>tools/dsv/sim/src/elf.c</code><BR>
+depends on it. If you do not need <code>loadElf</code>
+functionality, you can remove the code for this from
+<code>sim/src/elf.c</code>. <BR>
+If you find you do need this code, you can get a public domain<BR>
+version of <code>libelf.a</code> from
+ftp://sunsite.unc.edu/pub/Linux/libs.
+</LI>
+
+</UL>
+</BLOCKQUOTE>
+
+<A HREF="./ias.html">IAS</A></font>
+
+<HR SIZE=4 WIDTH="100%">
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+<P>
+
+</body>
+</html>

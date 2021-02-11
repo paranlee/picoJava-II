@@ -1,0 +1,233 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+// Trap "lmul" -
+//
+//      Implements the JVM instruction 'lmul', i.e., multiply
+//	    two 'long' numbers, returning a 'long'.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|     value1.word1	|
+//		+-----------------------+
+//		|     value1.word2	|
+//		+-----------------------+
+//		|     value2.word1	|
+//		+-----------------------+
+//		|     value2.word2	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap
+//
+//	 	|			|
+//		+-----------------------+
+//		|     result.word1	|
+//		+-----------------------+
+//		|     result.word2	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |    PC(method entry)	|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP for the invoked method will be set to the
+// location where the VARS points to(location of PSR).  The other regs,
+// VARS and FRAME will be restored with the value from the trap_frame.
+
+public class lmul
+{
+
+    public static Method lmul:"()v"
+    {
+Prologue:
+
+			// set up the stack frame
+
+    read_optop;		// push OPTOP
+    bipush 32;		// input1 is at 8 words below
+    iadd;		// pointer to input1
+    write_vars;		// set the VARS, PC is now local_var 5
+
+    read_const_pool;	// save CONST_POOL for later restoring
+
+    priv_read_trapbase;	// set correct CONST_POOL for this trap
+    iconst_4;
+    iadd;
+    load_word;
+    write_const_pool;
+
+// begin conversion for MCST code
+    read_vars;
+
+    lload_0;		// push value1 and value2 onto the stack
+    lload_2;
+
+    read_optop;
+    bipush 16;
+    iadd;
+    write_vars;
+
+    lconst_0; lconst_0; lconst_0; lconst_0;
+    lconst_0; lconst_0; lconst_0; // and more, to a total of 18 ints
+
+
+
+
+
+
+
+
+
+
+
+
+
+//		0123456789-------
+		  lload_0;
+		 l2i;
+		   lload_2;
+		    bipush	32;
+		   lshr;
+		  l2i;
+		 imul;
+//		0123456789-------
+		   lload_2;
+		  l2i;
+		    lload_0;
+		     bipush	32;
+		    lshr;
+		   l2i;
+		  imul;
+//		0123456789-------
+		 iadd;
+		   lload_0;
+		  l2i;
+		   dup;
+			iconst_m1;
+			 bipush	16;
+			iushr;
+		   iand;
+		  istore	4;
+		   bipush	16;
+		  iushr;
+		    lload_2;
+		   l2i;
+		    dup;
+			 iconst_m1;
+			  bipush	16;
+			 iushr;
+		    iand;
+		   istore	5;
+		    bipush	16;
+		   iushr;
+		     dup2;
+			istore	7;
+		   istore	6;
+		  imul;
+//		0123456789-------
+		 iadd;
+		  iload	4;
+		   iload	5;
+		  imul;
+
+		  swap;
+
+//		0123456789-------
+		   iload	6;
+		    iload	5;
+		   imul;
+		    iconst_0;
+
+		     iload	7;
+		      iload	4;
+		     imul;
+			  iconst_0;
+
+			ladd;
+			 bipush 16;
+			lshl;
+		  ladd;
+
+    read_vars;
+    iconst_4;
+    iadd;
+    write_vars;
+    iload_0;
+    write_vars;
+    lstore_0;		// store the return value where "value1" used to be
+
+    pop2; pop2; pop2; pop2;
+    pop2; pop2; pop2; pop2;
+    pop2;               // strip the stack of local variables, and...
+    pop;                // then the temp copy of "VARS"
+
+// conversion from MCST code finished
+
+    write_const_pool;	// restore CONST_POOL from saved copy
+
+			// fix up the stack for the return
+    iload 4;
+    istore_2;		// PSR moves from local-4 to local-2;
+    iload 5;
+    iconst_1;
+    iadd;
+    istore_3;		// PC reads from local-5, adds 1, goes to local-3;
+    iload 6;
+    istore 4;		// VARS moves from local-6 to local-4;
+    iload 7;
+    istore 5;		// FRAME moves from local-7 to local-5;
+
+
+    read_vars;		// update VARS and FRAME
+    dup;
+    bipush 8;
+    isub;
+    write_vars;
+    bipush 12;
+    isub;
+    write_frame;
+
+			// now that the frame is correctly re-arranged,
+    priv_ret_from_trap;	// return from the trap
+}
+
+} // end Class lmul

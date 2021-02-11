@@ -1,0 +1,617 @@
+Host command: pj2vlog
+Command arguments:
+    -f ../../../../sim/env/vfiles
+        +incdir+picoJava-II/design/rtl
+        -v picoJava-II/design/rtl/mj_muxes_behv.v
+        -v picoJava-II/design/rtl/mj_ffs_behv.v
+        -v picoJava-II/design/rtl/custom_cells_behv.v
+        +incdir+picoJava-II/sim/env
+        picoJava-II/sim/env/timescale.v
+        picoJava-II/design/rtl/spare.v
+        picoJava-II/sim/env/sys.v
+        picoJava-II/sim/env/display_pico.v
+        picoJava-II/sim/env/memc.v
+        picoJava-II/sim/env/monitor.v
+        picoJava-II/sim/env/powerdown_monitor.v
+        picoJava-II/sim/env/instruction_monitor.v
+        picoJava-II/sim/env/activity_monitor.v
+        picoJava-II/sim/env/ucode_monitor.v
+        picoJava-II/sim/env/trap_monitor.v
+        picoJava-II/sim/env/smu_monitor.v
+        picoJava-II/sim/env/bus_monitor.v
+        picoJava-II/sim/env/ibuf_monitor.v
+        picoJava-II/sim/env/fpu_mon.v
+        picoJava-II/sim/env/dcu_mon.v
+        picoJava-II/sim/env/trace_debug_monitor.v
+        picoJava-II/sim/env/statistics_monitor.v
+        picoJava-II/sim/env/performance_monitor.v
+        picoJava-II/sim/env/io_pin_monitor.v
+        picoJava-II/sim/env/fold_mon.v
+        picoJava-II/sim/env/picoJavaII_pin_recorder.v
+        picoJava-II/design/rtl/cpu.v
+        picoJava-II/design/iu/ex/rtl/ex_decode.v
+        picoJava-II/design/iu/ex/rtl/ex_ctl.v
+        picoJava-II/design/iu/ex/rtl/ex_dpath.v
+        picoJava-II/design/iu/ex/rtl/ex_regs.v
+        picoJava-II/design/iu/ex/rtl/ex.v
+        picoJava-II/design/iu/ex/rtl/imdr/imdr.v
+        picoJava-II/design/iu/ex/rtl/imdr/imdr_ctrl.v
+        picoJava-II/design/iu/ex/rtl/imdr/imdr_dpath.v
+        picoJava-II/design/iu/ex/rtl/imdr/lib_imdr.v
+        picoJava-II/design/iu/ifu/rtl/ex_len_dec.v
+        picoJava-II/design/iu/ifu/rtl/fdec.v
+        picoJava-II/design/iu/ifu/rtl/fold_dec.v
+        picoJava-II/design/iu/ifu/rtl/fold_logic.v
+        picoJava-II/design/iu/ifu/rtl/ifu.v
+        picoJava-II/design/iu/ifu/rtl/index_adders.v
+        picoJava-II/design/iu/ifu/rtl/length_dec.v
+        picoJava-II/design/iu/ifu/rtl/main_dec.v
+        picoJava-II/design/iu/ifu/rtl/rs1_dec.v
+        picoJava-II/design/iu/ifu/rtl/rs2_dec.v
+        picoJava-II/design/iu/ifu/rtl/rsd_dec.v
+        picoJava-II/design/iu/ifu/rtl/valid_dec.v
+        picoJava-II/design/iu/pipe/rtl/pipe_cntl.v
+        picoJava-II/design/iu/pipe/rtl/pipe.v
+        picoJava-II/design/iu/pipe/rtl/pipe_dpath.v
+        picoJava-II/design/iu/pipe/rtl/trap.v
+        picoJava-II/design/iu/pipe/rtl/hold_logic.v
+        picoJava-II/design/iu/ucode/rtl/ucode.h
+        picoJava-II/design/iu/ucode/rtl/ieu_rom.v
+        picoJava-II/design/iu/ucode/rtl/ucode_lib.v
+        picoJava-II/design/iu/ucode/rtl/ucode_dec.v
+        picoJava-II/design/iu/ucode/rtl/ucode_ind.v
+        picoJava-II/design/iu/ucode/rtl/ucode_rom.v
+        picoJava-II/design/iu/ucode/rtl/ucode_seq.v
+        picoJava-II/design/iu/ucode/rtl/ucode_reg.v
+        picoJava-II/design/iu/ucode/rtl/ucode_ctrl.v
+        picoJava-II/design/iu/ucode/rtl/ucode_dat.v
+        picoJava-II/design/iu/ucode/rtl/ucode_dpath.v
+        picoJava-II/design/iu/ucode/rtl/ucode.v
+        picoJava-II/design/iu/rtl/iu.v
+        picoJava-II/design/iu/rcu/rtl/rcu.v
+        picoJava-II/design/iu/rcu/rtl/rcu_ctl.v
+        picoJava-II/design/iu/rcu/rtl/rcu_dpath.v
+        picoJava-II/design/dcu/rtl/wrbuf_cntl.v
+        picoJava-II/design/dcu/rtl/dcudp_cntl.v
+        picoJava-II/design/dcu/rtl/dcu_dpath.v
+        picoJava-II/design/dcu/rtl/dcu.v
+        picoJava-II/design/dcu/rtl/dcctl.v
+        picoJava-II/design/dcu/rtl/dc_dec.v
+        picoJava-II/design/dcu/rtl/miss_cntl.v
+        picoJava-II/design/dcram/rtl/dcram.v
+        picoJava-II/design/dtag/rtl/dtag.v
+        picoJava-II/design/dcram/rtl/dcram_shell.v
+        picoJava-II/design/dcram/rtl/dcram_misc.v
+        picoJava-II/design/dcram/rtl/dcram_top.v
+        picoJava-II/design/dtag/rtl/dtag_shell.v
+        picoJava-II/design/dtag/rtl/dtag_misc.v
+        picoJava-II/design/dtag/rtl/dtag_top.v
+        picoJava-II/design/icu/rtl/icu_dpath.v
+        picoJava-II/design/icu/rtl/icctl.v
+        picoJava-II/design/icu/rtl/ibuffer.v
+        picoJava-II/design/icu/rtl/ibuf_ctl.v
+        picoJava-II/design/icu/rtl/ic_cntl.v
+        picoJava-II/design/icu/rtl/icu.v
+        picoJava-II/design/itag/rtl/itag_shell.v
+        picoJava-II/design/icram/rtl/icram_shell.v
+        +incdir+picoJava-II/design/smu/rtl
+        picoJava-II/design/smu/rtl/smu.v
+        picoJava-II/design/smu/rtl/smu_ctl.v
+        picoJava-II/design/smu/rtl/smu_dpath.v
+        picoJava-II/design/biu/rtl/biu_ctl.v
+        picoJava-II/design/biu/rtl/biu_dpath.v
+        picoJava-II/design/biu/rtl/biu.v
+        picoJava-II/design/pcsu/rtl/pcsu.v
+        +incdir+picoJava-II/design/fpu/rtl
+        picoJava-II/design/fpu/rtl/mult_array.v
+        picoJava-II/design/fpu/rtl/exponent_dp.v
+        picoJava-II/design/fpu/rtl/exponent_cntl.v
+        picoJava-II/design/fpu/rtl/exponent.v
+        picoJava-II/design/fpu/rtl/rsadd_dp.v
+        picoJava-II/design/fpu/rtl/rsadd_cntl.v
+        picoJava-II/design/fpu/rtl/rsadd.v
+        picoJava-II/design/fpu/rtl/multmod_dp.v
+        picoJava-II/design/fpu/rtl/multmod_cntl.v
+        picoJava-II/design/fpu/rtl/multmod.v
+        picoJava-II/design/fpu/rtl/f_fpu.v
+        picoJava-II/design/fpu/rtl/fp_roms.v
+        picoJava-II/design/fpu/rtl/mantissa.v
+        picoJava-II/design/fpu/rtl/mantissa_dp.v
+        picoJava-II/design/fpu/rtl/mantissa_cntl.v
+        picoJava-II/design/fpu/rtl/mantissa_cntl_sub.v
+        picoJava-II/design/fpu/rtl/prils.v
+        picoJava-II/design/fpu/rtl/prils_dp.v
+        picoJava-II/design/fpu/rtl/prils_cntl.v
+        picoJava-II/design/fpu/rtl/code_seq.v
+        picoJava-II/design/fpu/rtl/code_seq_cntl.v
+        picoJava-II/design/fpu/rtl/code_seq_dp.v
+        picoJava-II/design/fpu/rtl/incmod.v
+        picoJava-II/design/fpu/rtl/nxsign.v
+
+VERILOG-XL 2.3.17 log file created Feb 19, 1999  16:20:33
+VERILOG-XL 2.3.17   Feb 19, 1999  16:20:33
+
+Copyright (c) 1995 Cadence Design Systems, Inc.  All Rights Reserved.
+Unpublished -- rights reserved under the copyright laws of the United States.
+
+Copyright (c) 1995 UNIX Systems Laboratories, Inc.  Reproduced with Permission.
+
+THIS SOFTWARE AND ON-LINE DOCUMENTATION CONTAIN CONFIDENTIAL INFORMATION
+AND TRADE SECRETS OF CADENCE DESIGN SYSTEMS, INC.  USE, DISCLOSURE, OR
+REPRODUCTION IS PROHIBITED WITHOUT THE PRIOR EXPRESS WRITTEN PERMISSION OF
+CADENCE DESIGN SYSTEMS, INC.
+RESTRICTED RIGHTS LEGEND
+
+Use, duplication, or disclosure by the Government is subject to
+restrictions as set forth in subparagraph (c)(1)(ii) of the Rights in
+Technical Data and Computer Software clause at DFARS 252.227-7013 or
+subparagraphs (c)(1) and (2) of Commercial Computer Software -- Restricted
+Rights at 48 CFR 52.227-19, as applicable.
+
+                Cadence Design Systems, Inc.
+                555 River Oaks Parkway
+                San Jose, California  95134
+
+For technical assistance please contact the Cadence Response Center at
+1-800-CADENC2 or send email to crc_customers@cadence.com
+
+For more information on Cadence's Verilog-XL product line send email to
+talkverilog@cadence.com
+
+picoJava-II common memory/cosim/disasm
+Compiling source file "picoJava-II/sim/env/timescale.v"
+Compiling source file "picoJava-II/design/rtl/spare.v"
+Compiling source file "picoJava-II/sim/env/sys.v"
+Compiling included source file "picoJava-II/sim/env/sys.h"
+Continuing compilation of source file "picoJava-II/sim/env/sys.v"
+Compiling included source file "picoJava-II/sim/env/returncode.h"
+Continuing compilation of source file "picoJava-II/sim/env/sys.v"
+Compiling included source file "picoJava-II/sim/env/report.h"
+Compiling included source file "picoJava-II/sim/env/returncode.h"
+Continuing compilation of source file "picoJava-II/sim/env/report.h"
+Continuing compilation of source file "picoJava-II/sim/env/sys.v"
+Compiling included source file "picoJava-II/sim/env/init_icache.h"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/sim/env/init_icache.h"
+Continuing compilation of source file "picoJava-II/sim/env/sys.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/sim/env/sys.v"
+Compiling source file "picoJava-II/sim/env/display_pico.v"
+Compiling source file "picoJava-II/sim/env/memc.v"
+Compiling included source file "picoJava-II/sim/env/mem.h"
+Continuing compilation of source file "picoJava-II/sim/env/memc.v"
+Compiling source file "picoJava-II/sim/env/monitor.v"
+Compiling source file "picoJava-II/sim/env/powerdown_monitor.v"
+Compiling included source file "picoJava-II/sim/env/int_cmd_file"
+Continuing compilation of source file "picoJava-II/sim/env/powerdown_monitor.v"
+Compiling included source file "picoJava-II/sim/env/interrupt_table.v"
+Continuing compilation of source file "picoJava-II/sim/env/powerdown_monitor.v"
+Compiling source file "picoJava-II/sim/env/instruction_monitor.v"
+Compiling included source file "picoJava-II/sim/env/instr_enable.h"
+Compiling included source file "picoJava-II/sim/env/instr_def.h"
+Continuing compilation of source file "picoJava-II/sim/env/instr_enable.h"
+Continuing compilation of source file "picoJava-II/sim/env/instruction_monitor.v"
+Compiling source file "picoJava-II/sim/env/activity_monitor.v"
+Compiling included source file "picoJava-II/sim/env/sys.h"
+Continuing compilation of source file "picoJava-II/sim/env/activity_monitor.v"
+Compiling included source file "picoJava-II/design/rtl/../../design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/sim/env/activity_monitor.v"
+Compiling source file "picoJava-II/sim/env/ucode_monitor.v"
+Compiling included source file "picoJava-II/design/rtl/../../design/iu/ucode/rtl/ucode.h"
+Continuing compilation of source file "picoJava-II/sim/env/ucode_monitor.v"
+Compiling source file "picoJava-II/sim/env/trap_monitor.v"
+Compiling source file "picoJava-II/sim/env/smu_monitor.v"
+Compiling source file "picoJava-II/sim/env/bus_monitor.v"
+Compiling included source file "picoJava-II/sim/env/mem.h"
+Continuing compilation of source file "picoJava-II/sim/env/bus_monitor.v"
+Compiling source file "picoJava-II/sim/env/ibuf_monitor.v"
+Compiling source file "picoJava-II/sim/env/fpu_mon.v"
+Compiling included source file "picoJava-II/sim/env/fpu_mon.h"
+Continuing compilation of source file "picoJava-II/sim/env/fpu_mon.v"
+Compiling source file "picoJava-II/sim/env/dcu_mon.v"
+Compiling source file "picoJava-II/sim/env/trace_debug_monitor.v"
+Compiling source file "picoJava-II/sim/env/statistics_monitor.v"
+Compiling source file "picoJava-II/sim/env/performance_monitor.v"
+Compiling included source file "picoJava-II/sim/env/sys.h"
+Continuing compilation of source file "picoJava-II/sim/env/performance_monitor.v"
+Compiling source file "picoJava-II/sim/env/io_pin_monitor.v"
+Compiling source file "picoJava-II/sim/env/fold_mon.v"
+Compiling source file "picoJava-II/sim/env/picoJavaII_pin_recorder.v"
+Compiling source file "picoJava-II/design/rtl/cpu.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/rtl/cpu.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/ex_decode.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/ex_ctl.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/ex_dpath.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/ex_regs.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/iu/ex/rtl/ex_regs.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/ex.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/imdr/imdr.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/imdr/imdr_ctrl.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/imdr/imdr_dpath.v"
+Compiling source file "picoJava-II/design/iu/ex/rtl/imdr/lib_imdr.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/ex_len_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/fdec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/fold_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/fold_logic.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/ifu.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/index_adders.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/length_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/main_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/rs1_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/rs2_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/rsd_dec.v"
+Compiling source file "picoJava-II/design/iu/ifu/rtl/valid_dec.v"
+Compiling source file "picoJava-II/design/iu/pipe/rtl/pipe_cntl.v"
+Compiling source file "picoJava-II/design/iu/pipe/rtl/pipe.v"
+Compiling source file "picoJava-II/design/iu/pipe/rtl/pipe_dpath.v"
+Compiling source file "picoJava-II/design/iu/pipe/rtl/trap.v"
+Compiling source file "picoJava-II/design/iu/pipe/rtl/hold_logic.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode.h"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ieu_rom.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_lib.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_dec.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_ind.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_rom.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_seq.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_reg.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_ctrl.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_dat.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode_dpath.v"
+Compiling source file "picoJava-II/design/iu/ucode/rtl/ucode.v"
+Compiling source file "picoJava-II/design/iu/rtl/iu.v"
+Compiling source file "picoJava-II/design/iu/rcu/rtl/rcu.v"
+Compiling source file "picoJava-II/design/iu/rcu/rtl/rcu_ctl.v"
+Compiling source file "picoJava-II/design/iu/rcu/rtl/rcu_dpath.v"
+Compiling source file "picoJava-II/design/dcu/rtl/wrbuf_cntl.v"
+Compiling source file "picoJava-II/design/dcu/rtl/dcudp_cntl.v"
+Compiling source file "picoJava-II/design/dcu/rtl/dcu_dpath.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dcu/rtl/dcu_dpath.v"
+Compiling source file "picoJava-II/design/dcu/rtl/dcu.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dcu/rtl/dcu.v"
+Compiling source file "picoJava-II/design/dcu/rtl/dcctl.v"
+Compiling source file "picoJava-II/design/dcu/rtl/dc_dec.v"
+Compiling source file "picoJava-II/design/dcu/rtl/miss_cntl.v"
+Compiling source file "picoJava-II/design/dcram/rtl/dcram.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dcram/rtl/dcram.v"
+Compiling source file "picoJava-II/design/dtag/rtl/dtag.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dtag/rtl/dtag.v"
+Compiling source file "picoJava-II/design/dcram/rtl/dcram_shell.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dcram/rtl/dcram_shell.v"
+Compiling source file "picoJava-II/design/dcram/rtl/dcram_misc.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dcram/rtl/dcram_misc.v"
+Compiling source file "picoJava-II/design/dcram/rtl/dcram_top.v"
+Compiling source file "picoJava-II/design/dtag/rtl/dtag_shell.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dtag/rtl/dtag_shell.v"
+Compiling source file "picoJava-II/design/dtag/rtl/dtag_misc.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/dtag/rtl/dtag_misc.v"
+Compiling source file "picoJava-II/design/dtag/rtl/dtag_top.v"
+Compiling source file "picoJava-II/design/icu/rtl/icu_dpath.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/icu/rtl/icu_dpath.v"
+Compiling source file "picoJava-II/design/icu/rtl/icctl.v"
+Compiling source file "picoJava-II/design/icu/rtl/ibuffer.v"
+Compiling source file "picoJava-II/design/icu/rtl/ibuf_ctl.v"
+Compiling source file "picoJava-II/design/icu/rtl/ic_cntl.v"
+Compiling source file "picoJava-II/design/icu/rtl/icu.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/icu/rtl/icu.v"
+Compiling source file "picoJava-II/design/itag/rtl/itag_shell.v"
+Compiling included source file "picoJava-II/design/rtl/../rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/itag/rtl/itag_shell.v"
+Compiling source file "picoJava-II/design/icram/rtl/icram_shell.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/icram/rtl/icram_shell.v"
+Compiling source file "picoJava-II/design/smu/rtl/smu.v"
+Compiling source file "picoJava-II/design/smu/rtl/smu_ctl.v"
+Compiling source file "picoJava-II/design/smu/rtl/smu_dpath.v"
+Compiling included source file "picoJava-II/design/rtl/defines.h"
+Continuing compilation of source file "picoJava-II/design/smu/rtl/smu_dpath.v"
+Compiling source file "picoJava-II/design/biu/rtl/biu_ctl.v"
+Compiling source file "picoJava-II/design/biu/rtl/biu_dpath.v"
+Compiling source file "picoJava-II/design/biu/rtl/biu.v"
+Compiling source file "picoJava-II/design/pcsu/rtl/pcsu.v"
+Compiling source file "picoJava-II/design/fpu/rtl/mult_array.v"
+Compiling source file "picoJava-II/design/fpu/rtl/exponent_dp.v"
+Compiling source file "picoJava-II/design/fpu/rtl/exponent_cntl.v"
+Compiling source file "picoJava-II/design/fpu/rtl/exponent.v"
+Compiling source file "picoJava-II/design/fpu/rtl/rsadd_dp.v"
+Compiling source file "picoJava-II/design/fpu/rtl/rsadd_cntl.v"
+Compiling source file "picoJava-II/design/fpu/rtl/rsadd.v"
+Compiling source file "picoJava-II/design/fpu/rtl/multmod_dp.v"
+Compiling source file "picoJava-II/design/fpu/rtl/multmod_cntl.v"
+Compiling source file "picoJava-II/design/fpu/rtl/multmod.v"
+Compiling source file "picoJava-II/design/fpu/rtl/f_fpu.v"
+Compiling included source file "picoJava-II/design/fpu/rtl/fpu.h"
+Continuing compilation of source file "picoJava-II/design/fpu/rtl/f_fpu.v"
+Compiling source file "picoJava-II/design/fpu/rtl/fp_roms.v"
+Compiling source file "picoJava-II/design/fpu/rtl/mantissa.v"
+Compiling source file "picoJava-II/design/fpu/rtl/mantissa_dp.v"
+Compiling source file "picoJava-II/design/fpu/rtl/mantissa_cntl.v"
+Compiling source file "picoJava-II/design/fpu/rtl/mantissa_cntl_sub.v"
+Compiling source file "picoJava-II/design/fpu/rtl/prils.v"
+Compiling source file "picoJava-II/design/fpu/rtl/prils_dp.v"
+Compiling source file "picoJava-II/design/fpu/rtl/prils_cntl.v"
+Compiling source file "picoJava-II/design/fpu/rtl/code_seq.v"
+Compiling source file "picoJava-II/design/fpu/rtl/code_seq_cntl.v"
+Compiling included source file "picoJava-II/design/fpu/rtl/fpu.h"
+Continuing compilation of source file "picoJava-II/design/fpu/rtl/code_seq_cntl.v"
+Compiling source file "picoJava-II/design/fpu/rtl/code_seq_dp.v"
+Compiling included source file "picoJava-II/design/fpu/rtl/fpu.h"
+Continuing compilation of source file "picoJava-II/design/fpu/rtl/code_seq_dp.v"
+Compiling source file "picoJava-II/design/fpu/rtl/incmod.v"
+Compiling source file "picoJava-II/design/fpu/rtl/nxsign.v"
+Scanning library file "picoJava-II/design/rtl/mj_muxes_behv.v"
+Scanning library file "picoJava-II/design/rtl/mj_muxes_behv.v"
+Scanning library file "picoJava-II/design/rtl/mj_muxes_behv.v"
+Scanning library file "picoJava-II/design/rtl/mj_ffs_behv.v"
+Scanning library file "picoJava-II/design/rtl/mj_ffs_behv.v"
+Scanning library file "picoJava-II/design/rtl/custom_cells_behv.v"
+Scanning library file "picoJava-II/design/rtl/custom_cells_behv.v"
+Scanning library file "picoJava-II/design/rtl/custom_cells_behv.v"
+Scanning library file "picoJava-II/design/rtl/mj_muxes_behv.v"
+Scanning library file "picoJava-II/design/rtl/mj_muxes_behv.v"
+
+Warning!  Implicit wire has no fanin                        [Verilog-IWFA]     
+          "picoJava-II/sim/env/sys.v", 981: pj_scan_out
+Highest level modules:
+picoJavaII
+display_picoJavaII
+del1_1
+inv_b_32
+inv_d_32
+ucode_rom
+pri_encod_3
+
+max_instr_count = ffffffffffffffff
+
+Scache initialized to 0xdeadbeef
+ICache initialized to 0
+Dcache initialized to 0
+SMU is ON
+return_code=00000000
+Water mark low is 16, high is 48
+*** microcode monitor is enabled
+pj_scan_mode deasserted.
+pj_scan_in asserted.
+pj_reset deasserted.
+pj_standby deasserted.
+pj_nmi is deasserted.
+pj_halt deasserted.
+pj_resume deasserted.
+irl is zero.
+pj_reset asserted.
+pj_standby_out deasserted.
+Exit powerdown mode
+pj_reset_out deasserted.
+pj_su is asserted.
+pj_in_halt deasserted.
+pj_brk2_sync deasserted.
+pj_brk1_sync deasserted.
+pj_reset deasserted.
+The following 2 instructions are folded
+cosim warning: overwritten, address ffe0, old data        0, new data        1
+The following 2 instructions are folded
+Performance data gathering enabled at time                  868
+
+Activity data gathering enabled at time                  868
+
+Activity data gathering enabled at time                  868
+
+Performance data gathering enabled at time                  868
+
+Performance data gathering enabled at time                  870
+
+Activity data gathering enabled at time                  870
+
+Activity data gathering enabled at time                  870
+
+Performance data gathering enabled at time                  870
+
+Performance data gathering enabled at time                  872
+
+Activity data gathering enabled at time                  872
+
+Activity data gathering enabled at time                  872
+
+Performance data gathering enabled at time                  872
+
+Performance data gathering enabled at time                  874
+
+Activity data gathering enabled at time                  874
+
+Activity data gathering enabled at time                  874
+
+Performance data gathering enabled at time                  874
+
+Performance data gathering enabled at time                  876
+
+Activity data gathering enabled at time                  876
+
+Activity data gathering enabled at time                  876
+
+Performance data gathering enabled at time                  876
+
+Performance data gathering enabled at time                  878
+
+Activity data gathering enabled at time                  878
+
+Activity data gathering enabled at time                  878
+
+Performance data gathering enabled at time                  878
+
+Performance data gathering enabled at time                  880
+
+Activity data gathering enabled at time                  880
+
+Activity data gathering enabled at time                  880
+
+Performance data gathering enabled at time                  880
+
+The following 2 instructions are folded
+The following 3 instructions are folded
+Performance data gathering disabled at time                  998
+
+Activity data gathering disabled at time                  998
+
+Activity data gathering disabled at time                  998
+
+Performance data gathering disabled at time                  998
+
+Performance data gathering disabled at time                 1000
+
+Activity data gathering disabled at time                 1000
+
+Activity data gathering disabled at time                 1000
+
+Performance data gathering disabled at time                 1000
+
+Performance data gathering disabled at time                 1002
+
+Activity data gathering disabled at time                 1002
+
+Activity data gathering disabled at time                 1002
+
+Performance data gathering disabled at time                 1002
+
+The following 2 instructions are folded
+Performance data gathering disabled at time                 1004
+
+Activity data gathering disabled at time                 1004
+
+Activity data gathering disabled at time                 1004
+
+Performance data gathering disabled at time                 1004
+
+Performance data gathering disabled at time                 1006
+
+Activity data gathering disabled at time                 1006
+
+Activity data gathering disabled at time                 1006
+
+Performance data gathering disabled at time                 1006
+
+Performance data gathering disabled at time                 1008
+
+Activity data gathering disabled at time                 1008
+
+Activity data gathering disabled at time                 1008
+
+Performance data gathering disabled at time                 1008
+
+Performance data gathering disabled at time                 1010
+
+Activity data gathering disabled at time                 1010
+
+cosim warning: overwritten, address ffdc, old data        1, new data        0
+Activity data gathering disabled at time                 1010
+
+Performance data gathering disabled at time                 1010
+
+The following 3 instructions are folded
+The following 2 instructions are folded
+The following 2 instructions are folded
+The following 3 instructions are folded
+cosim warning: overwritten, address fffc, old data        1, new data        0
+Total number of traps taken:           0
+Folding_statistics_begin
+____________________________________________________________________
+                              Psr.fle  IB     Stack$  Traps/  Decode
+              Folded  Missed  Disable  Dirty  Missed  Branch  !valid
+____________________________________________________________________
+LV LV OP MEM       0       0       0       0       0       0       0
+LV LV OP           4       0       0       0       0       0       0
+LV LV BG2          0       0       0       0       0       0       0
+LV OP MEM          0       0       0       0       0       0       0
+LV BG2             1       3       3       0       0       0       0
+LV BG1             1      34      12       0       0       0      22
+LV OP              4      45      16       0       0       0      29
+LV MEM             0      15      15       0       0       0       0
+OP MEM             0       0       0       0       0       0       0
+____________________________________________________________________
+Folding_statistics_end
+COVERAGE: folding 000000010000000000000000000011100001110001111000101100000000000
+Total Standby cycle counts = 0
+Saving Power = % 0
+RTL-STAT:                  ICU_CONTROL_IDLE_CYCLES          50
+RTL-STAT:                    ICRAM_DISABLED_CYCLES          74
+RTL-STAT:                    IBUFFER_ACTIVE_CYCLES          23
+RTL-STAT:                          DCU_READ_CYCLES           2
+RTL-STAT:                         DCU_WRITE_CYCLES           1
+RTL-STAT:                     DCU_LINE_FILL_CYCLES           5
+RTL-STAT:                    DCRAM_DISABLED_CYCLES          12
+RTL-STAT:                 WRITE_BUFFER_IDLE_CYCLES          93
+RTL-STAT:                     DCU_HOLD_PIPE_CYCLES          47
+RTL-STAT:                     SMU_HOLD_PIPE_CYCLES           0
+RTL-STAT:                     ICU_HOLD_PIPE_CYCLES          89
+RTL-STAT:                        UCODE_BUSY_CYCLES         130
+RTL-STAT:                          FPU_IDLE_CYCLES         130
+RTL-STAT:                    NUMBER OF I$ ACCESSES           6
+RTL-STAT:                      NUMBER OF I$ MISSES           3
+RTL-STAT:                 TOTAL_DSTAGE_HOLD_CYCLES          47
+RTL-STAT:                          DCU_HOLD_CYCLES          47
+RTL-STAT:                          ICU_HOLD_CYCLES           0
+RTL-STAT:                          SMU_HOLD_CYCLES           0
+RTL-STAT:                          FPU_HOLD_CYCLES           0
+RTL-STAT:                        UCODE_HOLD_CYCLES           0
+RTL-STAT:                         IMDR_HOLD_CYCLES           0
+RTL-STAT:                        LDUSE_HOLD_CYCLES           0
+RTL-STAT:                      LONG_OP_HOLD_CYCLES           0
+RTL-STAT:                        IBUF_STALL_CYCLES          64
+RTL-STAT:                         IBUF-FULL-CYCLES          30
+RTL-STAT:        IBUF-NOT-FULL-TO-FULL-TRANSITIONS           5
+RTL-STAT:                              INSN-GROUPS          15
+RTL-STAT:                             CLOCK_CYCLES         130
+RTL-STAT:                          PERF-INSN-COUNT          18
+i/o pin assert/deassert statistics
+          0 pj_reset assertions.
+          1 pj_reset deassertions.
+          0 pj_reset_out assertions.
+          0 pj_reset_out deassertions.
+          0 pj_irl assertions.
+          0 pj_irl deassertions.
+          0 pj_nmi assertions.
+          0 pj_nmi deassertions.
+          0 pj_su assertions.
+          0 pj_su deassertions.
+          0 pj_standby assertions.
+          0 pj_standby deassertions.
+          0 pj_standby_out assertions.
+          0 pj_standby_out deassertions.
+          0 pj_scan_out assertions.
+          0 pj_scan_out deassertions.
+          0 pj_scan_mode assertions.
+          0 pj_scan_mode deassertions.
+          0 pj_scan_in assertions.
+          0 pj_scan_in deassertions.
+          0 pj_halt assertions.
+          0 pj_halt deassertions.
+          0 pj_resume assertions.
+          0 pj_resume deassertions.
+          0 pj_brk1_sync assertions.
+          0 pj_brk1_sync deassertions.
+          0 pj_brk2_sync assertions.
+          0 pj_brk2_sync deassertions.
+          0 pj_in_halt assertions.
+          0 pj_in_halt deassertions.
+          0 halt_cond 
+COVERAGE: io_pins 010000000000000000000000000000
+DSV return code 00000000
+rtl : SUCCESS
+CYCLE COUNT                 1223
+INSTRUCTION COUNT                  149
+INSTRUCTIONS FOLDED AWAY                   12
+L873 "picoJava-II/sim/env/sys.v": $finish at simulation time 2447000
+1 warning
+0 simulation events (use +profile or +listcounts option to count) + 147 accelerated events
+CPU time: 3.8 secs to compile + 24.4 secs to link + 155.2 secs in simulation
+End of VERILOG-XL 2.3.17   Feb 19, 1999  16:23:42

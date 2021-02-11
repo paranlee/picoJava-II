@@ -1,0 +1,775 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+#include	"struct.h"
+
+public final class reset extends java/lang/Object
+{
+
+public static Method reset:"()I"
+{
+        sipush 0xFFFC;
+        sethi 0x003F;
+        dup;
+        write_vars;                   // Write 0x003FFFFC to VARS register
+        priv_write_sc_bottom;         // Write 0x003FFFFC to SC_BOTTOM register
+
+        sipush 0xFFFC;
+        sethi 0x003F;
+        write_optop;                    // Write 0x003FFFFC to OPTOP register
+
+	iconst_0;
+	write_frame;
+ 
+	iconst_0;
+	write_const_pool;
+
+	iconst_0;
+	priv_write_lockcount0;
+	
+	iconst_0;
+	priv_write_lockcount1;
+
+	iconst_0;
+	priv_write_lockaddr0;
+
+	iconst_0;
+	priv_write_lockaddr1;
+
+	iconst_0;
+	priv_write_brk1a;
+
+	iconst_0;
+	priv_write_brk2a;
+
+	iconst_0;
+	priv_write_brk12c;
+
+	iconst_0;
+	write_global0;
+
+	iconst_0;
+	write_global1;
+
+	iconst_0;
+	write_global2;
+
+	iconst_0;
+	write_global3;
+
+        iconst_0;
+        sethi 0x0030;                   // ldc int 0x00300000
+        priv_write_oplim;               // Load 0x00300000 to OPLIM register
+ 
+        iconst_0;
+        sethi 0x0001;
+        priv_write_trapbase;            // Load 0x00010000 to TRAPBASE register
+
+	iconst_0;
+	sethi 0xFFFF;	
+        priv_write_userrange1;        // Load 0xFFFF0000 to USERRANGE1 register
+
+	iconst_0;
+	sethi 0xFFFF;	
+        priv_write_userrange2;        // Load 0xFFFF0000 to USERRANGE2 register
+
+// Check if we need to invalidate the D$ and I$
+
+        sipush 0xFFF0;
+        sethi 0x0;
+        ncload_word;
+        sipush 0xF000;
+        sethi 0x0;
+        iand;
+        sipush 0xF000;
+        sethi 0x0;
+        if_icmpne PSR_SET_UP;                 // If (mem[0xfff0] == 0xf000)
+
+// Invalidate I cache
+
+	iconst_0;			// Add two entries between OPTOP and VARS
+	iconst_0;			
+
+        sipush 0x3ff0;                  // bit 13-4 for I$ 
+	istore_0;
+
+INVALIDATE_I_CACHE_LOOP:
+	iconst_0;
+        iload_0;                  	
+	priv_write_icache_tag;		// valid and tag = 0
+	iload_0;
+	sipush 0x10;			// Line size
+	isub;
+	dup;
+	istore_0;
+	ifge INVALIDATE_I_CACHE_LOOP; 
+
+// Invalidate D cache set0
+
+        sipush 0x1ff0;                  // bit 12-4 for D$
+        istore_0;
+
+INVALIDATE_D_CACHE_SET0_LOOP:
+        iconst_0;
+        iload_0;                        
+        priv_write_dcache_tag;          // valid and tag = 0
+        iload_0;
+        sipush 0x10;                    // Line size
+        isub;
+	dup;
+	istore_0;
+        ifge INVALIDATE_D_CACHE_SET0_LOOP; 
+
+// Invalidate D cache set1
+
+        sipush 0x1ff0;                  // bit 12-4 for D$
+        istore_0;
+
+INVALIDATE_D_CACHE_SET1_LOOP:
+        iconst_0;
+        iload_0;
+	iconst_0;
+	sethi 0x8000;
+	ior;
+        priv_write_dcache_tag;          // valid and tag = 0
+        iload_0;
+        sipush 0x10;                    // Line size
+        isub;
+        dup;
+        istore_0;
+        ifge INVALIDATE_D_CACHE_SET1_LOOP;
+
+PSR_SET_UP:
+        sipush  0x2ef0;         // Reserve, BM8 = 0, ACE = 1, GCE = 0
+                                // FPE = 1, DCE = 1, ICE = 1, AEM = 0
+                                // DRE = 1, FLE = 1, SU  = 1, IE  = 1, PIL = 0
+        sipush 0xFFE4;
+        sethi 0x0;
+        load_word;
+	sipush 0x0f00;
+	iand;
+	sipush 0x0100;
+	if_icmpne ICU_SET;
+	sipush 0xfbff;		// DCE = 0
+	iand;
+
+ICU_SET:
+	sipush 0xffe4;
+	sethi 0x0;
+	load_word;
+	sipush 0xf000;
+	sethi 0x0;
+	iand;
+	sipush 0x1000;
+	if_icmpne WM_SET;
+	sipush 0xfdff;
+	iand;			// ICE = 0
+	
+
+WM_SET:
+        sipush 0xFFE4;
+        sethi 0x0;
+        load_word;
+	sipush 0x00ff;
+	iand;
+        dup;
+        bipush 0x1;
+        if_icmpeq MINWM;        // MINWM LWM = 0x1 HWM = 0x10
+        bipush 0x10;
+        if_icmpeq MAXWM;        // MAXWM LWM = 0x110 HWM = 0x111
+        goto NORMALWM;          // NORMAL LWM = 0x0x10 HWM = 0x110
+MAXWM:
+        sethi 0x007e;		// CAC = 1, DBH = 7, DBL = 6
+        goto SET_PSR;
+MINWM:
+        pop;
+        sethi 0x0051;		// CAC = 1, DBH = 2, DBL = 1
+        goto SET_PSR;
+NORMALWM:
+        sethi 0x0072;           // CAC = 1, DBH = 6, DBL = 2, all reserved bits are zero
+SET_PSR:
+        priv_write_psr;
+
+	iconst_1;
+	sipush 0xFFE0;
+	sethi 0x0000;
+        ncstore_word;           // Store 0x1 to 0xFFE0 to enable the full cosim
+
+
+// Initialize the heap structure here.
+
+        sipush 0x0100;
+        sethi 0x0010;
+        iconst_0;
+        sethi 0x0010;                   // heap_start = 0x00100100
+        ncstore_word;                   // Store 0x00100100 to 0x00100000
+ 
+        sipush 0xFFFF;
+        sethi 0x001F;
+        iconst_4;
+        sethi 0x0010;                   // heap_end = 0x001FFFFF
+        ncstore_word;                   // Store 0x001FFFFF to 0x00100004
+ 
+        sipush 0xE3FC;
+        sethi 0x001F;
+        bipush 0x8;
+        sethi 0x0010;                   // allocated_stat_dyna_end = 0x001FE3FC
+        ncstore_word;                   // Store 0x001FE3FC to 0x00100008
+ 
+        sipush 0x00FC;
+        sethi 0x0010;
+        bipush 0xC;
+        sethi 0x0010;                   // allocated_heap_end = 0x001000FC
+        ncstore_word;                   // Store 0x001000FC to 0x0010000C
+ 
+        iconst_0;
+        sipush 0x0010;
+        sethi 0x0010;
+        ncstore_word;                   // Store 0x0 to 0x00100010
+
+// Search for <clinit> 
+
+// Check if we need to search for <clinit> methods
+ 
+        sipush 0xFFF0;
+        sethi 0x0;
+	ncload_word;
+	sipush 0x0F00;
+	iand;
+        sipush 0x0F00; // If mem[0xFFF0] = 0x0F00, go to searching main and skip
+        if_icmpne Search_Main;          // searching for <clinit>
+
+	iconst_0;
+	sethi 0x0002;			// 0x20000 class table ptr
+        iconst_0;
+        sethi 0x0031;                   // Just pick an address
+	store_word;			// Store 0x20000 to 0x310000
+
+	iconst_0;
+	sethi 0x0031;
+	load_word;
+	iconst_0;
+	sethi 0x0002;
+	if_icmpeq Start_search_clinit;	// The 1st time
+Search_clinit:
+	iconst_0;
+	sethi 0x0031;
+	load_word;
+	iconst_4;
+	iadd;				// increment class table prt by 4
+	dup;
+	load_word;
+	ifeq Search_Main;		// End of the class table
+	iconst_0;
+        sethi 0x0031;
+	store_word;			// Store the updated class table ptr
+
+// Build a verey 1st constant pool for the Reset/Boot, to be able to make
+// a method invocation.  First, build a string with name , '<clinit>', and then
+// search for the '<clinit>' In the main's class structure. Use the method block
+// address to build the constant pool.
+//------0123456789------
+
+Start_search_clinit:
+         sipush 8;              // size of "<clinit>"
+          bipush 16;
+         ishl;
+          sipush 0x55fa;        // hash value for "<clinit>"
+         ior;
+          sipush 0x3000;        // an arbitrary location for storing this str
+           bipush 8;
+          ishl;
+        store_word;             // created the Decaf string key for '<clinit>'
+//------0123456789-----
+         sipush 0x3c63;         // "<c"
+          bipush 16;
+         ishl;
+          sipush 0x6c69;        // "li"
+         ior;
+          sipush 0x3000;
+           bipush 8;
+          ishl;
+           iconst_4;
+          iadd;
+        store_word;             // created the Decaf string itself, '<cli'
+//------0123456789-----
+         sipush 0x6e69;         // "ni"
+          bipush 16;
+         ishl;
+          sipush 0x743e;        // "t>"
+         ior;
+          sipush 0x3000;
+           bipush 8;
+          ishl;
+           bipush 8;
+          iadd;
+        store_word;             // created the Decaf string itself, 'nit>'
+
+//------0123456789-----
+//         sipush 0x2000;
+//         iconst_4;
+//        ishl;
+	   iconst_0;
+	   sethi 0x0031;
+	   load_word;		// ptr to class table which start at 0x20000
+         load_word;             // ptr to the class structure just loaded
+          iconst_0;             // dummy signature pointer
+           sipush 0x3000;
+            bipush 8;
+           ishl;                // pointer to the '<clinit>' Decaf string
+
+// from here is the subroutine for searching '<clinit>'
+         read_vars;     // save the VARS before modifying
+          read_optop;   // read the OPTOP
+           bipush 16;           // base of class_structure is at 4-words below
+          iadd;
+         write_vars;    // modify VARS to access the argument as locals
+ 
+// Prepare searching with num_of_methods, string_size, name_key and base_of_MBA
+         iload_0;               // base of class structure
+          bipush C_METHODCNT_4; // num_methods is 6th word in class structure
+         iadd;
+         load_word;             // num_method,  local var 5
+          dup;                  // extra copy at local var 6 for decrementing
+           iload_2;             // ptr to the referenced method's name string
+           load_word;           // key for the name string, local var 6
+//------0123456789------
+            iload_0;            // base of class structure
+             bipush C_METHODPTR_4;// array of method blocks
+            iadd;
+            load_word;          // ptr to method block array, local 7
+
+// support of Java class data structure: JCD begin
+	     bipush 8;
+	    iadd;		// ptr to the 1st array element: local 7
+// JCD end
+B_Name_Key_Match_Loop:
+//------0123456789------
+         iload 5;               // load the counter
+        ifeq B_Method_Search_Fail;// declare fail when the counter reaches 0
+         iload 7;               // load the ptr to a method block
+	 load_word;		// reference to a method block object
+          bipush M_METHODNAME_4;  // name field is the 12th word in Method Block
+         iadd;
+         load_word;             // the pointer to the Decaf name string
+          dup;                  // to try the string itself if the key matches
+          load_word;            // the key of the Decaf name string
+           iload 6;             // the key of the referenced Decaf name
+         if_icmpeq B_Name_Key_Matches;
+ 
+B_Name_Key_Match_Fail:
+         pop;                    // remove the pointer to the Decaf name string
+         iinc 5, -1;             // to indicate 1 method block has been compared
+         iinc 7, 4;              // to get next element of method block array
+         goto B_Name_Key_Match_Loop;
+ 
+B_Name_Key_Matches:
+//------0123456789------
+          dup;
+          load_word;            // load the key again to get the string size
+           bipush 16;           // upper 16bit is the size
+          ishr;                 // shift right by 16
+          swap;                 // local 9 is the string size, local 10:name ptr
+           iconst_4;
+          iadd;                 // ptr to the actual name str in the MB:local 10
+           iload_2;             // Decaf name str ptr of the referenced method
+            iconst_4;
+           iadd;                // ptr to the actual name str of the referenced
+B_Name_String_Match_Loop:
+//------0123456789------
+            iload 8;            // load the num of chars to be compared
+           ifeq B_Name_String_Match_Success;
+            iload 9;
+            load_byte;
+             iload 10;
+             load_byte;
+           if_icmpne B_Name_String_Match_Fail;
+           iinc 9, 1;           // To compare the next char
+           iinc 10, 1;          // To compare the next char
+           iinc 8, -1;          // To indicate 1 char has been compared
+           goto B_Name_String_Match_Loop;
+ 
+B_Name_String_Match_Fail:
+//------0123456789------
+         pop2;                  // remove the 2 string pointers
+         goto B_Name_Key_Match_Fail;// to resume the key matching process
+ 
+B_Method_Search_Fail:
+//------0123456789------
+B_HALT:
+        goto Search_clinit;              // Go to search main method 
+ 
+B_Name_String_Match_Success:
+//------0123456789------
+           iload 7;             // load the method block addr matching the name
+	   load_word;
+// JCD begin
+            iconst_4;
+           iadd;
+// JCD end
+          istore_0;             // store into the return value area
+           read_vars;   // VARS
+            bipush 4;
+           isub;                // value to be stored into OPTOP
+            iload 3;            // old VARS
+           write_vars;  // restore VARS
+         write_optop;   // OPTOP points to next word of return address
+ 
+// Build the very initial constant pool to invoke the '<clinit>' in the test
+// case.  Use 'invoke_static_quick', as the method descriptor is found from
+// the above search, by putting the the descriptor pointer into the constant
+// pool.
+ 
+          sipush 0x2080;        // location of the very 1st Constant Pool
+           bipush 8;
+          ishl;
+           dup;
+          write_const_pool;     // initialize the CP register
+        store_word;             // store the method descriptor address into CP
+ 
+// Invoke main method of trap_1.class using 'invoke_static_quick'
+        bytecode 217, 0, 0;     // invoke the '<clinit>' to start the test
+	goto Search_clinit;
+
+// Build a verey 1st constant pool for the Reset/Boot, to be able to make
+// a method invocation.  First, build a string with name , 'main', and then
+// search for the 'main' in the main's class structure.  Use the method block
+// address to build the constant pool.
+//------0123456789------
+Search_Main:
+	 sipush 4;		// size of "main"
+	  bipush 16;
+	 ishl;
+	  sipush 0x0643;	// hash value for "main"
+	 ior;
+	  sipush 0x3000;	// an arbitrary location for storing this str
+	   bipush 8;
+	  ishl;
+	store_word;		// created the Decaf string key for 'main'
+//------0123456789-----
+	 sipush 0x6D61;		// "ma"
+	  bipush 16;
+	 ishl;
+	  sipush 0x696E;	// "in"
+	 ior;
+	  sipush 0x3000;
+	   bipush 8;
+	  ishl;
+	   iconst_4;
+	  iadd;
+	store_word;		// created the Decaf string itself, 'main'
+//------0123456789-----
+	 sipush 0x2000;
+	  iconst_4;
+	 ishl;
+	 load_word;		// ptr to the class structure just loaded
+	  iconst_0;		// dummy signature pointer
+	   sipush 0x3000;
+	    bipush 8;
+	   ishl;		// pointer to the 'main' Decaf string
+
+// from here is the subroutine for searching 'main'
+	 read_vars;	// save the VARS before modifying
+	  read_optop;	// read the OPTOP
+	   bipush 16;		// base of class_structure is at 4-words below
+	  iadd;
+	 write_vars;	// modify VARS to access the argument as locals
+
+// Prepare searching with num_of_methods, string_size, name_key and base_of_MBA
+//------0123456789------
+	 iconst_0;
+	 sethi 0x0002;	// to make 0x20000, base of class table
+	istore_0;
+	 iload_0;		// base of class structure
+	 load_word;		// the 1st class object in the table
+	  bipush C_METHODCNT_4;	// num_methods is 6th word in class structure
+	 iadd;
+	 load_word;		// num_method,	local var 5
+	  dup;			// extra copy at local var 6 for decrementing
+	   iload_2;		// ptr to the referenced method's name string
+	   load_word;		// key for the name string, local var 6
+//------0123456789------
+	    iload_0;		// base of class structure
+	    load_word;
+	     bipush C_METHODPTR_4;// ptr to the method block array
+	    iadd;
+	    load_word;		// ptr to the method block array: local var 7
+	     bipush 8;
+	    iadd;		// ptr to the 1st method block: local 7
+// JCD end
+Name_Key_Match_Loop:
+//------0123456789------
+	 iload 5;		// load the counter
+	ifeq Method_Search_Fail;// declare fail when the counter reaches 0
+	 iload 7;		// load the ptr to a method block
+	 load_word;
+	  bipush M_METHODNAME_4;// name field is the 12th word in Method Block
+	 iadd;
+	 load_word;		// the pointer to the Decaf name string
+	  dup;			// to try the string itself if the key matches
+	  load_word;		// the key of the Decaf name string
+	   iload 6;		// the key of the referenced Decaf name
+	 if_icmpeq Name_Key_Matches;
+
+Name_Key_Match_Fail:
+//------0123456789------
+	pop;			// remove the pointer to the Decaf name string
+	iinc 5, -1;		// to indicate 1 method block has been compared
+	iinc 7, 4;	// get the next array entry
+	goto Name_Key_Match_Loop;
+
+Name_Key_Matches:
+//------0123456789------
+	  dup;
+	  load_word;		// load the key again to get the string size
+	   bipush 16;		// upper 16bit is the size
+	  ishr;			// shift right by 16
+	  swap;			// local 9 is the string size, local 10:name ptr
+	   iconst_4;
+	  iadd;			// ptr to the actual name str in the MB:local 10
+	   iload_2;		// Decaf name str ptr of the referenced method
+	    iconst_4;
+	   iadd;		// ptr to the actual name str of the referenced
+Name_String_Match_Loop:
+//------0123456789------
+	    iload 8;		// load the num of chars to be compared
+	   ifeq Name_String_Match_Success;
+	    iload 9;
+	    load_byte;
+	     iload 10;
+	     load_byte;
+	   if_icmpne Name_String_Match_Fail;
+	   iinc 9, 1;		// To compare the next char
+	   iinc 10, 1;		// To compare the next char
+	   iinc 8, -1;		// To indicate 1 char has been compared
+	   goto Name_String_Match_Loop;
+
+Name_String_Match_Fail:
+//------0123456789------
+	 pop2;			// remove the 2 string pointers
+	 goto Name_Key_Match_Fail;// to resume the key matching process
+
+Method_Search_Fail:
+//------0123456789------
+	iinc 0, 4;		// increment the class tab ptr
+	 iload_0;
+	 load_word;
+	  dup;
+	 ifeq HALT;		// HALT if there is anymore class leftover
+	  bipush C_METHODCNT_4;
+	 iadd;
+	 load_word;
+	istore 5;
+
+//------0123456789------
+	 iload_0;
+	 load_word;
+	  bipush C_METHODPTR_4;
+	 iadd;
+	 load_word;
+	  bipush 8;
+	 iadd;
+	istore 7;
+	goto Name_Key_Match_Loop;
+HALT:
+	goto HALT;		// execution should stop here
+
+Name_String_Match_Success:
+//------0123456789------
+	   iload 7;		// load the method block addr matching the name
+	   load_word;
+	    iconst_4;
+	   iadd;
+	  istore_0;		// store into the return value area
+	   read_vars;	// VARS
+            bipush 4;
+           isub;		// value to be stored into OPTOP
+            iload 3;		// old VARS
+           write_vars;	// restore VARS
+         write_optop;	// OPTOP points to next word of return address
+
+// Now, build the very initial constant pool to invoke the 'main' in the test
+// case.  Use 'invoke_static_quick', as the method descriptor is found from
+// the above search, by putting the the descriptor pointer into the constant
+// pool.
+
+	  sipush 0x2080;	// location of the very 1st Constant Pool
+	   bipush 8;
+	  ishl;
+	   dup;
+	  write_const_pool;	// initialize the CP register
+	store_word;		// store the method descriptor address into CP
+
+// Turn on performance monitor
+
+	iconst_1;
+	sipush 0xFFDC;
+	sethi 0x0;
+	ncstore_word;
+
+// Invoke main method of trap_1.class using 'invoke_static_quick'
+ 	bytecode 217, 0, 0;	// invoke the 'main' to start the test
+
+// Turn off performance monitor
+
+	iconst_0;
+	sipush 0xFFDC;
+	sethi 0x0;
+	ncstore_word;
+
+// Disable the IE bit before disable nmi and irl
+
+	priv_read_psr;
+	sipush 0xFFEF;
+	iand;
+	priv_write_psr;
+
+// Disable NMI and IRL interrupt
+	iconst_0;
+	sipush 0xFFF4;
+	sethi 0x0;              // Address to stop external NMI/IRL
+	dup_x1;
+	ncstore_word;
+	ncload_word;            // This read blocks the execution so
+				// the store can be guaranteed to go out
+	pop;			// Pop the unused value
+
+// Check if we need to flush S$ and D$
+
+	sipush 0xFFF0;
+	sethi 0x0;
+	ncload_word;		
+	bipush 0x0F;
+	iand;
+	bipush 0x0F;
+	if_icmpne Check;	// If equal flush the caches
+
+// Store return value
+
+        iconst_0;
+        swap;
+        istore_0;
+ 
+// Flushing the stack cache
+        read_optop;
+        bipush  256;
+        isub;
+        write_optop;
+
+// Check the D$ size
+	priv_read_hcr;
+	iconst_0;
+	sethi 0x00E0;
+	iand;
+	bipush 21;
+	ishr;			// Mask out DCS from HCR
+
+	dup;
+	ifeq Exit;		// 0 D$
+	dup;
+	iconst_1;
+	if_icmpeq ONE_K;	// 1K D$
+	dup;
+	iconst_2;
+	if_icmpeq TWO_K;	// 2K D$
+	dup;
+	iconst_3;
+	if_icmpeq FOUR_K;	// 4K D$
+	dup;
+	bipush 4;
+	if_icmpeq EIGHT_K;	// 8K D$
+	dup;
+	bipush 5;
+	if_icmpeq SIXTEEN_K;	// 16K D$
+	goto Exit;		// Wrong size no flush!!!!
+
+SIXTEEN_K:
+	bipush 0xf0;
+	sipush 0x1ff0;
+        dup;
+        sethi 0x8000;
+        istore_1;
+	goto way_0_loop;
+EIGHT_K:     
+	bipush  0xf0;
+        sipush  0x0ff0;
+	dup;
+	sethi 0x8000;
+	istore_1;
+	goto way_0_loop;
+FOUR_K:     
+	bipush  0xf0;
+        sipush  0x07f0;
+        dup;
+        sethi 0x8000;
+        istore_1;
+	goto way_0_loop;
+TWO_K:     
+	bipush  0xf0;
+        sipush  0x03f0;
+        dup;
+        sethi 0x8000;
+        istore_1;
+	goto way_0_loop;
+ONE_K:     
+	bipush  0xf0;
+        sipush  0x01f0;
+        dup;
+        sethi 0x8000;
+        istore_1;
+
+// Now flush the D$
+
+way_0_loop:
+        cache_index_flush;
+        dup;
+        ifge    way_0_loop;
+        pop;
+
+	iload_1;		// Get the increment for way 1
+
+way_1_loop:
+        cache_index_flush;
+        dup;
+        iflt    way_1_loop;
+        pop2;
+
+Exit:	iload_0; 		// Load the return value
+Check:	sipush 0xFFFC;
+	sethi 0x0;
+	ncstore_word;		// Store the simulation result to 0x0000FFFC 	
+Loop:
+	goto Loop;		// verilog program will monitor this
+				// address and stop the simulation with report 
+				// of pass or fail	
+}
+
+public Method <init>:"()V"
+{
+		aload_0;
+		invokespecial	Method java/lang/Object.<init>:"()V";
+		return;
+}
+
+} 

@@ -1,0 +1,233 @@
+divert(-1)dne
+
+// set register defaults (if register values were not set in test_config.inc)
+ifdef(`OPLIM_REG', 0,
+  `define(`OPLIM_REG', 0x00200000)')
+ifdef(`OPTOP_REG', 0,
+  `define(`OPTOP_REG', 0x003fffe0)')
+ifdef(`VARS_REG', 0,
+  `define(`VARS_REG', 0x003ffffc)')
+ifdef(`SC_BOTTOM_REG', 0,
+  `define(`SC_BOTTOM_REG', 0x00300000)')
+ifdef(`TRAPBASE_REG', 0,
+  `define(`TRAPBASE_REG', 0x00010000)')
+ifdef(`USERRANGE1_REG', 0,
+  `define(`USERRANGE1_REG', 0xffff0000)')
+ifdef(`USERRANGE2_REG', 0,
+  `define(`USERRANGE2_REG', 0xffff0000)')
+ifdef(`GC_CONFIG_REG', 0,
+  `define(`GC_CONFIG_REG', 0xa5a5a5a5)')
+ifdef(`CP_REG', 0,
+  `define(`CP_REG', 0x0)')
+ifdef(`FRAME_REG', 0,
+  `define(`FRAME_REG', 0x0)')
+ifdef(`LOCKCOUNT0_REG', 0,
+  `define(`LOCKCOUNT0_REG', 0x0)')
+ifdef(`LOCKCOUNT1_REG', 0,
+  `define(`LOCKCOUNT1_REG', 0x0)')
+ifdef(`LOCKADDR0_REG', 0,
+  `define(`LOCKADDR0_REG', 0x0)')
+ifdef(`LOCKADDR1_REG', 0,
+  `define(`LOCKADDR1_REG', 0x0)')
+ifdef(`BRK1A_REG', 0,
+  `define(`BRK1A_REG', 0x0)')
+ifdef(`BRK2A_REG', 0,
+  `define(`BRK2A_REG', 0x0)')
+ifdef(`BRK12C_REG', 0,
+  `define(`BRK12C_REG', 0x0)')
+ifdef(`GLOBAL0_REG', 0,
+  `define(`GLOBAL0_REG', 0x0)')
+ifdef(`GLOBAL1_REG', 0,
+  `define(`GLOBAL1_REG', 0x0)')
+ifdef(`GLOBAL2_REG', 0,
+  `define(`GLOBAL2_REG', 0x0)')
+ifdef(`GLOBAL3_REG', 0,
+  `define(`GLOBAL3_REG', 0x0)')
+
+
+// Watermarks.  Note that the watermark values indicate number of entries,
+// and NOT the value of the bit-fields in the PSR.
+
+#ifdef HWM
+  define(`PSR_HWM',
+  HWM
+)
+#endif
+#ifdef LWM
+  define(`PSR_LWM',
+  LWM
+)
+#endif
+
+// Now that everything has been defined, set PSR_REG
+
+ifdef(`PSR_REG', 0,
+  `define(`PSR_REG', assemble_psr() )')
+
+//------------------------------------------------------------------------
+divert(0)
+
+public final class TEST_NAME
+	extends java/lang/Object
+{
+
+public static Method main:"()I"
+{
+	priv_read_oplim;
+	iconst_0;
+	if_icmpne POR_FAIL;
+
+	read_optop;
+	sipush 0x3fff;
+	bipush 8;
+	ishl;
+	sipush 0xfc;
+	ior;
+	if_icmpne POR_FAIL;
+
+	read_vars;
+	sipush 0x3fff;
+	bipush 8;
+	ishl;
+	sipush 0xfc;
+	ior;
+	if_icmpne POR_FAIL;
+
+//	IPush(OPLIM_REG)
+//	IPush(OPTOP_REG)
+//	priv_update_optop;
+	
+	IPush(OPLIM_REG)
+	priv_write_oplim;
+
+	IPush(OPTOP_REG)
+	write_optop;
+
+	IPush(SC_BOTTOM_REG)
+	priv_write_sc_bottom;
+
+	IPush(TRAPBASE_REG)
+	priv_write_trapbase;
+
+	IPush(USERRANGE1_REG)
+	priv_write_userrange1;
+
+	IPush(USERRANGE2_REG)
+	priv_write_userrange2;
+
+	IPush(GC_CONFIG_REG)
+	priv_write_gc_config;
+
+	IPush(CP_REG)
+	write_const_pool;
+
+	IPush(FRAME_REG)
+	write_frame;
+
+	IPush(LOCKCOUNT0_REG)
+	priv_write_lockcount0;
+
+	IPush(LOCKCOUNT1_REG)
+	priv_write_lockcount1;
+
+	IPush(LOCKADDR0_REG)
+	priv_write_lockaddr0;
+
+	IPush(LOCKADDR1_REG)
+	priv_write_lockaddr1;
+
+	IPush(BRK1A_REG)
+	priv_write_brk1a;
+
+	IPush(BRK2A_REG)
+	priv_write_brk2a;
+
+	IPush(BRK12C_REG)
+	priv_write_brk12c;
+
+	IPush(GLOBAL0_REG)
+	write_global0;
+
+	IPush(GLOBAL1_REG)
+	write_global1;
+
+	IPush(GLOBAL2_REG)
+	write_global2;
+
+	IPush(GLOBAL3_REG)
+	write_global3;
+
+
+	IPush(PSR_REG)
+
+        sipush 0xFFE4;
+        sethi 0x0;
+        load_word;
+        sipush 0x0f00;
+        iand;
+        sipush 0x0100;
+        if_icmpne ICU_SET;
+        sipush 0xfbff;          // DCE = 0
+        iand;
+
+ICU_SET:
+        sipush 0xffe4;
+        sethi 0x0;
+        load_word;
+        sipush 0xf000;
+        sethi 0x0;
+        iand;
+        sipush 0x1000;
+        if_icmpne PSR_SET;
+        sipush 0xfdff;
+        iand;                   // ICE = 0
+
+PSR_SET:
+	priv_write_psr;
+
+	iconst_1;
+	IPush(COSIM_LOCATION)
+	ncstore_word;		// Store 0x1 to 0xFFE0 to enable the cosim
+
+	// Turn on the performance monitor
+	iconst_1;
+	IPush(0xffdc)
+	ncstore_word;
+
+	// Begin the main segment of code
+	goto Main;
+Check:
+	// Turn off the performance monitor
+	iconst_0;
+	IPush(0xffdc)
+	ncstore_word;
+
+	istore_0;		// Store the result in local variable 0
+	DisableIntr(0)
+	// FlushSCache(256)
+	FlushDCache()
+
+	iload_0;
+	IPush(0xfffc)
+	ncstore_word;		// Store the simulation result to 0x0000FFFC 
+Loop:	
+	goto Loop;		// TSC's verilog program will monitor this
+				// address and stop the simulation with report 
+				// of pass or fail	
+
+POR_FAIL:
+	bipush 6;
+	goto Check;
+
+-- MakeTest will merge test case here.  DO NOT MODIFY THIS LINE!!
+
+}
+
+public Method <init>:"()V"
+{
+		aload_0;
+		invokespecial	Method java/lang/Object.<init>:"()V";
+		return;
+}
+
+}

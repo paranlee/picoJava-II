@@ -1,0 +1,8 @@
+Support for generating DAI's Signalscan database of the simulation
+is included in this testbench environment.  By default, these
+system calls are not enabled.  To include this feature, you must define
+SIGNALSCAN in sys.h.
+
+You need to produce a Cadence Verilog or Synopsys VCS executable which
+includes the Signalscan PLIs.  See the README file in the tools directory
+for more information.

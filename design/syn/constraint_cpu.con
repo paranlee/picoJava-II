@@ -1,0 +1,64 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ set_drive DRIVE_OF_INV1 all_inputs()
+set_load LOAD_10_INV all_outputs()
+set_input_delay -clock clk 4.00 all_inputs()
+set_max_delay 0.0 -to all_outputs()
+
+set_input_delay -clock clk 2 {pj_halt}
+set_input_delay -clock clk 2 {pj_resume}
+set_input_delay -clock clk 1 {pj_boot8}
+set_input_delay -clock clk 1 {pj_no_fpu}
+set_input_delay -clock clk 1 {pj_irl}
+set_input_delay -clock clk 1 {pj_nmi}
+set_input_delay -clock clk 1.2 {pj_dcuack}
+set_input_delay -clock clk 1.2 {pj_icuack}
+set_input_delay -clock clk 2 {pj_datain}
+set_input_delay -clock clk 2 {bist_mode}
+set_input_delay -clock clk 2 {bist_reset}
+set_input_delay -clock clk 2 {test_mode}
+
+set_max_delay 1.5 -to {pj_su}
+set_max_delay 3.5 -to {pj_brk1_sync}
+set_max_delay 3.5 -to {pj_brk2_sync}
+set_max_delay 1.5 -to {pj_in_halt}
+set_max_delay 1.5 -to {pj_inst_complete}
+set_max_delay 0.0 -to {pj_standby_out}
+set_max_delay 2.0 -to {pj_reset_out}
+set_max_delay 0.0 -to {pj_clk_out}
+set_max_delay 1.5 -to {pj_dcureq}
+set_max_delay 1.5 -to {pj_dcusize}
+set_max_delay 1.5 -to {pj_dcutype}
+set_max_delay 1.5 -to {pj_dcuaddr}
+set_max_delay 1.5 -to {pj_dataout}
+set_max_delay 1.5 -to {pj_icureq}
+set_max_delay 1.5 -to {pj_icusize}
+set_max_delay 1.5 -to {pj_icutype}
+set_max_delay 1.5 -to {pj_icuaddr}
+set_max_delay 1.5 -to {pj_perf_sgnl}
+set_max_delay 1.0 -to {dc_test_err_l}
+set_max_delay 1.0 -to {dt_test_err_l}
+set_max_delay 1.0 -to {ic_test_err_l}
+set_max_delay 1.0 -to {it_test_err_l}

@@ -1,0 +1,197 @@
+		ABRIDGED PICOJAVA(TM) ASSEMBLER GRAMMAR (Adapted from JLS)
+
+     Goal:
+
+	     CompilationUnit
+
+
+
+     CompilationUnit:
+
+             PackageDeclarationopt TypeDeclarationsopt
+
+     TypeDeclarations:
+
+             TypeDeclaration
+
+             TypeDeclarations TypeDeclaration
+
+     PackageDeclaration:
+
+             package Name ;
+
+     Name:
+
+             SimpleName
+
+	     QualifiedName
+
+     SimpleName:
+
+	     Identifier
+
+     QualifiedName:
+
+             Name/Identifier
+
+     TypeDeclaration:
+
+             ClassDeclaration
+
+             InterfaceDeclaration
+
+             ;
+
+     Modifiers:
+
+             Modifier
+
+             Modifiers Modifier
+
+     Modifier: one of
+
+             public protected private
+
+             static
+
+             abstract final native synchronized transient volatile
+
+
+
+     ClassDeclaration:
+
+             Modifiersopt class Identifier Superopt Interfacesopt ClassBody
+
+     Super:
+
+             extends ClassType
+
+     Interfaces:
+
+             implements InterfaceTypeList
+
+     InterfaceTypeList:
+
+             InterfaceType
+
+             InterfaceTypeList , InterfaceType
+
+     ClassBody:
+
+             { ClassBodyDeclarationsopt }
+
+     ClassBodyDeclarations:
+
+             ClassBodyDeclaration
+
+             ClassBodyDeclarations ClassBodyDeclaration
+
+     ClassBodyDeclaration:
+
+             ClassMemberDeclaration
+
+     ClassMemberDeclaration:
+
+             FieldDeclaration
+
+             MethodDeclaration
+
+
+
+     FieldDeclaration:
+
+             Modifiersopt VariableDeclarator ;
+
+     VariableDeclarator:
+
+             VariableDeclaratorId
+
+             VariableDeclaratorId = VariableInitializer
+
+     VariableDeclaratorId:
+
+             Field Identifier : TypeString
+
+     VariableInitializer:
+
+             Constant
+
+
+
+     MethodDeclaration:
+
+             MethodHeader MethodBody
+
+     MethodHeader:
+
+             Modifiersopt MethodDeclarator Throwsopt StackLocalsopt
+
+     MethodDeclarator:
+
+             Method Identifier : TypeString 
+
+     Throws:
+
+             throws ClassTypeList
+
+     ClassTypeList:
+
+             ClassType
+
+             ClassTypeList , ClassType
+
+     StackLocalsopt:
+
+	     Stack IntegerConstant Locals IntegerConstant
+
+     MethodBody:
+
+             Block 
+
+             ;
+
+
+
+     InterfaceDeclaration:
+
+             Modifiersopt interface Identifier ExtendsInterfacesopt InterfaceBody
+
+     ExtendsInterfaces:
+
+             extends InterfaceType
+
+             ExtendsInterfaces , InterfaceType
+
+     InterfaceBody:
+
+             { InterfaceMemberDeclarationsopt }
+
+     InterfaceMemberDeclarations:
+
+             InterfaceMemberDeclaration
+
+             InterfaceMemberDeclarations InterfaceMemberDeclaration
+
+     InterfaceMemberDeclaration:
+
+             ConstantDeclaration
+
+             AbstractMethodDeclaration
+
+     ConstantDeclaration:
+
+             FieldDeclaration
+
+     AbstractMethodDeclaration:
+
+             MethodHeader ;
+
+
+
+     Block:
+
+             { BlockStatementsopt }
+
+
+     For further details, see example or disassemble a class file compiled
+     with javac.

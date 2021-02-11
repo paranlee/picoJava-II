@@ -1,0 +1,714 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ //
+// Trap "drem" -
+//
+//      Implements the JVM instruction 'drem', i.e., divide
+//	    two 'double' numbers, returning the remainder as a 'double'.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|     value1.word1	|
+//		+-----------------------+
+//		|     value1.word2	|
+//		+-----------------------+
+//		|     value2.word1	|
+//		+-----------------------+
+//		|     value2.word2	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap
+//
+//	 	|			|
+//		+-----------------------+
+//		|     result.word1	|
+//		+-----------------------+
+//		|     result.word2	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |    PC(method entry)	|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP for the invoked method will be set to the
+// location where the VARS points to(location of PSR).  The other regs,
+// VARS and FRAME will be restored with the value from the trap_frame.
+
+public class drem
+{
+
+    public static Method drem:"()v"
+    {
+Prologue:
+
+			// set up the stack frame
+
+    read_optop;		// push OPTOP
+    bipush 32;		// input1 is at 8 words below
+    iadd;		// pointer to input1
+    write_vars;		// set the VARS, PC is now local_var 5
+
+    read_const_pool;	// save CONST_POOL for later restoring
+
+    priv_read_trapbase;	// set correct CONST_POOL for this trap
+    iconst_4;
+    iadd;
+    load_word;
+    write_const_pool;
+
+// begin conversion for MCST code
+    read_vars;
+
+    lload_0;		// push value1 and value2 onto the stack
+    lload_2;
+
+    read_optop;
+    bipush 16;
+    iadd;
+    write_vars;
+
+    lconst_0; lconst_0; lconst_0; lconst_0;
+    lconst_0; lconst_0; lconst_0; lconst_0;
+    lconst_0; lconst_0; lconst_0; lconst_0; // and more, to a total of 28 ints
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+		
+  		dload_0;	// block 1
+
+		swap;
+
+ 		pop;
+ 		bipush  31;
+  		iushr;
+ 		iconst_1;
+ 		iand;
+ 		bipush  31;
+ 		ishl;
+ 		iconst_0;
+
+		swap;
+
+ 		dstore  4;		
+ 		
+
+ 		dload_0;	//block 3
+
+		swap;
+
+		pop;
+		bipush	1;
+		ishl;
+ 		bipush	21;
+		iushr;
+		sipush	2047;
+		if_icmpge	L33;
+		dload_2;
+		dconst_0;
+		dcmpl;
+		ifeq		L33;
+		dload_2;
+		dload_2;
+		dcmpl;
+		ifeq		L41;
+	L33:	dload_0;
+		dload_2;
+		dmul;
+		dload_0;
+		dload_2;
+		dmul;
+		ddiv;
+		goto		 RETURN;
+		
+		
+ 	L41:	dload_0;	// block 5
+		dstore	6;
+		dload_0;
+
+
+		iconst_1;
+		ishl;
+		iconst_1;
+ 		iushr;
+
+
+		dstore_0;
+ 		dload_2;
+
+
+ 		iconst_1;
+		ishl;
+		iconst_1;
+		iushr;
+
+
+ 		dstore_2;
+ 		
+ 		
+ 		
+		 		
+ 		dload_0;	// block 6;
+		dload_2;
+		dcmpg;
+		ifge		L77;
+		dload	6;
+		goto 		RETURN;
+ 		
+ 	L77:	dload_0;
+		dstore	10;
+		dload_2;
+		dstore	12;
+		
+		
+		
+ 		dload_0;	// block 7
+
+  		swap;
+
+		pop;
+		bipush	20;
+		iushr;
+		dup;
+		ifne		L133;
+		dload_0;
+		sipush  1075;		
+ 		bipush	20;
+		ishl;
+		iconst_0;				
+
+  		swap;
+
+		dmul;
+		dstore_0;
+		pop;
+		dload_0;
+
+  		swap;
+
+		pop;
+		bipush	20;
+		iushr;		
+		bipush	52;
+		isub;		
+ 	L133:	istore	8;
+ 		
+ 		
+  		dload_2;	// block 8
+
+  		swap;
+
+		pop;
+		bipush	20;
+		iushr;
+		dup;
+		ifne		L165;
+		dload_2;
+		sipush  1075;		
+		bipush	20;
+		ishl;
+		iconst_0;
+
+  		swap;
+
+		dmul;
+		dstore_2;
+		pop;
+		dload_2;
+
+  		swap;
+
+		pop;
+		bipush	20;
+		iushr;		
+		bipush	52;		
+ 		isub;
+	L165:	istore	9;
+  		
+		
+	 	iload	8;
+		iload	9;
+		isub;
+		istore	8;
+		
+		
+		iload	8;	// block X_e <= 25
+		bipush	25;
+		if_icmpgt	L266;
+		dload	10;
+		dload	12;
+		ddiv;
+		d2l;
+		l2d;
+		dstore_0;
+		
+		dload	12;
+		dstore_2;
+		dload	12;
+		bipush	24;
+		iushr;
+		bipush	24;
+		ishl;
+		dstore	12;
+		
+		dload	10;
+		dload_0;
+		dload	12;
+		dmul;
+		dsub;
+		dstore	10;
+		dload_0;
+		dload_2;
+		dload	12;
+		dsub;
+		dmul;
+		dstore_0;
+		dload	10;
+		dload_0;
+		dsub;
+		dstore	10;
+		
+		dload	10;
+
+  		swap;
+
+		pop;		
+		ifge	L247;
+		dload	10;
+		dload_2;
+		dadd;
+		dstore	10;
+	L247:	dload	10;
+		dload	4;
+		ladd;
+ 		goto RETURN;
+		
+		
+		
+		
+	L266:	dload_0;	// block 9 -10
+
+
+ 		bipush	12;
+		ishl;
+		bipush	12;
+		iushr;
+		iconst_1;
+		bipush  20;
+		ishl;
+ 		ior;
+
+
+ 		bipush	7;
+		lshl;
+		dstore_0;
+		
+		dload_2;
+
+
+		bipush	12;
+		ishl;
+		bipush	12;
+		iushr;
+		iconst_1;
+		bipush  20;
+		ishl;
+ 		ior;
+
+
+		bipush	7;
+		lshl;
+		dstore_2;
+		
+ 		
+		
+		
+		// WHILE 
+		
+		iconst_1;
+		bipush	15;
+		ishl;
+ 		istore	31;
+		
+ 		
+		dload_2;	// op2 = Y_l >>> 45
+
+   		swap;
+
+		pop;
+		bipush	13;
+		iushr;
+ 		istore	20;				
+		dload_2;	// v_h  == Y_l >>> 15
+		bipush	15;
+		lushr;
+		lstore	29;				
+		
+		dload_2;	// v_l 
+
+   		swap;
+
+		pop;
+		sipush	32767;
+		iand;
+ 		istore	24;
+ 		
+		lload	29;	// v3  = v_h & 0x7fff
+
+   		swap;
+
+		dup;
+		sipush	32767;
+		iand;
+		istore	23;
+		bipush	15;	// v2  = v_h >> 15 & 0x7fff
+		iushr;
+		sipush	32767;
+		iand;
+ 		istore	22;		
+		pop;
+				
+		dload_2;	// v1 = Y_l >> 45
+
+   		swap;
+
+		pop;
+		bipush	13;
+		iushr;
+ 		istore	21;	
+ 			
+		iload	8;	// q = ()  ? ....
+		bipush	15;
+		irem;
+		dup;
+		ifne		L367;
+		pop;
+		iconst_0;
+		goto		L375;
+	L367:	ineg;
+		bipush	15;
+		iadd;
+ 	L375:	istore	18;
+		
+			
+		dload_0;	// u_add		
+
+   		swap;
+
+  		bipush	15;
+		iload	18;
+		isub;
+		ishl;
+		sipush	32767;
+		iand;
+		istore	26;
+		pop;		
+		dload_0;	// X_l >>>= q
+		iload	18;
+		lushr;
+		dstore_0;		
+		
+		dload_0;	// u_l = X_l & 0x7fff
+
+   		swap;
+
+		dup;
+		sipush	32767; 
+		iand;
+ 		istore	25;	
+
+   		swap;
+
+  		bipush	15;	// u_h = X_L >>> 15
+		lushr;
+		lstore	27;
+						  		
+		iload	8;	// X_e += q
+		iload	18;
+		iadd;
+		istore	8;
+		
+		
+		
+		goto		L614;// begin of for
+	L448:	lload	27;	// q = () ? :
+		bipush	2;
+		lshl;
+
+   		swap;
+
+		pop;
+		dup;
+		bipush	15;
+		iushr;
+		iload	20;
+ 		if_icmpeq	L476;
+ 		iload	20;
+		idiv;
+		goto		L479;
+	L476:	pop;
+		sipush	32767;
+	L479:	istore	18;
+	
+		iload	25;	// u_h -= ...
+		iload	31;	// u_l -= ...
+		iadd;
+		iload	24;
+		iload	18;
+		imul;
+		isub;
+		dup;
+		bipush	15;
+		iushr;
+		i2l;
+		lload	27;
+		lconst_1;
+		lsub;
+		ladd;
+		lstore	27;
+ 		sipush	32767;
+		iand;
+		istore	25;		
+		lload	27;
+		iload	23;
+		iload	18;
+		imul;
+		i2l;
+		iload	22;
+		iload	18;
+		imul;
+		i2l;
+		bipush	15;
+		lshl;
+		ladd;
+		iload	21;
+		iload	18;
+		imul;
+		i2l;
+		bipush	30;
+		lshl;
+		ladd;
+		lsub;
+		lstore	27;		
+		
+		goto		L578;// while ( u_h < 0 )
+	L549:	iload	25;
+		iload	24;
+		iadd;
+		dup;
+		sipush	32767;
+		iand;		
+		istore	25;
+		bipush	15;
+		iushr;
+		i2l;		
+		lload	27;
+		lload	29;
+ 		ladd;
+		ladd;
+		lstore	27;
+ 	L578:	lload	27; 	
+
+   		swap;
+
+ 		pop;
+ 		iflt		L549;
+		
+		
+		lload	27;
+		bipush	15;
+		lshl;
+		iload	25;
+		i2l;
+		lor;
+		lstore	27;
+		iconst_0;
+		istore	25;
+		
+		iload	26;
+		ifeq		L611;
+		iload	26;
+		istore	25;
+		iconst_0;
+		istore	26;
+	L611:	iinc	8, 241;
+	L614:	iload	8;
+		ifge		L448;// end of for
+		
+		
+		lload	27;
+		bipush	7;
+		lushr;
+		dstore_0;
+		
+		
+		
+ 	 	dload_0;	// block 13
+
+   		swap;
+
+ 		ifne		L850;
+ 		bipush	1;
+ 		ishl;
+ 		ifne		L853;
+		dload	4;
+		goto		 RETURN;
+		
+	L850:	pop;		// block 14
+ 	L853:	dload_0;	 
+		dload	4;
+		ladd;
+ 		sipush  1075;
+ 		bipush	20;
+		ishl;
+		iconst_0;
+
+   		swap;
+
+		dmul;
+		dstore_0;
+ 		
+
+ 		iload	9;	// IF
+		bipush	53;
+		if_icmpge	L924;
+		
+ 		dload_0;	// TRUE
+		iload	9;
+		bipush	57;
+		iadd;
+		bipush	20;
+		ishl;
+		iconst_0;
+
+   		swap;
+
+ 		ladd;
+ 		sipush  913;
+ 		bipush	20;
+ 		ishl;
+ 		iconst_0;
+
+   		swap;
+
+ 		dmul;
+ 		goto		 RETURN;
+ 	L924:	dload_0;	// FALSE
+		iload	9;
+		bipush	53;
+		isub;
+		bipush	20;
+		ishl;
+		iconst_0;
+
+   		swap;
+
+ 		ladd; 		 
+	RETURN:
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+    read_vars;
+    iconst_4;
+    iadd;
+    write_vars;
+    iload_0;
+    write_vars;
+    lstore_0;		// store the return value where "value1" used to be
+
+    pop2; pop2; pop2; pop2;
+    pop2; pop2; pop2; pop2;
+    pop2; pop2; pop2; pop2;
+    pop2; pop2;          // strip the stack down to where it began
+    pop;                // then the temp copy of "VARS"
+
+// conversion from MCST code finished
+
+    write_const_pool;	// restore CONST_POOL from saved copy
+
+			// fix up the stack for the return
+    iload 4;
+    istore_2;		// PSR moves from local-4 to local-2;
+    iload 5;
+    iconst_1;
+    iadd;
+    istore_3;		// PC reads from local-5, adds 1, goes to local-3;
+    iload 6;
+    istore 4;		// VARS moves from local-6 to local-4;
+    iload 7;
+    istore 5;		// FRAME moves from local-7 to local-5;
+
+
+    read_vars;		// update VARS and FRAME
+    dup;
+    bipush 8;
+    isub;
+    write_vars;
+    bipush 12;
+    isub;
+    write_frame;
+
+			// now that the frame is correctly re-arranged,
+    priv_ret_from_trap;	// return from the trap
+}
+
+} // end Class drem

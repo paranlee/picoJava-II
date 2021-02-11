@@ -1,0 +1,40 @@
+CLASS_DIR = ./class
+
+JAVA_DIR = ..
+
+JASM_SRC = \
+getstatic.jasm \
+getfield.jasm \
+invokestatic.jasm \
+invokevirtual.jasm \
+putstatic.jasm \
+invokeinterface.jasm \
+ldc.jasm \
+ldc2_w.jasm \
+ldc_w.jasm \
+ldiv.jasm \
+lmul.jasm \
+lrem.jasm \
+drem.jasm \
+new.jasm \
+putfield.jasm \
+invokespecial.jasm \
+newarray.jasm \
+anewarray.jasm \
+aastore.jasm \
+getfield_quick_w.jasm \
+putfield_quick_w.jasm \
+lookupswitch.jasm \
+multianewarray.jasm \
+checkcast.jasm\
+instanceof.jasm \
+athrow.jasm \
+wide.jasm\
+new_quick.jasm \
+anewarray_quick.jasm \
+invokeinterface_quick.jasm\
+multianewarray_quick.jasm \
+checkcast_quick.jasm \
+instanceof_quick.jasm \
+reset.jasm \
+reset_rest.jasm

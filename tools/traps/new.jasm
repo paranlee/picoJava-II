@@ -1,0 +1,322 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+//
+// Trap "new" -
+//
+//	Resolve the indexed class reference against the current constant pool
+//	and replaces the new instruction with 'new_quick' instruction.
+//	The allocated instance field(s) will be initialized to their default
+//	values.  The actual initialization will be handled by constructor(s)
+//	associated with the target class, normally invoked right after this
+//	trap.  Refer to the picoJava Data Structure for detailed object format
+//	and supplementary data structure.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during executing the trap.
+//
+//	 VARS->	|	   PSR		|  <-- local var 0
+//		+-----------------------+   
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|  index1<<8 + index2	|  <-- local var 4(INDEX)
+//		+-----------------------+
+//		|      Object Size	|  <-- local var 5(OBJ_SIZE)
+//		+-----------------------+
+//		|     Object Pointer	|  <-- local var 6(OBJ_PTR)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will complete building
+//
+//	 	|			|
+//		+-----------------------+
+//	 	|    Object Reference	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |    PC(method entry)	|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP for the invoked method will be set to the
+// location where the VARS points to(location of PSR).  The other regs,
+// VARS and FRAME will be restored with the value from the trap_frame.
+
+
+#include	"struct.h"
+
+public class new
+{
+
+    public static Method new:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the PC and to extract index1 and index2.
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 16;		// PSR is at 4 words below
+	 iadd;			// pointer to PSR
+	write_vars;	// set the VAR, PC is now local_var 1
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 4(INDEX): 16 bit constant pool index from operands
+	  iconst_0;	// 5(OBJ_SIZE): size of object in words
+	   iconst_0;	// 6(OBJ_PTR): ptr to the allocated object(OBJ_SIZE+1)
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789-----
+	 iload_1;		// load(push) PC(local_var 1)
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index1'
+	 load_ubyte;		// push 'index1'
+	  bipush 8;
+	 ishl;			// index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789-----
+	  iload_1;		// load(push) PC(local_var 1)
+	   iconst_2;		// push 2
+	  iadd;			// pointer to index2
+	  load_ubyte;		// push 'index2'
+	 iadd;			// index1<<8 + index2
+	istore 4;
+
+// Check whether the CP item, a class reference, has already been resolved.
+// If so, branches into object allocation stage.  Otherwise, issue a class
+// loading request to the Pico Kernel.  The respond from the request should
+// contain the pointer to the loaded class structure, which will be inserted
+// into the constant pool with the class index.
+//------0123456789-----
+         read_const_pool;	// load the CP
+         load_word;		// CP[0]: ptr to the array of "resolution&type"
+	  iload 4;
+         iadd;			// type_byte ptr of indexed field(CP[0][index])
+         load_ubyte;		// load the type byte for the referenced field
+          bipush 7;
+         ishr;			// To check the resolution bit(1 == resolved)
+        ifne Class_Resolved;// branch if not_eq to 0(if != 0, resolved)
+ 
+// Issue a class loading request with the class_name_pointer at the TOS.
+// The return type must not be NULL.  Throw an error if a NULL is returned.
+Class_Unresolved:
+//------0123456789-----
+	 iload 4;
+	  iconst_2;
+	 ishl;			// to make word_index
+	  read_const_pool;
+	 iadd;			// CP[class_index<<2]
+	 load_word;		// CP index to the class name string
+//------0123456789-----
+	  iconst_2;
+	 ishl;
+	  read_const_pool;
+	 iadd;
+	 load_word;		// ptr to the class name string
+	  bipush 31;		// service request 10 == resolve class
+	  jsr PicoKernel;
+	   dup;
+	  ifeq ClassCannotBeResolved;
+// class is resolved.  Update the CP[INDEX] and CP[0][INDEX] for the result.
+//------0123456789-----
+	   read_const_pool;
+	    iload 4;
+	     iconst_2;
+	    ishl;
+	   iadd;
+	 store_word;		// store the resolved class ptr into CP[INDEX]
+//------0123456789-----
+	  read_const_pool;
+	  load_word;
+	   iload 4;		// CP index for the class reference
+	  iadd;			// CP[0][INDEX]
+	   dup;
+	   load_ubyte;
+	    sipush 0x80;
+	   ior;
+	 swap;			// type_byte, &(CP[0][INDEX])
+	 store_byte;
+	 goto Class_Loaded;
+
+ClassCannotBeResolved:
+//*********************** initially, take it as an error **********************
+//------0123456789------
+         bipush 0x72;         // "Class Not Loaded"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto ClassCannotBeResolved;
+// Simulator should HALT the execution here
+
+Class_Loaded:
+// The class is loaded.  Update the CP[0] resol array, as well as the CP[index]
+//------0123456789-----
+
+Class_Resolved:
+//------0123456789-----
+	 read_const_pool;// load the CP
+	  iload 4;
+	   iconst_2;
+	  ishl;		// to make word_index
+	 iadd;		// pointer to the CP
+	 load_word;	// pointer to the class structure
+//------0123456789-----
+	  bipush 24;	// the *objhintblk is the 7th word
+	 iadd;
+	 load_word;	// ptr to the objhintblk
+	  bipush 8;
+	 iadd;
+	  dup;		// objHintPtr, objHintPtr
+	  load_word;	// the 1st word in the hintblk is the objectSize
+	   dup;		// ..., objHintPtr, objSize, objSize
+	  istore 5;	// ..., objHintPtr, objSize
+
+// service request 22:double-word aligned mem allocation
+//------0123456789-----
+	   bipush 22;		// ..., objHintPtr, objSize, 22
+	   jsr PicoKernel;	// ..., objHintPtr, objSize, objref
+	   swap;		// ..., objHintPtr, objref, objSize
+	  pop;
+	   dup;		// ..., objHintPtr, objref, objref
+	  ifnull ErrorNoMemory;
+
+ObjectAllocated:		// .., objHintPtr, objref
+//------0123456789-----
+	   dup;			// ..., objHintPtr, objref, objref
+	    sipush 0xFFFE;
+	   iand;		// reset possible handle bit
+	   swap;		// ..., objHintPtr, objptr, objref
+	  istore 6;		// ..., objHintPtr, objPtr
+	  swap;			// ..., objPtr, objHintPtr
+	   bipush 24;
+//   	   bipush O_METD_VEC_BASE;	// ObjHint's 7th: 1st MV table entry
+	  iadd;			// this is the base of the MV Table
+	  swap;			// ..., MV table pointer, Object Pointer
+	store_word;		// store MV table base into the Object Storage
+
+//Object_Clear:
+//------0123456789-----
+//	 iload 5;
+//	ifeq ReplaceInstruction;
+//	 iconst_0;
+//	 iinc 4, 4;
+//	  iload 4;
+//	store_word;		// clear off the object storage word-by-word
+//	iinc 5, -1;
+//	goto Object_Clear;
+
+// Replace the 'new' to 'new_quick' and flush the cache
+ReplaceInstruction:
+//------0123456789-----
+         sipush 0xDD; // 0xDD(221) == new_quick
+	  iload_1;
+	store_byte;	
+
+         iload_1;      // load the PC: local_var 1
+         load_byte;    // load back the quick opcode which make sure store_byte
+                       // update in the memory before I$ fetch it
+        pop;           // Pop the value
+// End of the modification
+
+         bipush 8;              // I$ line size, to increment the address
+          iload_1;              // PC
+          cache_flush;          // flush out both I$ and D$
+          cache_flush;          // flush out 2nd I$ line, possibly 2nd D$ line
+ 
+BuildReturnTrapFrame:
+// All done.  Reorganize the stack contents and execute trap_return to resume
+// the trapped thread.
+//------0123456789-----
+	 iload_3;	// load saved FRAME
+	istore 4;	// put into local var 4
+	 iload_2;	// load saved VARS
+	istore_3;	// put into local var 3
+	 iload_1;	// load saved PC
+	  iconst_3;	// to return to the next instruction following 'new'
+	 iadd;
+	istore_2;	// put into local var 2
+	 iload_0;	// load saved PSR
+	istore_1;
+	 iload 6;	// ptr to allocated object storage(ptr to MV_tab ptr)
+	istore_0;	// put into local var 0 
+	
+Epilogue:
+// Finally, set the VARS and FRAME for the 'trap_return'.
+// The VARS will point to where the PSR is(the OPTOP starts there) and
+// the FRAME will point to the method_entry point location.
+//------0123456789-----
+	 read_vars;	// read the VARS, pointing to ObjectPtr location
+	  dup;
+	   iconst_4;
+	  isub;
+	 write_vars;	// VARS now points to the base of trap_frame
+	  bipush 8;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ErrorNoMemory:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Memory ERROR: memory allocator returned no memory avail.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0x8A;         // "Error:Memory Not Available"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        store_word;
+	goto ErrorNoMemory;
+// Simulator should HALT execution here
+
+//include the JASM library implementing picoKernal functions
+#include "picokernel.s"
+    }
+}

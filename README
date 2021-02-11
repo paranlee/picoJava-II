@@ -1,0 +1,42 @@
+This directory contains the picoJava(TM)-II design database.  It
+contains the following:
+
+picoJava-II 		picoJava-II Design tree
+
+   README		This file 
+
+   docs			Microarchitecture Guide (MAG), 
+			Programmer's Reference Manual (PRM), 
+			Verification Guide, and html files to get started with 
+			the design database
+
+   sim			Simulation environment, tests directory and the files 
+			to build new and existing tests
+
+   tools		Simulation tools directory
+
+
+The following directory is included in Distribution 3 (the entire database):
+
+   design		RTL design files, emulation trap code and exception 
+			code directory
+   
+Please refer to the README file in each directory for more information
+on the contents of that directory.
+
+For beginners:
+
+Goto the 'design' directory. This directory will give you a first look of the 
+overall design in rtl form. The top level cpu structure is in 'rtl'. The 
+individual 'rtl' blocks are in the different sub-blocks such as 'dcu/rtl', 
+'icu/rtl' etc. The trap and exception handling routines 
+are in 'exception' and 'traps' directories. Once you have an idea of what the 
+blocks look like, set the appropriate environment variables (as shown below). 
+Follow the 'README' in the 'tools' directory to build executables in order to 
+compile the 'rtl' files, run simulations, etc. Make sure you have the 
+'tools/bin' directory in your search path. You may now wish to run a 
+sample test case to see what the core does. Instead of running 'steam' you may 
+want to goto 'sim/test/sample_tests' to run a simple test case. Follow the 
+'README' in that section to run a sample test case. Once you feel comfortable 
+with the environment, model and tools, you may want to run more detailed 
+simulations such as run 'steam', etc.

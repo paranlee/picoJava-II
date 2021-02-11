@@ -1,0 +1,293 @@
+<html>
+<head>
+<TITLE>IAS: User Commands</TITLE>
+</head>
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+User Commands</H1>
+</center>
+<HR SIZE=4 WIDTH="100%">
+<BLOCKQUOTE>
+<p>
+Type <font face="courier"><code>usage</code></font> at the command line for online help.</li>
+
+</BLOCKQUOTE>
+
+<H2>General Notes</H2>
+<BLOCKQUOTE>
+<ul>
+<li>IAS reads the commands in the file <font face="courier"><code>.iasrc</code></font> in the current directory at startup.</li>
+<p>
+<li>With Tcl, you can abbreviate commands to their unique 
+prefixes (Tcl feature).  IAS also supports other Tcl features, 
+such as defining Tcl variables, command history, and so on.</li>
+<p>
+<li>You can input numerical values either as decimals 
+(default) or as hex numbers if they are prefixed by 0x, or as 
+octal numbers if they are prefixed with 0.</li> 
+<p>
+<li>To stop a long-running simulation, press Control-C and
+return IAS to the prompt. To terminate IAS, press Control-C again. 
+</li>
+</ul>
+</BLOCKQUOTE>
+<H2>Commands</H2>
+<BLOCKQUOTE><p>
+<font face="courier"><code><b>bmemfile <i>filename</i></b></code></font><br> 
+Loads a binary memory file into the simulator in <font face="courier"><code>.binit</code></font> 
+file format. For details on the <font face="courier"><code>.binit</code></font> file format, see
+the chapter, "Test Environment and Reset Code," in 
+<a href="../pj2-verif-guide.pdf"><i>picoJava</i><small><sup>TM</sup></small><i>-II Verification Guide</i></a>. 
+
+<p>
+<font face="courier"><code><b>configure</b></code></font><br>
+Configures the core for the I-Cache and D-Cache size and the FPU 
+<font face="courier"><code>present</code></font> or <font face="courier"><code>absent</code></font> option.  For example:
+
+<blockquote>
+<font face="courier"><code>configure icache [0|1|2|4|8|16]</code></font><br>
+<font face="courier"><code>configure dcache [0|1|2|4|8|16]</code></font><br>
+<font face="courier"><code>configure fpu [present|absent]</code></font>
+</blockquote>
+
+<p>
+<font face="courier"><code><b>cont</b></code></font><br> 
+Continues execution of a program from the current <font face="courier"><code>PC</code></font>.
+
+<p>
+<font face="courier"><code><b>dis</b></code></font><br> 
+Disassemble instructions, starting from the current <font face="courier"><code>PC</code></font>.
+ 
+<p>
+<font face="courier"><code><b>dsTrap</b></code></font> <i><b>trapName len</b></i><br> 
+Disassembles a trap handler up to <i>len</i> bytes.
+
+<p>
+<font face="courier"><code><b>disAsmAddr</b></code></font> <i><b>address</i><font face="courier"><code>(%h)</b></code></font><br>
+Disassembles at <i>address</i>.
+
+<p>
+<font face="courier"><code><b>disAsm</b></code></font> <i><b>className methodName</b></i><br> 
+Looks into picoJava<small><sup>TM</sup></small> memory and looks for 
+<i>className</i> and <i>methodName</i>; if <font face="courier"><code>disAsm</code></font> finds them, 
+it disassembles them.  IAS is aware of some rules for the format of 
+the class data structure, such as where it is stored in memory.
+
+<p>
+<font face="courier"><code><b>ds</b></code></font> <i><b>addr len</b></i><br> 
+Disassembles instructions from <i>addr</i> to <i>addr</i> + <i>len</i>.
+
+<p>
+<font face="courier"><code><b>dumpClass</b></code></font> <font face="courier"><code><b>[</b></code><i>className</i><code><b>]</b></code></font><br>
+Dumps the contents of <i>className</i>, including the constant
+pool, methods, attributes, and so on. 
+
+<p>
+With no arguments, <font face="courier"><code>dumpClass</code></font> dumps all the classes that have been loaded.
+
+<p>
+<font face="courier"><code><b>dumpDcache</b></code></font> <font face="courier"><code><b>[line [</b></code><i><b>count</b></i><code><b>]]</b></code></font><br> 
+<font face="courier"><code><b>dumpIcache</b></code></font> <font face="courier"><code><b>[line [</b></code></font><i><b>count</b></i><font face="courier"><code><b>]]</b></code></font><br>
+Performs a raw dump of the contents of the specified cache lines. 
+With no arguments, successive <code>dumpDcache</code> or <code>dumpIcache</code> commands print the contents of successive lines.
+
+<p>
+<font face="courier"><code><b>dumpMethod</b></code></font> <b><i>className methodName</i></b><br> 
+Dumps <i>methodName</i> in <i>className</i>.
+
+<p>
+<font face="courier"><code><b>dumpReg</b></code></font> <font face="courier"><code><b>[</b></code></font><i><b>regName</i></b><font face="courier"><code><b>]</b></code></font><br>
+Prints the contents of <i>regName</i>. With no arguments, 
+<font face="courier"><code>dumpReg</code></font> prints the contents of all the
+registers.  (For the official names of the registers, refer to their
+dumps.)
+
+<p>
+<font face="courier"><code><b>dumpStack</b></code></font> <font face="courier"><code><b>[</b></code></font><i><b>depth</i></b><font face="courier"><code><b>]</b></code></font><br>
+Dumps the stack contents for <i>depth</i> words from the top of the
+stack. The default depth is 8.
+
+<p>
+<font face="courier"><code><b>dumpStats</b></code></font> <font face="courier"><code><b>[</b></code></font><i><b>filename</i></b><font face="courier"><code><b>]</b></code></font><br>
+Shows the statistics about the program IAS is running, which it
+maintains.
+
+<p>
+<font face="courier"><code><b>itrace</b></code></font> <font face="courier"><code><b>[on|off|level]</b></code></font><br> 
+Sets the tracing level (0 - 9); on = 3.
+
+<p>
+<font face="courier"><code><b>loadClass</b></code></font> <b><i>class1 class2</i></b> <b>...</b><br>
+Loads class files into memory. The <font face="courier"><code>loadClass</code></font> command also loads <i>class_name</i><font face="courier"><code>.init</code></font> and <i>class_name</i><font face="courier"><code>.binit</code></font> files into memory if they are 
+present.
+
+<p>
+<font face="courier"><code><b>loadCache</b></code></font> <b><i>path</i></b><br> 
+Loads the contents of D$ and I$ RAMs from the files in the specified 
+path.
+
+<p>
+<font face="courier"><code><b>loadRT</b></code></font><br> 
+Loads a standard subset of runtime classes.
+
+<p>
+<font face="courier"><code><b>loadElf</b></code></font> <b><i>objFile1 objFile2</i></b> <font face="courier"><code><b>...</b></code></font><br> 
+Loads ELF files.
+
+<p>
+<font face="courier"><code><b>memfile</b></code></font> <b><i>filename</i></b><br> 
+Loads a memory file in <font face="courier"><code>.init</code></font> file format. See <i>picoJava-II</i><small><sup>TM</sup></small> <i>Verification Guide</i> for details.
+
+<p>
+<font face="courier"><code><b>memPeek</b></code></font> <b><i>address</i></b><br> 
+Looks through the caches and displays the contents of a word at 
+<i>address</i>.
+
+<p>
+<font face="courier"><code><b>memPeekDirect</b></code></font> <b><i>address</i></b><br>
+Ignores the caches and displays the contents of a word in main memory 
+at <i>address</i>.
+
+<p>
+<font face="courier"><code><b>memPoke</b></code></font> <b><i>address</i></b> <b><i>data</i></b><br> 
+Same as <font face="courier"><code><b>memPokeDirect</b></code></font>.
+
+<p>
+<code><b>memPokeDirect</b></code> <b><i>address</i></b> <b><i>data</i></b><br>
+Writes <i>data</i> into memory at <i>address</i>, bypassing caches.
+
+<p>
+<font face="courier"><code><b>memOR</b></code></font> <b><i>address</i></b> <b><i>data</i></b><br>
+OR's the <i>data</i> value with the data value at the memory location 
+and writes it back.
+
+<p>
+<font face="courier"><code><b>readMemory</b></code></font> <b><i>address length</i></b><br> 
+Looks up the caches and displays the program memory. 
+
+<p>
+<font face="courier"><code><b>readMemoryDirect</b></code></font> <b><i>address length</i></b><br> 
+Ignores the caches and displays main memory contents. 
+
+<p>
+<font face="courier"><code><b>reset</b></code></font><br> 
+Resets the processor.
+
+<p>
+<font face="courier"><code><b>restart</b></code></font> <b><i>filename</i></b><br>
+Restores the state of the simulator from a checkpoint file that was
+saved previously.
+
+<p>
+<font face="courier"><code><b>run</b></code></font> <font face="courier"><code><b>[</b></code></font><b><i>numOfSteps</i></b><font face="courier"><code><b>]</b></code></font><br>
+Starts running the program from <code>PC</code> 0 for <i>numOfSteps</i>
+of instructions. By default, runs till the program halts 
+simulation by writing to <font face="courier"><code>END_ADDRESS</code></font>.
+
+<p>
+<font face="courier"><code><b>run2 target_pc</b></code></font><br> 
+Steps the simulator till it hits <font face="courier"><code>target_pc</code></font>. 
+If <font face="courier"><code>run2</code></font> does not hit <font face="courier"><code>PC</code></font>, it may keep running 
+even when program execution is complete.  Also, <font face="courier"><code>run2</code></font> is much slower than setting a breakpoint at the address you want to run to because it steps the back-end one instruction at a time whereas the breakpoint functionality is part of the back-end.
+
+<p>
+<font face="courier"><b><code>s</code></b></font><br> 
+Single-steps.
+
+<p>
+<font face="courier"><b><code>scache [on|off]</code></b></font><br>
+Signals to the IAS that the stack cache is present or absent. If the stack
+cache is absent, IAS operates directly on memory for its instructions.
+In the picoJava-II hardware, however, you cannot switch off the stack 
+cache.
+
+<p>
+<font face="courier"><b><code>set dumpFile</code></b></font> <i><b>filename</b></i><br>
+Redirects output for <font face="courier"><code>dump*</code></font> commands. With no arguments, <font face="courier"><code>set dumpFile</code></font> dumps to <font face="courier"><code>stdout</code></font>.
+
+<p>
+<b><font face="courier"><code>steps [<i>numOfSteps</i>]</code></font></b><br>
+Steps for <i>numOfSteps</i> of instructions. With no arguments, 
+steps for one instruction only.
+
+<p>
+<font face="courier"><b><code>usage</code></b></font><br>
+Outputs online help.
+
+<p>
+<font face="courier"><b><code>where</code></b></font><br>
+Outputs the current register values and disassembles the next instruction.
+
+<p>
+<font face="courier"><b><code>writeMemory</code></b></font> <i><b>address</b></i><br> 
+Writes a value (number of bytes) into <i>address</i>.
+
+<p>
+<font face="courier"><b><code>brk list|exec|read|write|enable|disable|ignore ...</code></b></font><br>
+Executes breakpoint commands.
+
+<p>
+<font face="courier"><b><code>intr \[repeat|disable\] \[count\] \[irl\]</code></b></font><br>
+Schedules or disables an interrupt.
+
+<p>
+<font face="courier"><b><code>checkpoint</code></b></font> <i><b>filename</b></i><br>
+Stores the state of the simulator to <i>filename</i>.
+
+<p>
+<font face="courier"><b><code>profile create</code></b></font> <i><b>id</b></i><br>
+Creates a profile.
+
+<p>
+<font face="courier"><b><code>profile enable|disable</code></b></font> <i><b>id</b></i><br>
+Enables or disables a profile.
+
+<p>
+<font face="courier"><b><code>profile freeze|unfreeze</code></b></font> <i><b>id</b></i><br>
+Freezes or unfreezes a profile.
+
+<p>
+<font face="courier"><b><code>profile switch</code></b></font> <i><b>id</b></i><br>
+Switches to a profile.
+
+<p>
+<font face="courier"><b><code>profile close</code></b></font> <i><b>id</b></i><br>
+Closes a profile.
+
+<p>
+<font face="courier"><b><code>profile print</code></b></font> <i><b>id</b></i><br>
+Prints a profile.
+
+<p>
+<font face="courier"><b><code>profile markenter</code></b></font><br>
+Marks an entry into a new block in the current profile.
+
+<p>
+<font face="courier"><b><code>profile markexit</code></b></font><br>
+Marks the exit from the topmost block in the current profile.
+
+<p>
+<font face="courier"><b><code>profile list</code></b></font><br>
+Lists the status of all available profiles.
+</BLOCKQUOTE>
+
+<BR>
+<A HREF="./ias.html">IAS</A>
+
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</font>
+</body>
+</html>

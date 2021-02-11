@@ -1,0 +1,274 @@
+<html>
+<head>
+<TITLE>IAS: Profiling</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Profiling</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+<P>
+<UL>
+<LI> <A HREF="#1">  Overview</A>
+<LI> <A HREF="#2">  Controlling profiles</A>
+<LI> <A HREF="#3">  Sample session</A>
+<LI> <A HREF="#4">  Limitations</A>
+</UL>
+<A NAME="1">
+<h2>Overview</h2></A>
+<BLOCKQUOTE>
+IAS has a rudimentary profiler which you can use for profiling single or 
+multi-threaded applications. The profiling is at the function (or trap) 
+level, and can count self as well as self and children timings. IAS profiles 
+functions in terms of instruction counts, since an instruction is the 
+smallest quantum of execution it understands. The IAS profiler can do 
+"self+children" kind of analyses at a function or block level, and has some 
+controls to support multi-threading, etc.
+<P>
+Several operations are available to control profiling, all of which
+are available programmatically as well as from the command line.
+The profiler supports creation of multiple profiles, up to the
+current limit of 32, with the intended use being one 
+profile associated with each running thread, but more creative uses 
+are always possible. Any one (or none) of these profiles may be 
+active at a given time. 
+<P>
+All the instructions executed during when a profile is active are 
+charged to the profile.
+Each profile maintains track of the call stack during execution, and in
+turn charges instructions to the function whose code is currently being
+executed as well as to all functions below it in the call stack.
+<P>
+Profiling can be disabled at any time. In this state, the profiler 
+continues to track call stack activity, but effectively does not 
+count the instructions passing by. This is useful when you want specific 
+parts of execution to be (not) timed.
+<P>
+The profiler tracks all call stack changes triggered by the 
+instructions:<CODE>inv_*_quick</CODE>, <CODE>inv_i/f</CODE>, <CODE>call</CODE>, 
+<CODE>return0/1/2</CODE>, <CODE>athrow</CODE>, and
+<CODE>priv_ret_from_trap</CODE>. 
+The profiler assumes that the calls and returns are always 
+in LIFO order for any given profile. 
+<P>
+Profiling can also be "frozen". This is meant for cases where software
+running on the chip knows that following the call stack using the
+usual means will confuse the profiler. For example,  when a kernel
+uses <CODE>priv_ret_from_trap</CODE> multiple times while switching
+contexts.
+<P>
+Another case where this is useful is when invoking a method
+using reflection, in which case dispatch may possibly be done without 
+an explicit <CODE>invoke_*</CODE> instruction. In such cases,
+when software knows that profiler cannot follow the call stack
+accurately, it should freeze the profile and  then unfreeze it
+in the same call stack state as when it was frozen. In this case,just disabling the profile is not sufficient.
+<P>
+<B>Note:</B> A frozen profile may still be enabled. It may continue 
+to count instructions. It just stops following call stack changes, 
+and charges all instructions to the topmost block in the stack. 
+A warning is printed if the profiler determines the call stack 
+depth to go below 0, or above the maximum of 4096. 
+In such cases the software must explicitly mark the entry into a new block.
+<P>
+As in most profilers, a program can control the timing of blocks within 
+a function. A program is not limited to timing only whole functions. By 
+inserting profiler commands around the block begin and end
+However, the program is then responsible for ensuring that all such
+block enters and exits happen in a LIFO manner. the name of all such
+blocks are simply listed as "USER_DEFINED_BLOCK" in the summary - we can 
+later look into whether more flexibility is needed in naming user-defined 
+blocks.
+<P>
+A profile should normally be "closed" before it's data is printed out.
+Closing a profile pops off the remaining stack frames, and completes
+attributing instruction counts to the various frames. You can print
+out a profile's data without closing it.  However, the data will not 
+reflect counts for functions still on the stack.
+<P>
+<B>Note:</B> Profile data is currently not part of the checkpointed state in 
+IAS.
+<P>
+The runtime overhead on IAS performance due to profiling depends on 
+the amount of activity up and down the call-chain.  The overhead
+typically is less than 5% and should not be more than 10%.
+There is little to no overhead if profiling is
+not used even in a version containing profiling support.
+<P>
+You can compile IAS without any profiling code.  Use:
+<CODE>undef</CODE> <CODE>PROFILING</CODE> in 
+<CODE>tools/dsv/sim/src/sim_config.h</CODE>
+There is some memory overhead per profile created (a few tens of KB per 
+profile + a constant times the number of unique function blocks entered).
+<P>
+The <CODE>dumpStats</CODE> command now also dumps out the state of all profiles.
+printing out the profile also gives other interesting information
+such as the maximum depth of the call stack.
+<P>
+Names are assigned only for traps and Java functions. Since C code function
+names are not accessible, IAS prints the generic string
+"C-call"  for C functions, along with the function address.
+</BLOCKQUOTE>
+<P>
+<A NAME="2">
+<h2>Controlling Profiles</H2></A>
+<BLOCKQUOTE>
+
+Profiles are identified by integer id's <CODE>(0..N_MAX_PROFILES-1)</CODE><P>
+Profiles can only be created, not deleted.<P>
+
+
+<TABLE BORDER="1">
+<TH colspan=2 align=center>Profiling commands</TH></TR>
+<TH> Usage </TH> <TH>Action</TH></TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile create <id></CODE></FONT></TD><TD><FONT FACE="arial, helvetica">Create a new profile.</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile freeze|unfreeze <id></CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Freeze or unfreeze a profile</FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile enable|disable <id></CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Enable or disable counting in a profile</FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile switch <id></CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Make a profile the "current" profile</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile reset <id> </CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Reset all data in a profile. This clears all data,<BR>
+                      and marks it frozen and disabled, i.e. as if it had<BR>
+                      been created.</FONT></TD>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile list</CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">List available profiles, and their status</FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile markenter</CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Mark a block entry (in the current profile)</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile markexit</CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Mark a block exit (in the current profile)</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile close</CODE></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Close a profile,  total up counts for methods <BR>
+                      still remaining in the stack.</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier"><CODE>profile print</CODE></tD>
+<TD><FONT FACE="arial, helvetica">Print the statistics in a profile</FONT></TD></TR>
+</table>
+
+<P>
+The same effect of controlling the profile can be achieved by an
+ncstore_word to the PROFILE_CMD_ADDR (0xffc0) with the following
+value:
+<UL>
+<code>
+#define PROFILE_CREATE_CMD 1
+#define PROFILE_RESET_CMD 2
+#define PROFILE_FREEZE_CMD 3
+#define PROFILE_UNFREEZE_CMD 4
+#define PROFILE_ENABLE_CMD 5
+#define PROFILE_DISABLE_CMD 6
+#define PROFILE_SWITCH_CMD 7
+#define PROFILE_PRINT_CMD 8
+#define PROFILE_CLOSE_CMD 9
+
+#define PROFILE_MARK_BLOCK_ENTER 20
+#define PROFILE_MARK_BLOCK_EXIT  21
+</code>
+</UL> 
+Prior to this, the address <CODE>PROFILE_DATA_ADDR (0xffc4)</CODE> must have been written
+to with an ncstore_word, indicating the profile id that the command
+operates on. a profile id of (-1) signifies the "current" profile, 
+whatever it's id. 
+<P>  
+One can imagine a simple Profiler class which offers methods to
+perform each of these commands; application programs can then
+transparently make calls to create, enable, close, print profiles.<
+</BLOCKQUOTE>
+<P>
+<A NAME="3">
+<h2>Sample Session</h2></A>
+
+<pre>
+
+ias
+
+% loadClass foo
+% disAsm foo main
+0x0004779c b80004               invokestatic 0004
+0x0004779f 3b           istore_0
+0x000477a0 1a           iload_0
+0x000477a1 08           iconst_5
+0x000477a2 68           imul
+0x000477a3 05           iconst_2
+0x000477a4 60           iadd
+0x000477a5 3c           istore_1
+0x000477a6 1b           iload_1
+0x000477a7 9e0005               ifle 000477ac
+0x000477aa 03           iconst_0
+0x000477ab ac           ireturn
+0x000477ac 05           iconst_2
+0x000477ad ac           ireturn
+% run2 0x4779c                <---- run2 1st insn of main program
+% profile create 0            <---- create, unfreeze, enable profile
+% profile unfreeze 0
+profile 0 is now unfrozen
+% profile enable 0
+profile 0 is now enabled
+% profile switch 0            <---- make that the current profile
+switched to profile 0
+% run2 0x477ab                <---- run2 end of program
+% profile close 0             <---- close and print profile
+% profile print 0 
+Profiler hashtable: 3 function entry points registered,  3 non-empty buckets
+ 
+entries still on call stack: 1
+max call stack depth seen: 2
+Total number of instructions: 293
+                                          Instruction counts
+                                          ------------------
+Name
+        PC     #Calls Self+children Pct   Avg   Max   Min       Self   Pct   Avg   Max   Min 
+foo.bar()I
+0x0004775c          1          2    0.68%   2     2     2         2   0.68%     2     2     2
+Program
+0x0004779c          1        293  100.00%  293   293   293       12   4.10%    12    12    12
+invokestatic
+0x00027948          1        279  95.22%   279   279   279       279 95.22%   279   279   279
+% 
+
+</pre>
+<P>
+<A NAME="4">
+<h2>Limitations</h2></A>
+<BLOCKQUOTE>
+athrow's which are caught inside a trap frame cannot be handled.
+<P>
+<P>
+</BLOCKQUOTE>
+<A HREF="./ias.html">IAS</A></font>
+
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+
+</pre>
+</body>
+</html>

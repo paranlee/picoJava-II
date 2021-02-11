@@ -1,0 +1,54 @@
+# the steam.plusargs file
+#
+# use this file to specify the valid plusargs and their function.
+# Note that all flags must begin with a '-' in steam.  Steam will
+# automatically convert them to '+' when the runme files are generated.
+#
+# format: -flag:project:description
+#
+# "project" should be a case-insensitive equivalent of the $PROJECT
+# environment variable.  Description must exist and will be used in the
+# "usage" description if bad arguments are supplied to steam.  Steam will
+# complain if the description is blank or nonexistent
+
+# plusargs for the picojava-ii project...
+
+-boot8:picojava-ii:enable 8-bit boot mode
+-nofpu:picojava-ii:run without the fpu
+-nosmu:picojava-ii:run without the smu
+-flush:picojava-ii:flush the s$ and d$ at completion of test
+-expcount:picojava-ii:do not let exception handlers abort test
+-cacheinvalidate:picojava-ii:invalidate all cache entries at beginning of test
+-handle:picojava-ii:run with handles enabled
+-minwm:picojava-ii:run with dribbler watermarks at minimum values
+-maxwm:picojava-ii:run with dribbler watermarks at maximum values
+-pj_halt:picojava-ii:force pj_halt high
+-sst_control:picojava-ii:controlled sst output generation
+-no_ucode_mon:picojava-ii:disable the microcode monitor
+-single_step:picojava-ii:test instruction single stepping
+-fldg_mon:picojava-ii:enable the instruction folding monitor
+-int_random:picojava-ii:enable random interrupts
+-powerdown:picojava-ii:enable random powerdown
+-int_cntl:picojava-ii:enable a controlled set of interrupts
+-int_cmd:picojava-ii:enable interrupts at times in 'int_cmd_file' file
+-rand_ack1:picojava-ii:seeds for random interrupt acks
+-rand_ack2:picojava-ii:seeds for random interrupt acks
+-s1:picojava-ii:seeds for random interrupt generator
+-s2:picojava-ii:seeds for random interrupt generator
+-s3:picojava-ii:seeds for random interrupt generator
+-s4:picojava-ii:seeds for random interrupt generator
+-s5:picojava-ii:seeds for random interrupt generator
+-s6:picojava-ii:seeds for random interrupt generator
+-record:picojava-ii:record the pin assertions, dump to pico_p{in,out}.tape
+-statistics:picojava-ii:keep statistics on the stack size and timing paths
+-smu_hold:picojava-ii:enable random smu hold signal in full chip level
+-ibuf_mon:picojava-ii:enable the instruction buffer monitor
+-dcu_debug:picojava-ii:enable dcu debug monitor which print out all memory access
+-hold_seed_2:picojava-ii:seed for smu_hold generator
+-hold_seed_3:picojava-ii:seed for smu_hold generator
+-halt_check:picojava-ii:Check if PicoJava go to halt mode
+-restart:picojava-ii:Restart caches from memory files
+-max_instr_count:picojava-ii:time out after no. of instructions specified in hex in the file "max_instr_count
+-max_clk_count:picojava-ii:time out after no. of instructions specified in hex in the file "max_clk_count"
+-tmem+reset.init:picojava-ii:init memory from file <reset.init>
+-bmem+reset.binit:picojava-ii:init memory from file <reset.binit>

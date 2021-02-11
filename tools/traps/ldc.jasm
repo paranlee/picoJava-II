@@ -1,0 +1,334 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+//
+// Trap "ldc" -
+//
+//	Extract a constant value, either an Integer, Float or ptr to String
+//	object, from the current constant pool and push the constant value
+//	onto the operand stack.  The 1 byte operand following the opecode
+//	represents the constant pool index, in which the constant is resolved.
+//
+//	For String constant, if it is not resolved, an instance of class String
+//	will be created for the string(obtained from the constant pool) and
+//	the object reference will be returned as the constant value.
+
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+=======================+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//		|	  ....		|
+//		+=======================+
+//	 VARS->	|          PSR		|  <-- local var 0
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|  	  index		|  <-- local var 4(INDEX)
+//		+=======================+
+//		|     type&resol byte	|  <-- local var 5(TYPE_BYTE)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap.
+//
+//	 	|	  ....		|
+//		+=======================+
+//	 	|     constant_value	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |         PC+2		|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of PSR).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+public class ldc
+{
+
+    public static Method ldc:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the PC.
+//------0123456789-----
+	 read_optop;		// push OPTOP
+	  bipush 16;		// PSR is at 4 words below
+	 iadd;
+	write_vars;		// set the VAR, PC is now local_var 1
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 4(INDEX): the index to the constant pool
+	  iconst_0;	// 5(TYPE_BYTE): type&resolution byte of the constant
+
+// Extract and save the index operand
+//------0123456789-----
+	 iload_1;		// load(push) PC(local_var 1)
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index'
+	 load_ubyte;		// push 'index', local_var 4
+	istore 4;
+
+// Now access the CP[0][index] to verifty the type info.
+//------0123456789-----
+	 read_const_pool;	// load the CP reg
+	 load_word;		// CP[0], the type_resolution byte array
+	  iload 4;		// load the index
+	 iadd;			// CP[0][index]
+	 load_ubyte;		// load the type&resolution byte, local_var 5
+	istore 5;
+
+//------0123456789-----
+	 iload 5;
+	  bipush 0x7F;
+	 iand;			// clear off resol bit(Integer&Float don't care)
+	  dup;
+	   iconst_3;		// Integer == 3
+	 if_icmpeq Integer_Constant;
+	  dup;
+	   iconst_4;		// Float == 4
+	 if_icmpeq Float_Constant;
+	  bipush 8;		// String == 8
+	if_icmpeq String_Constant;
+
+// CP[0][index] is not a valid type.  Declare an error and abort execution.
+Ldc_Invalid_Type:
+//------0123456789-----
+         bipush 0xA0;         // "Error:Invalid Constant Type at CP[0][index]"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        store_word;
+	goto Ldc_Invalid_Type;
+// Simulator should detect this error-msg and HALT execution here
+
+String_Constant:
+//------0123456789-----
+	 iload 5;		// the type&resol byte
+	  sipush 0x88;		// 0x88 == resolved string constant
+	if_icmpeq String_Resolved;
+String_Unresolved:		// Need to instantiate a String object!
+//------0123456789-----
+	 read_const_pool;
+	  iload 4;
+	   iconst_2;
+	  ishl;
+	 iadd;
+	 load_word;		// CP index, where the string reference is
+	  iconst_2;
+	 ishl;
+	  read_const_pool;
+	 iadd;
+//------0123456789-----
+	 load_word;		// ptr to the decaf string
+	  dup;
+	  load_word;
+	   bipush 16;
+	  ishr;			// decafStrPtr, StrSize
+	  swap;
+	   iconst_4;
+	  iadd;			// StrSize(local_var_6), StrPtr(local_var_7)
+// ConvertByteArray is not avail yet...
+//	 jsr ConvertByteArray;	// convert the decaf string into a byte array
+
+// Now set the CONST_POOL register to invoke the 'String' constructor.
+//------0123456789-----
+	 read_const_pool;	// save the current CP first
+	  priv_read_trapbase;	// TRAPBASE register, pointing to current vector
+	   iconst_4;
+	  iadd;		// location of this trap's CP value is stored
+	  load_word;	// ptr to the constant pool for this trap
+	 write_const_pool;	// temporaily set the CONST_POOL,TOS=oldCP,lvar8
+
+// Enable trap to invoke 'new' and 'newarray' traps
+//------0123456789-----
+
+// Create an array of bytes
+//------0123456789-----
+	 iload 6;		// string size
+	 newarray 8;		// create an array of type 8(byte)
+				// locar var 9 == reference to the byte array
+	  iconst_0;		// local var 10 == array index
+
+// Copy the Str contents into the byte array
+ByteCopyLoop:
+//------0123456789-----
+	 iload 6;
+	ifeq CreateStringObject;// check str size first, no copying for null str
+	 iload 9;		// array reference
+	  iload 10;		// aray index
+	   iload 7;		// string pointer
+	   load_ubyte;
+	bastore;		// store a byte into the referenced array 
+//------0123456789-----
+	iinc 10, 1;		// increment char counter
+	iinc 7, 1;		// increment the string pointer
+	iinc 6, -1;		// decrement the size to go
+	goto ByteCopyLoop;
+
+// Creat a new instance of String to invoke class 'String' constructor,
+// "String(byte ascii[], int hibyte)".
+CreateStringObject:
+//------0123456789-----
+	 new class java/lang/String;
+	  dup;
+	 istore 5;		// local var 5 == reference to string object
+	  iload 9;		// 1st arg: byte array reference
+	   iconst_0;		// 2nd arg: int hi byte
+	invokespecial Method java/lang/String.<init>:"([BI)V";
+
+// Now invoke the "String.intern()" method to make the string object unique
+//------0123456789-----
+	 iload 5;		// string object instantiated and inited
+	 invokevirtual Method java/lang/String.intern:"()Ljava/lang/String;";
+	  dup;
+	 istore 6;		// save the returned ref to a string object
+	  iload 5;
+	if_icmpeq OriginalStr;
+// There is another string already created.  Deallocate the original string.
+// ... * deallocate the original string referenced by local_var 5 * 
+
+OriginalStr:
+//------0123456789-----
+	 iload 6;		// saved ref to the string constant object
+	istore 5;		// local var 5 is the location to go
+	 iload 8;		// original Constant Pool register
+	write_const_pool;	// restore the original CP
+
+// Update the resolution status bit
+//------0123456789-----
+	 read_const_pool;	// load the CP reg
+	 load_word;		// CP[0], the type_resolution byte array
+	  iload 4;		// load the index
+	 iadd;			// CP[0][index]
+	  dup;
+	  load_ubyte;		// load the type&resolution byte
+	   sipush 0x80;
+	  ior;
+	  swap;
+	 store_byte;
+
+// Store the String object reference into CP[INDEX]
+//------0123456789-----
+	 read_const_pool;	// CP reg
+	  iload 4;		// CP index for the constant reference
+	   iconst_2;
+	  ishl;			// word index
+	 iadd;
+	  iload 5;
+	  swap;
+	store_word;		// CP[INDEX] = Ref to String Object
+	goto Trap_Frame;
+
+String_Resolved:
+Integer_Constant:
+Float_Constant:
+//------0123456789-----
+	 read_const_pool;	// CP reg
+	  iload 4;		// CP index for the constant reference
+	   iconst_2;
+	  ishl;			// word index
+	 iadd;
+	 load_word;		// the word contents in CP[index]
+	istore 5;		// save it
+
+ReplaceInstruction:
+//------0123456789------
+	 sipush 0xCB;		// 0xCB == ldc_quick
+          iload_1;     // load the PC: local_var 1
+        store_byte;    // replace 'getfield' with a quick version
+
+         iload_1;      // load the PC: local_var 1
+         load_byte;    // load back the quick opcode which make sure store_byte
+                       // update in the memory before I$ fetch it
+        pop;           // Pop the value
+// End of the modification
+ 
+// The i$ line now must be invalidated, and the D$ needs to be flushed out
+FlushCache:
+//------0123456789-----
+         bipush 8;           // I$ line size, to increment the address
+          iload_1;           // PC
+          cache_flush;       // flush out both I$ and D$
+          cache_flush;       // flush out 2nd line in I$, possibly 2nd D$ line
+        pop2;
+
+Trap_Frame:
+//------0123456789-----
+         iload_3;       // load saved FRAME
+        istore 4;       // put into local var 4
+         iload_2;       // load saved VARS
+        istore_3;       // put into local var 3
+	 iload_1;	// load saved PC
+	  iconst_2;	// to return to the next instruction following 'ldc'
+	 iadd;
+	istore_2;	// put into local var 2
+	 iload_0;	// load saved PSR
+	istore_1;
+
+	 iload 5;	// retrieved constant value from the CP
+	istore_0;	// put into local var 0 
+	
+Epilogue:
+// Finally, set the VARS and FRAME for the 'trap_return'.
+// The VARS will point to where the PSR is(the OPTOP starts there) and
+// the FRAME will point to the method_entry point location.
+//------0123456789-----
+	 read_vars;		// read current VARS,pointaing to CONSTANT value
+	  dup;
+	   iconst_4;
+	  isub;
+	 write_vars;		// VARS now points to the base of trap_frame
+	  bipush 8;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+    }
+}

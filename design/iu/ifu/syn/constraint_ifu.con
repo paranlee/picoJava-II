@@ -1,0 +1,254 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ set_input_delay -clock "clk" -max 1.0 {"ibuff_0"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_0"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"ibuff_1"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_1"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"ibuff_2"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_2"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"ibuff_3"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_3"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"ibuff_4"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_4"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"ibuff_5"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_5"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"ibuff_6"} ;
+set_drive DRIVE_OF_INV3 {"ibuff_6"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_drty"} ;
+set_drive DRIVE_OF_INV3 {"fetch_drty"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_valid"} ;
+set_drive DRIVE_OF_INV3 {"fetch_valid"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len0"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len0"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len1"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len1"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len2"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len2"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len3"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len3"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len4"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len4"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len5"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len5"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"fetch_len6"} ;
+set_drive DRIVE_OF_INV3 {"fetch_len6"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"iu_psr_fle"} ;
+set_drive DRIVE_OF_INV3 {"iu_psr_fle"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"sc_bottom"} ;
+set_drive DRIVE_OF_INV3 {"sc_bottom"} ;
+
+set_input_delay -clock "clk" -max 1.0 {"lvars"} ;
+set_drive DRIVE_OF_INV3 {"lvars"} ;
+
+set_input_delay -clock "clk" -max 1.5 {"squash_fold"} ;
+set_drive DRIVE_OF_INV3 {"squash_fold"} ;
+
+set_input_delay -clock "clk" -max 4.0 {"kill_vld_d"} ;
+set_drive DRIVE_OF_INV3 {"kill_vld_d"} ;
+
+set_input_delay -clock "clk" -max 4.0 {"hold_d"} ;
+set_drive DRIVE_OF_INV5 {"hold_d"} ;
+
+set_input_delay -clock "clk" -max 3.70 {"hold_r"} ;
+set_drive DRIVE_OF_INV5 {"hold_r"} ;
+
+set_input_delay -clock "clk" -max 4.5 {"hold_e"} ;
+set_drive DRIVE_OF_INV5 {"hold_e"} ;
+
+set_input_delay -clock "clk" -max 4.5 {"hold_c"} ;
+set_drive DRIVE_OF_INV5 {"hold_c"} ;
+
+set_input_delay -clock "clk" -max 4.5 {"iu_trap_c"} ;
+set_drive DRIVE_OF_INV2 {"iu_trap_c"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_1_r"} ;
+set_load LOAD_30_INV {"group_1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_2_r"} ;
+set_load LOAD_30_INV {"group_2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_3_r"} ;
+set_load LOAD_30_INV {"group_3_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_4_r"} ;
+set_load LOAD_30_INV {"group_4_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_5_r"} ;
+set_load LOAD_30_INV {"group_5_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_6_r"} ;
+set_load LOAD_30_INV {"group_6_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_7_r"} ;
+set_load LOAD_30_INV {"group_7_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_8_r"} ;
+set_load LOAD_30_INV {"group_8_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"group_9_r"} ;
+set_load LOAD_30_INV {"group_9_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"no_fold_r"} ;
+set_load LOAD_30_INV {"no_fold_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"fold_r"} ;
+set_load LOAD_30_INV {"fold_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_1_rs1_r"} ;
+set_load LOAD_30_INV {"opcode_1_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_2_rs1_r"} ;
+set_load LOAD_30_INV {"opcode_2_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"offset_1_rs1_r"} ;
+set_load LOAD_30_INV {"offset_1_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"offset_2_rs1_r"} ;
+set_load LOAD_30_INV {"offset_2_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"valid_rs1_r"} ;
+set_load LOAD_30_INV {"valid_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"help_rs1_r"} ;
+set_load LOAD_30_INV {"help_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"lv_rs1_r"} ;
+set_load LOAD_30_INV {"lv_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"type_rs1_r"} ;
+set_load LOAD_30_INV {"type_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"lvars_acc_rs1_r"} ;
+set_load LOAD_30_INV {"lvars_acc_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"st_index_op_rs1_r"} ;
+set_load LOAD_30_INV {"st_index_op_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"reverse_ops_rs1_r"} ;
+set_load LOAD_30_INV {"reverse_ops_rs1_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"update_optop_r"} ;
+set_load LOAD_30_INV {"update_optop_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_1_rs2_r"} ;
+set_load LOAD_30_INV {"opcode_1_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_2_rs2_r"} ;
+set_load LOAD_30_INV {"opcode_2_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"offset_1_rs2_r"} ;
+set_load LOAD_30_INV {"offset_1_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"offset_2_rs2_r"} ;
+set_load LOAD_30_INV {"offset_2_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"valid_rs2_r"} ;
+set_load LOAD_30_INV {"valid_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"lv_rs2_r"} ;
+set_load LOAD_30_INV {"lv_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"lvars_acc_rs2_r"} ;
+set_load LOAD_30_INV {"lvars_acc_rs2_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_1_op_r_rcu"} ;
+set_load LOAD_30_INV {"opcode_1_op_r_rcu"} ;
+
+set_output_delay -clock "clk" -max 4.15 {"opcode_1_op_r_ex"} ;
+set_load LOAD_30_INV {"opcode_1_op_r_ex"} ;
+
+set_output_delay -clock "clk" -max 4.15 {"opcode_1_op_r_fpu"} ;
+set_load LOAD_30_INV {"opcode_1_op_r_fpu"} ;
+
+set_output_delay -clock "clk" -max 4.15 {"opcode_1_op_r_ucode"} ;
+set_load LOAD_30_INV {"opcode_1_op_r_ucode"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_2_op_r"} ;
+set_load LOAD_30_INV {"opcode_2_op_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_3_op_r"} ;
+set_load LOAD_30_INV {"opcode_3_op_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_4_op_r"} ;
+set_load LOAD_30_INV {"opcode_4_op_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_5_op_r"} ;
+set_load LOAD_30_INV {"opcode_5_op_r"} ;
+
+set_output_delay -clock "clk" -max 4.4 {"valid_op_r_rcu"} ;
+set_load LOAD_30_INV {"valid_op_r_rcu"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"valid_op_r_ucode"} ;
+set_load LOAD_30_INV {"valid_op_r_ucode"} ;
+
+set_output_delay -clock "clk" -max 4.2 {"valid_op_r_pipe"} ;
+set_load LOAD_30_INV {"valid_op_r_pipe"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"valid_op_r_ex"} ;
+set_load LOAD_30_INV {"valid_op_r_ex"} ;
+
+set_output_delay -clock "clk" -max 4.2 {"valid_op_r_fpu"} ;
+set_load LOAD_30_INV {"valid_op_r_fpu"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_1_rsd_r"} ;
+set_load LOAD_30_INV {"opcode_1_rsd_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"opcode_2_rsd_r"} ;
+set_load LOAD_30_INV {"opcode_2_rsd_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"offset_rsd_r"} ;
+set_load LOAD_30_INV {"offset_rsd_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"valid_rsd_r"} ;
+set_load LOAD_30_INV {"valid_rsd_r"} ;
+
+set_output_delay -clock "clk" -max 3.5 {"offset_pc_br_r"} ;
+set_load LOAD_30_INV {"offset_pc_br_r"} ;
+
+set_output_delay -clock "clk" -max 3.5 {"drty_inst_r"} ;
+set_load LOAD_30_INV {"drty_inst_r"} ;
+
+set_output_delay -clock "clk" -max 4.5 {"put_field2_quick_r"} ;
+set_load LOAD_30_INV {"put_field2_quick_r"} ;
+
+set_output_delay -clock "clk" -max 0.6 {"iu_shift_d"} ;
+set_load LOAD_30_INV {"iu_shift_d"} ;

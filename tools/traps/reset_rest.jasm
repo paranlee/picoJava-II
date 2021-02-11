@@ -1,0 +1,150 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+// special reset code for restarting RTL/ias from an ias checkpoint.
+// this class needs to be loaded up in memory, and the contents
+// copied into a reset.init file while restarting RTL. 
+
+public final class reset_rest {
+
+public static Method main:"()I"
+	stack 0 locals 0
+{
+// set up stack area at 0x7ffc
+        sipush 0x7ffc;
+        sethi 0x0;
+   	write_optop;
+ 
+        read_optop;
+   	write_vars;
+        read_optop;
+        priv_write_sc_bottom;
+
+        sipush 0xa0; 
+        sethi 0x32; 
+        priv_write_psr;  // PSR.DRE = 1
+
+        // allocate space for 4 local variables
+        sipush 0;
+        sipush 0;
+        sipush 0;
+        sipush 0;
+
+        // store address of register storage area in LV 0
+        sipush 0x1000;
+        istore_0;
+
+        load_word_index 0, 4;
+        priv_write_oplim;
+        load_word_index 0, 5;
+        write_const_pool;
+        
+        load_word_index 0, 7;
+        priv_write_trapbase;
+        load_word_index 0, 8;
+        priv_write_lockcount0;
+        load_word_index 0, 9;
+        priv_write_lockcount1;
+
+        load_word_index 0, 12;
+        priv_write_lockaddr0;
+        load_word_index 0, 13;
+        priv_write_lockaddr1;
+
+        load_word_index 0, 16;
+        priv_write_userrange1;
+        load_word_index 0, 17;
+        priv_write_gc_config;
+        load_word_index 0, 18;
+        priv_write_brk1a;
+        load_word_index 0, 19;
+        priv_write_brk2a;
+        load_word_index 0, 20;
+        priv_write_brk12c;
+        load_word_index 0, 21;
+        priv_write_userrange2;
+// 25 = sc_bottom
+        load_word_index 0, 26;
+        write_global0;
+        load_word_index 0, 27;
+        write_global1;
+        load_word_index 0, 28;
+        write_global2;
+        load_word_index 0, 29;
+        write_global3;
+
+// set up trap frame which will launch us into restart
+        load_word_index 0, 6; // PSR
+        read_optop;
+        write_frame;          // Setup current frame 
+        load_word_index 0, 0; // PC 
+        load_word_index 0, 1; // VARS
+        load_word_index 0, 2; // FRAME
+
+        // enable full compares
+        iconst_1;
+        sipush 0xFFE0;
+        sethi 0x0;
+        ncstore_word; 
+
+// we need to setup the correct cache state right now - we canNOT depend
+// on priv_ret_from_trap behavior if it changes cache enable bits
+        priv_read_psr;
+        load_word_index 0, 6; // PSR
+        sipush 0x600;  // extract only the PSR.DCE and PSR.ICE bits
+        iand;
+        ior;           // OR those bits into current PSR
+        priv_write_psr;  // write psr in order to enable caches, etc.
+        nop;
+        nop;
+        nop;
+        nop;
+        nop;
+        nop;
+        nop;
+        nop;
+
+        load_word_index 0, 3; 
+        write_vars;           // value of optop after the return from trap
+   
+        // turn on the performance monitor
+        iconst_1;
+        sipush 0xFFDC;
+        sethi 0x0;
+        ncstore_word;
+
+        // launch into point-o-restart
+        priv_ret_from_trap;   
+}
+
+public Method <init>:"()V"
+	stack 0 locals 0
+{
+		aload_0;
+		invokespecial	Method java/lang/Object.<init>:"()V";
+		return;
+}
+
+} // end Class reset_rest

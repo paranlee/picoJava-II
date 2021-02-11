@@ -1,0 +1,40 @@
+# ****************************************************************
+# ***
+# ***    Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+# ***    Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+# ***    The contents of this file are subject to the current
+# ***    version of the Sun Community Source License, picoJava-II
+# ***    Core ("the License").  You may not use this file except
+# ***    in compliance with the License.  You may obtain a copy
+# ***    of the License by searching for "Sun Community Source
+# ***    License" on the World Wide Web at http://www.sun.com.
+# ***    See the License for the rights, obligations, and
+# ***    limitations governing use of the contents of this file.
+# ***
+# ***    Sun, Sun Microsystems, the Sun logo, and all Sun-based
+# ***    trademarks and logos, Java, picoJava, and all Java-based
+# ***    trademarks and logos are trademarks or registered trademarks
+# ***    of Sun Microsystems, Inc. in the United States and other
+# ***    countries.
+# ***
+# *****************************************************************
+
+
+
+
+EXPORT_INCLUDES = bool.h debug.h loader.h oobj.h oobj_md.h signature.h \
+                  typedefs.h typedefs_md.h veriuser.h cm.h decaf.h \
+		  opcodes.h vmacro.h binit.h
+
+#BIN1 = test_loader
+#BIN1_SRC = test_loader.c
+#BIN1_LIB = -lloader
+
+#BIN2 = classDump
+#BIN2_SRC = classDump.c
+#BIN2_LIB = -lloader
+
+EXTRA_LIB = -ldl -lz
+LIB1 = libloader.a
+LIB1_SRC = loader.c cm.c dump.c res.c rw.c copy.c dis.c loadtraps.c syscall.c
+

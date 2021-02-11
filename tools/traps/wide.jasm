@@ -1,0 +1,307 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+//
+// Trap "wide" -
+//
+
+public class wide
+{
+
+    public static Method wide:"()v"
+    {
+Prologue:
+
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 16;	// PSR is at 4 words below
+	 iadd;
+	write_vars;	// set the VAR, 'PC' is now local_var 1
+
+// Check the arguments
+//------0123456789-----
+	 iload_1;
+          iconst_2;             // push 1
+         iadd;                  // pointer to 'index1'
+         load_ubyte;            // push 'index1'
+          bipush 8;
+         ishl;                  // index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+          iload_1;              // load(push) PC
+           iconst_3;            // push 2
+          iadd;                 // pointer to index2
+          load_ubyte;           // push 'index2'
+         iadd;                  // index1<<8 + index2
+	  iconst_2;
+	 ishl;			// local var 4
+
+// Check opcode
+//------0123456789-----
+	 iload_1;
+	  iconst_1;
+	 iadd;
+	 load_ubyte;		// local var 5
+
+// iload:0x15,fload:0x17,aload:0x19,lload:0x16,dload:0x18
+// (10101, 10111, 11001) (10110, 11000)
+CheckLoadOpcode:
+//------0123456789-----
+	 iload 5;
+	  sipush 0x84;
+	if_icmpeq WideIinc;
+	 iload 5;
+	  sipush 0xA9;
+	if_icmpeq WideRet;
+	 iload 5;
+	  bipush 0x15;
+	if_icmplt InvalidOpcode;
+//------0123456789-----
+	 iload 5;
+	  bipush 0x19;
+	if_icmpgt CheckStoreOpcode;
+	 iload 5;
+	  iconst_1;
+	 iand;
+	ifeq LoadDouble;
+LoadSingle:
+//------0123456789-----
+	 iload 4;
+	istore 5;
+	 iload_3;
+	istore 4;
+	 iload_2;
+	istore_3;
+	 iload_1;
+	istore_2;
+	 iload_0;
+	istore_1;
+//------0123456789-----
+	 read_vars;
+	  iload_3;	// VARS in trap frame
+	   iload 5;	// byte index to the source register
+	  isub;
+	 write_vars;
+	  iload_0;	// contents of src reg
+	  swap;
+	 write_vars;
+	istore_0;	// load the src value into reg where the PSR was
+	 read_vars;
+	  iconst_4;
+	 isub;
+	write_vars;	// where the OPTOP goes, and where the FRAME is set
+	goto Epilogue;
+
+LoadDouble:
+//------0123456789-----
+	iconst_0;	// 1 extra word room, local 6
+         iload 4;	// index
+        istore 6;
+         iload_3;
+        istore 5;
+         iload_2;
+        istore 4;
+         iload_1;
+        istore_3;
+         iload_0;
+        istore_2;
+//------0123456789-----
+         read_vars;
+          iload 4;      // VARS in trap frame
+           iload 6;     // byte index to the source register
+          isub;
+         write_vars;
+          iload_0;      // contents of src reg
+          swap;		// local_0, oldVARS
+	   iload_1;	// local_0, oldVARS, local_1
+	   swap;	// local_0, local_1, oldVARS
+          write_vars;
+         istore_1;      // load the src value into reg where the PSR was
+	istore_0;
+         read_vars;	// points to loaded double word_0
+          bipush 8;
+         isub;
+        write_vars;     // where the OPTOP goes, and where the FRAME is set
+        goto Epilogue;
+
+// istore:0x36,fstore:0x38,astore:0x3A,lstore:0x37,dstore:0x39
+// (110110, 111000, 111010) (110111, 111001)
+CheckStoreOpcode:
+//------0123456789-----
+         iload 5;
+          bipush 0x36;
+        if_icmplt InvalidOpcode;
+//------0123456789-----
+         iload 5;
+          bipush 0x3A;
+        if_icmpgt InvalidOpcode;
+         iload 5;
+          iconst_1;
+         iand;
+        ifne StoreDouble;
+
+StoreSingle:
+//------0123456789-----
+         read_vars;
+	  iconst_4;
+	 iadd;
+	write_vars;	// the arg word(to be stored) is now local_0
+	 read_vars;
+          iload_3;      // VARS in trap frame
+           iload 5;     // byte index to the source register
+          isub;
+	   iload_0;	// arg word to be stored
+	   swap;
+          write_vars;
+         istore_0;      // store the arg word to the indexed local var
+        write_vars;	// restore, the local 0 is the arg word again
+//------0123456789-----
+         iload_1;
+        istore_0;
+         iload_2;
+        istore_1;
+         iload_3;
+        istore_2;
+         iload 4;
+        istore_3;
+        goto Epilogue;
+
+StoreDouble:
+//------0123456789-----
+         read_vars;
+          bipush 8;
+         iadd; 
+        write_vars;     // the arg words(to be stored) is now local_0 and 1
+         read_vars; 
+          iload 4;      // VARS in trap frame 
+           iload 6;     // byte index to the source register 
+          isub; 
+           iload_0;     // arg word to be stored 
+           swap; 
+	    iload_1;	// 2nd arg word to be stored
+	    swap;
+           write_vars; 
+          istore_1;      // store the arg word to the indexed local var
+	 istore_0;
+        write_vars;     // restore, the local 0 is the arg word again 
+//------0123456789-----
+         iload_2;
+        istore_0;
+         iload_3;
+        istore_1;
+         iload 4;
+        istore_2;
+         iload 5;
+        istore_3;
+        goto Epilogue;
+
+// Emulate iinc instruction for wide local var index as well as wide constant
+WideIinc:
+//------0123456789-----
+	 iload_1;
+	  iconst_4;
+	 iadd;
+	 load_ubyte;
+	  bipush 8;
+	 ishl;
+//------0123456789-----
+	  iload_1;
+	   iconst_5;
+	  iadd;
+	  load_ubyte;
+	 iadd;		// local var 6
+//------0123456789-----
+	 iload 6;
+	  bipush 15;
+	 ishr;
+	ifeq WideConstantReady;
+	 iload 6;
+	 sethi 0xFFFF;
+	istore 6;
+
+WideConstantReady:
+//------0123456789-----
+	 read_vars;
+	  iload 6;
+	   iload_2;	// vars in the trap frame
+	    iload 4;	// wide local var index 
+	   isub;
+	  write_vars;
+	   iload_0;
+	  iadd;
+	 istore_0;
+	write_vars;
+
+EpilogueIinc:
+//------0123456789-----
+	 iload_1;
+	  bipush 6;
+	 iadd;
+	istore_1;
+	priv_ret_from_trap;
+
+// Emulate ret instruction for wide local var index for return address
+WideRet:
+//------0123456789-----
+	 read_vars;
+	  iload_2;	// old VARS
+	   iload 4;	// big 16-bit index for the return addr
+	  isub;
+	 write_vars;
+	  iload_0;	// return address
+	  swap;
+	 write_vars;	// restore VARS
+	istore_1;	// put into the returnPC of the trap frame
+	priv_ret_from_trap;
+
+// Exit for all instructions other than the iinc and ret
+Epilogue:
+//------0123456789-----
+	 read_vars;
+	  iconst_4;
+	 isub;
+	write_frame;
+	 iload_1;
+	  iconst_4;
+	 iadd;
+	istore_1;	// update PC
+	priv_ret_from_trap;
+
+InvalidOpcode:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The specified opcode is not a valid one for 'wide' instruction
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         bipush 0xC9;         // invalid opcode in wide trap
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto InvalidOpcode;
+// Simulator should HALT execution here
+
+    }
+}

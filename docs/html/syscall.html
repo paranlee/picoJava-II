@@ -1,0 +1,106 @@
+<html>
+<head>
+<TITLE>System Call Functionality</TITLE>
+</head>
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1><B>System Call Functionality</B></H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%">
+
+<p>
+You can use the system call functionality in the picoJava<small><sup>TM</sup></small> environment to extend 
+the capabilities of the simulation environment in various ways. A sample implementation
+of the system call functionality is present in the picoJava-II distribution. See
+the README in the directory $PICOJAVAHOME/$PROJECT/syscall_example.
+
+<p>
+At startup, IAS or RTL looks for a dynamically linked library in the file
+that the environment variable <font face="courier"><code>PICOJAVA_SYSCALL_LIB</code></font> points to.  
+The following process follows:
+
+<ul>
+<li>
+If <font face="courier"><code>PICOJAVA_SYSCALL_LIB</code></font> is not set, IAS or RTL drops the system call functionality.</li>
+
+<p>
+<li>
+If IAS or RTL finds <font face="courier"><code>PICOJAVA_SYSCALL_LIB</code></font>, it then looks for 
+the functions <font face="courier"><code>picojava_syscall_init ()</code></font> and <font face="courier"><code>picojava_syscall ()</code></font> in the library.
+
+<p>
+<ul>
+<li>If either of these functions is absent, then IAS or RTL prints an error message 
+and quits.</li>  
+
+<p>
+<li>If both functions are present, then IAS or RTL calls the function 
+<font face="courier"><code>int picojava_syscall_init ()</code></font>.
+
+<p>
+If <font face="courier"><code>int picojava_syscall_init ()</code></font> returns a nonzero value, 
+IAS or RTL assumes that initialization has succeeded and enables the system 
+call functionality; otherwise, it assumes that initialization failed and 
+disables the functionality.
+
+<p>
+The initialization function cannot assume any state, except that IAS or
+RTL has created memory (by calling <font face="courier"><code>cmInit</code></font>) and initialized it--that 
+is, IAS or RTL does not write over anything that is now written.</li>
+</ul>
+</ul>
+
+<p>
+To invoke system calls, the program that runs on IAS or RTL must write
+to the special address 0xffe8 with the <font face="courier"><code>ncstore_byte</code></font> instruction. Doing so triggers a call to the 
+function <font face="courier"><code>void picojava_syscall ()</code></font>. The IAS or RTL environment does not
+handle passing of parameters between the code that runs on the picoJava 
+core and the system call library; instead, IAS or RTL assumes that parameters 
+and such are set up in memory according to a predefined protocol.
+
+<p>Compile with this command:
+</p>
+<blockquote>
+cc -G -o libsyscall.so.1 libsyscall.c
+</blockquote>
+
+<p>If you are using gcc, use this command:
+</p>
+<blockquote>
+gcc -fpic -shared -o libsyscall.so.1 libsyscall.c
+</blockquote>
+
+<p>Set up the environment variable, as follows
+</p>
+<blockquote>
+setenv PJSIM_SYSCALL_LIB libsyscall.so.1
+</blockquote>
+ 
+<p>
+IAS or RTL looks for <font face="courier"><code>PJSIM_SYSCALL_LIB</code></font>; if it is set, it the loads 
+the functions from the specified library. 
+</p>
+
+<A HREF="./ias.html">IAS webpage</A>
+
+<P>
+
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</font>
+</body>
+</html>

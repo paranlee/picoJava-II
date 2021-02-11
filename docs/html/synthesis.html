@@ -1,0 +1,107 @@
+<html><head><title>Synthesis in picoJava(TM)-II design</title></head>
+<body bgcolor="white">
+<FONT FACE="arial, helvetica">
+<h1><center>Synthesis in picoJava(TM)-II design</center></h1>
+<HR SIZE=4 WIDTH="100%">
+
+
+
+<h2>Library Information</h2>
+
+<BLOCKQUOTE>
+<P>
+Synthesis for the picoJava-II core is done with the <code>Design Compiler</code> tool from 
+<a href="http://www.synopsys.com">Synopsys</A>.
+<P>
+
+The sample scripts use Synopsys library for synthesis.
+The library setup information is in:
+<code>$PICOJAVAHOME/$PROJECT/design/lib_setup</code>.
+<P>
+To synthesise with a different library, you need to:
+<OL>
+<LI>Add appropriate paths for the vendor specific libraries
+<LI>Set_dont_use statements to exclude slow cells
+<LI>Correct wireload models for the design 
+<LI>Find and modify path constraints between different blocks<BR>
+   based on the library information
+<LI>Include the false paths in different blocks which are provided in the
+   synthesis scripts. These paths need to be included for correct
+   timing information. 
+
+</OL>
+</p>
+
+<p>
+</p>
+</BLOCKQUOTE>
+<h2>Synthesis scripts</h2>
+<BLOCKQUOTE>
+<p>In the picoJava-II design, synthesis is done in bottom-up fashion.
+Every design unit has sample synthesis scripts under
+<code>$PICOJAVAHOME/$PROJECT/design/$unit_name/syn</code> directory.
+</p>
+
+<p>The synthesis scripts write results in the <code>db</code> directory.
+You need to:
+<UL>
+<LI>Create a <code>db</code> directory <I>or</I>
+<LI>Change the scripts to write the results in a different place
+</UL>
+</p>
+
+<p>The library setup information is in:
+<code>$PICOJAVAHOME/$PROJECT/design/lib_setup</code>. 
+You need to:
+<OL>
+<LI>Add appropriate paths for vendor specific libraries 
+<LI>Set_dont_use statements to exclude slow cells
+<LI>Correct wireload models for the design
+<LI>Find and modify path constraints between different blocks<BR>
+   based on the library information. 
+<LI>Include the false paths in different blocks which are provided in the<BR>
+   synthesis scripts. These paths need to be included for correct <BR>
+   timing information. 
+</OL>
+
+
+The synthesis scripts are structured to compile in the following manner:
+<blockquote>
+<table border="0">
+<tr>
+<td>cpu</td>
+<td>-------------------icu</td>
+</tr>
+<tr><td align="center"> |----</td>
+<td>-------------------dcu</td>
+</tr>
+<tr><td> |----</td> <td>-------------------smu</td> </tr>
+<tr><td> |----</td> <td>-------------------pcsu</td> </tr>
+<tr><td> |----</td> <td>-------------------fpu</td> </tr>
+<tr><td> |----</td> <td>-------------------iu</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------ex</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------ucode</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------rcu</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------ifu</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------pipe</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------trap</td> </tr>
+<tr><td> </td><td align="right">|---</td> <td>----------------hold_logic</td> </tr>
+<tr> <td>biu</td></tr>
+</table>
+</blockquote>
+
+<p>
+</blockquote>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</body></html>

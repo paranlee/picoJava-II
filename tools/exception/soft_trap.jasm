@@ -1,0 +1,199 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ //      Counter value store in the following way:
+//              0x0000f000 for trap field = 0x00 (reset)
+//              0x0000f004 for trap field = 0x01
+//              0x0000f008 for trap field = 0x02
+//              0x0000f00c for trap field = 0x03 (data_access_mem_error)
+//              0x0000f010 for trap field = 0x04 (instruction_access_err)
+//              ox0000f014 for trap field = 0x05 (priv)
+//              ox0000f018 for trap field = 0x06 (illegal)
+//              ox0000f01c for trap field = 0x07 (breakpoint1)
+//              ox0000f020 for trap field = 0x08 (breakpoint2)
+//              0x0000f024 for trap field = 0x09 (mem_address_not_aligned)
+//              0x0000f028 for trap field = 0x0A (data_access_io_error)
+//              .
+//              0x0000f030 for trap field = 0x0C (oplim)
+//              0x0000f034 for trap field = 0x0D (soft trap)
+//              .
+//              0x0000f058 for trap field = 0x16 (ArithmeticException)
+//              .
+//              0x0000f0d8 for trap field = 0x1B (Null Ptr)
+//              .
+//              0x0000f0a4 for trap field = 0x29 (Zero Line Emulation)
+//              .
+//              0x0000f1a4 for trap field = 0x69 (lmul)
+//              .
+//              0x0000f1b4 for trap field = 0x6D (ldiv)
+//              .
+//              0x0000f1c4 for trap field = 0x71 (lrem)
+//              .
+//              0x0000f328 for trap field = 0xCA (breakpoint)
+//              .
+//              0x0000f384 for trap field = 0xE1
+
+public class soft_trap
+{
+
+    public static Method main:"()v"
+    {
+Prologue:
+
+        sipush 0xFFF0;
+        sethi 0x0;
+        ncload_word;
+        sipush 0x00F0;
+        iand;
+        sipush 0x00F0;
+        if_icmpeq Counter;              // 0xF0 go to counter version, otherwise abort
+ 
+//******************************************************************************
+//              Trap Frame
+//
+//                      PSR'
+//      FRAME ->        PC'
+//                      VARS'
+//                      FRAME'
+//      OPTOP ->
+//******************************************************************************
+//
+//      After failing the simulation, restore information store in the
+//      following format.
+//
+//      0xEFFC          Simulation result
+//      .
+//      0xEFE8          PC cause the exception
+//      0xEFE4          VARS
+//      0xEFE0          FRAME
+//      0xEFDC          OPTOP
+//      0xEFD8          OPLIM
+//      0xEFD4          CONST_POOL
+//      0xEFD0          PSR
+
+        read_optop;             // Read OPTOP = old OPTOP'
+        sipush 0xEFDC;
+        sethi 0x0000;
+        ncstore_word;           // Store old OPTOP' to 0x0000EFDC
+ 
+        read_frame;
+        iconst_4;
+        iadd;
+        write_vars;             // VARS point to the old PSR'
+ 
+        iload_1;                // Load old return PC'
+        sipush 0xEFE8;
+        sethi 0x0000;
+        ncstore_word;           // Store old return PC' to 0x0000EFE8
+ 
+        iload_2;                // Load old VARS'
+        sipush 0xEFE4;
+        sethi 0x0000;
+        ncstore_word;           // Store old VARS' to 0x0000EFE4
+ 
+        iload_3;                // Load old FRAME'
+        sipush 0xEFE0;
+        sethi 0x0000;
+        ncstore_word;           // Store old FRAME' to 0x0000EFE0
+ 
+        iload_0;                // Load old PSR'
+        sipush 0xEFD0;
+        sethi 0x0000;
+        ncstore_word;           // Store old PSR' to 0x0000EFD0
+ 
+        priv_read_oplim;        // Read OPLIM = old OPLIM'
+        sipush 0xEFD8;
+        sethi 0x0000;
+        ncstore_word;           // Store old FRAME' to 0x0000EFD8
+ 
+        read_const_pool;        // Read CP = old CP'
+        sipush 0xEFD4;
+        sethi 0x0000;
+        ncstore_word;           // Store old CP' to 0x0000EFD4
+ 
+Loop:   bipush 0x2;             // Fail the test cases
+        sipush 0xFFFC;
+        sethi 0x0000;
+        ncstore_word;           // Store the simulation result to 0x0000FFFC
+        goto Loop;
+
+Counter:
+/*
+	read_optop;	// Read OPTOP
+	bipush 0x10;
+	iadd;
+	write_vars;	// Write VARS = OPTOP + 16
+
+	priv_read_trapbase;	// Read Trapbase register
+	sipush 0x7F8;		// Mask out trap field bit [10:3]
+	iand;
+	iconst_3;
+	ishr;			// Shift right 3 bits
+	bipush 0x4;
+	imul;			// Index of the trap count address = trap field * 4
+	sipush 0x7800;
+	iconst_1;
+	ishl;			// 0x0000F000 as the base address for counter
+	iadd;			// Generate the trap count address by adding the index 
+	dup;			// Duplicate one more for store back 
+	load_word;		// Load the trap count value
+	dup;
+
+	sipush 0xbeef;
+	sethi 0xdead;		// 0xdeadbeef
+	if_icmpne add;		// Updated already
+	pop;
+	iconst_0;
+add:	iconst_1;
+	iadd;			// Add 1 to the trap count value
+	swap;
+ 	store_word;		// store back the trap count result	
+*/
+        read_optop;     // Read OPTOP
+        bipush 0x10;
+        iadd;
+        write_vars;     // Write VARS = OPTOP + 16
+ 
+        sipush 0xf034;          // Counter for this trap
+        sethi 0x0;
+        dup;
+        load_word;
+        dup;
+        sipush 0xbeef;
+        sethi 0xdead;           // 0xdeadbeef
+        if_icmpne add;          // Updated already
+        pop;
+        iconst_0;
+add:    iconst_1;               // Add 1 to the trap count
+        iadd;
+        swap;
+        store_word;             // store back the trap count result
+
+// You may want to change 2 for other exception 
+
+	iinc 1, 2;
+	priv_ret_from_trap;	// return from trap
+
+  } 
+}

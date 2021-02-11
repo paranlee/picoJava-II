@@ -1,0 +1,41 @@
+CLASS_DIR = ./class
+
+JAVA_DIR = ..
+
+JASM_SRC = 	break.jasm                          fdiv.jasm	\
+		d2f.jasm                            fmul.jasm	\
+		d2i.jasm                            frem.jasm	\
+		d2l.jasm                            fsub.jasm	\
+		dadd.jasm                           i2d.jasm	\
+		data_access_io_error.jasm           i2f.jasm	\
+		data_access_mem_error.jasm          illegal_instruction.jasm \
+		dcmpg.jasm                          instruction_access_mem_error.jasm \
+		dcmpl.jasm                          l2d.jasm \
+		ddiv.jasm                           l2f.jasm \
+		dmul.jasm                           soft_trap.jasm \
+		fcmpl.jasm \
+		dsub.jasm                           zeroline.jasm \
+		fcmpg.jasm			    mem_address_not_aligned.jasm \
+		f2d.jasm                            nmi.jasm \
+		f2i.jasm                            privileged_instruction.jasm \
+		f2l.jasm                            runtime_arithmetic.jasm \
+		fadd.jasm                           runtime_nullptr.jasm \
+		asynchronous_error.jasm 	    gc_notify.jasm \
+		breakpoint1.jasm		    breakpoint2.jasm \
+		oplim.jasm			    lockcountoverflow.jasm \
+		lockrelease.jasm		    lockentermiss.jasm \
+		lockexitmiss.jasm		    runtime_indexoutofbnds.jasm \
+		unimplemented_instr_0xdc.jasm  	    unimplemented_instr_0xf7.jasm \
+		unimplemented_instr_0xf8.jasm       unimplemented_instr_0xf9.jasm \
+		unimplemented_instr_0xfa.jasm	    unimplemented_instr_0xfb.jasm \
+		unimplemented_instr_0xfc.jasm	    unimplemented_instr_0xfd.jasm \
+		unimplemented_instr_0xfe.jasm	    unimplemented_instr_0xdb.jasm \
+		unimplemented_instr_0xba.jasm \
+		irl_1.jasm			    irl_2.jasm	\
+		irl_3.jasm			    irl_4.jasm	\
+		irl_5.jasm			    irl_6.jasm	\
+		irl_7.jasm			    irl_8.jasm	\
+		irl_9.jasm			    irl_a.jasm	\
+		irl_b.jasm			    irl_c.jasm	\
+		irl_d.jasm			    irl_e.jasm	\
+		irl_f.jasm			    mem_protection_error.jasm	

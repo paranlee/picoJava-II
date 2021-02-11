@@ -1,0 +1,743 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+#include	"struct.h"
+//
+// Trap "putfield" -
+//
+//	Resolve the indexed field reference into the current constant pool
+//	and replaces the 'putfield' instruction with a corresponding
+//	'quick' version of the instruction, followed by an offset which
+//	uniquely identifies the field in the referenced object storage.
+//	The 'quick' version of this instruction will be determined by the 
+//	type of the return value, either 1 or 2 words long.
+//	Note that the offset is a number of words, limiting the total number
+//	of instance variables associated with an object to 256 words.
+//
+//	The operand stack contains the following when this trap is entered:
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	
+//		+-----------------------+
+//		|        value	 	|
+//		+-----------------------+
+//		|       (value2) 	|	
+//		+-----------------------+
+//		|          PSR		|	0
+//		+-----------------------+
+//		|	    PC		|	1
+//		+-----------------------+
+//		|          VARS		|	2
+//		+-----------------------+
+//		|	  FRAME 	|	3
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the operand stack has the following during the trap execution.
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |
+//		+-----------------------+
+//		|        value	 	|
+//		+-----------------------+
+//		|       (value2) 	|	
+//		+-----------------------+
+//	VARS ->	|          PSR		|	0
+//		+-----------------------+
+//		|	    PC		|	1
+//		+-----------------------+
+//		|          VARS		|	2
+//		+-----------------------+
+//		|	  FRAME 	|	3
+//		+=======================+
+//		|      	trap_tmp0	|  <-- local var 4
+//		+-----------------------+
+//		|       trap_tmp1	|  <-- local var 5
+//		+-----------------------+
+//		|    field_block_ptr	|  <-- local var 6
+//		+-----------------------+
+//		|INDEX(index1<<8+index2)|  <-- local var 7
+//		+-----------------------+   
+//		|	  .....		|   
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will utilize this info
+//	to restore the trapped method frame and to prepare starting the 'quick'
+//	instruction.
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |
+//		+-----------------------+   
+//		|        value	 	|
+//		+-----------------------+
+//		|       (value2) 	|	
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+   
+//	FRAME->	|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME 	|
+//		+-----------------------+
+//		|	  ....		|   
+//
+//	Note that the actual instance variable access is carried out by a
+//	'putfield_quick' instruction which is to be executed after this trap.
+//	To support the microcoded 'quick' operation, the stack frame will be
+//	restored to the shape of when the original 'putfield' is executed
+//	for the first time.  After returning, the OPTOP will be restored to
+//	where the VARS pointed prior to the return, and the VARS and FRAME
+//	are restored from the saved values in trap frame.  This frame-restoring
+//	will be taken care by the 'trap_return' microcode instruction.
+
+public class putfield
+{
+
+    public static Method putfield:"()I"
+    {
+Prologue:
+// Set the register VARS to access the PC, to extract index1 and index2.
+//------0123456789------
+	 read_optop;	// push OPTOP
+	  bipush 16;		// PSR is at 5 words below from OPTOP
+	 iadd;			// pointer to the saved PSR
+	write_vars;	// set the VAR, PSR is now local_var 0
+
+// Reserve 3 stack words(local variables) for executing this trap routine
+//------0123456789------
+	 iconst_0;		// trap_tmp 0: local var 4 initialized to 0
+	  iconst_0;		// trap_tmp 1: local var 5 initialized to 0
+	   iconst_0;		// trap_tmp 2: local var 6 initialized to 0
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789------
+	 iload_1;		// load(push) PC
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index1'
+	 load_ubyte;		// push 'index1'
+	  bipush 8;
+	 ishl;			// index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+	  iload_1;		// load(push) PC
+	   iconst_2;		// push 2
+	  iadd;			// pointer to index2
+	  load_ubyte;		// push 'index2'
+	 iadd;			// index1<<8 + index2
+				// Now, *local var 7* is the CP index
+
+// Check whether the item has already been resolved by another putstatic or
+// putstatic targeted to this exact field.  If so, instantly access the address
+// of the field block(in the field_info_table) in the constant pool entry,
+// CONSTANT_field_ref, with the type info stored in the type array associated
+// with the CP[0] entry.
+//------0123456789------
+	 read_const_pool;	// load the CP
+	 load_word;		// CP[0]: ptr to the array of "resolution&type"
+	  iload 7;		// load the index
+	 iadd;			// type_byte ptr of indexed field(CP[0][index])
+	 load_ubyte;		// load the type byte for the referenced field
+	  bipush 7;
+	 ishr;			// To check the resolution bit(1 == resolved)
+	ifeq Field_Not_Resolved;// branch if equal to 0(if == 0, not resolved)
+
+// The field_ref in the CP[] has already been resolved.  Extract the pointer
+// to the field_info_table entry from the CP[index] and goto access verification
+//------0123456789------
+	 read_const_pool;	// load the CP
+	  iload 7;		// load the CP index
+	   iconst_2;
+	  ishl;			// to make a word offset
+	 iadd;			// ptr to the CP[index]
+	 load_word;		// the pointer to the field_info_tab entry
+	istore 4;
+	goto Field_Resolved;
+
+Field_Not_Resolved:
+// access the CP item at the index to check the class first
+// Top of operand stack has the type&resolution byte
+//------0123456789------
+	 read_const_pool;	// load the CP
+	  iload 7;		// load the CP index
+	   iconst_2;
+	  ishl;			// to make a word offset
+	 iadd;			// ptr to the CP[index]
+	 load_word;		// word has 2 indices: class and name_type index
+	  dup;			// to access the ref's name_type field later
+				// ..., CPf, CPf
+	   bipush 16;
+	  ishr;			// to get the class index of the filed
+         istore 6;              // local 6 is the class index(stack has CPf)
+
+// see if the class has been loaded and resolved
+//------0123456789------
+	  iload 6;
+	   read_const_pool;	// load the CP
+	   load_word;		// load the ptr to the "resolution&type array"
+	  iadd;		// type_byte ptr of indexed field(CP[0][index])
+	  load_ubyte;		// load the type byte for the associated class
+				// ..., CPf, c-index, ubyte
+	   bipush 7;
+	  ishr;		// To check the resolution bit(1 == resolved)
+	 ifne Class_Resolved;	// branch if not equal to 0(if == 1, resolved)
+
+// The class hasn't been resolved(and possibly not loaded yet).  Issue a request
+// to the Decaf kernel for resolving(possibly loading too) the class.
+Class_Unresolved:
+//------0123456789------
+          iload 6;
+           iconst_2;
+          ishl;                 // to make word_index
+           read_const_pool;
+          iadd;                 // CP[class_index<<2]
+          load_word;            // CP index to the class name string
+//------0123456789-----
+           iconst_2;
+          ishl;
+           read_const_pool;
+          iadd;
+          load_word;             // ptr to the class name string
+           bipush 31;            // service request 10 == resolve class
+           jsr PicoKernel;
+           swap;                // CPf, classPtr, classNamePtr
+          pop;
+           dup;
+          ifeq ClassCannotBeResolved;   // CPf, classPtr
+
+// class is resolved.  Update the CP[INDEX] and CP[0][INDEX] for the result.
+//------0123456789-----
+           read_const_pool;
+            iload 6;
+             iconst_2;
+            ishl;
+           iadd;
+         store_word;            // store the resolved class ptr into CP[INDEX]
+//------0123456789-----
+          read_const_pool;
+          load_word;
+           iload 6;             // CP index for the class reference
+          iadd;                 // CP[0][INDEX]
+           dup;
+           load_ubyte;
+            sipush 0x80;
+           ior;
+         swap;                  // type_byte, &(CP[0][INDEX])
+         store_byte;
+
+// Now load the pointer to the class structure built for the field's class.
+// The TOS must have the class index( ..., CPf, c-index).
+Class_Resolved:
+//------0123456789------
+	  iload 6;
+	   iconst_2;
+	  ishl;			// Now, obtained the CP index of the class
+	   read_const_pool;	// load the CP
+	  iadd;
+	  load_word;		// load the class structure pointer
+				// ..., CPf, class_pointer
+
+// See if the referenced class is identical to the current class.  Compare
+// the 2 Constant Pool pointers to determine.
+//------0123456789------
+	   dup;			// ..., CPf, class_pointer, class_pointer
+	   load_word;		// first word is the pointer to the CP
+	    read_const_pool;	// ..., CPf, class_ptr, class' CP, CP
+	  if_icmpeq Current_Class_Field;	// ..., CPf, class_ptr
+
+// The field's class is not the current class.  Search the class for the field.
+Other_Class_Field:
+//*****************************************************************************
+// It turns out that we don't have to distinguish the case of (current_class !=
+// field_class) since the class_ptr always points to the class_structure where
+// the referenced field is being declared.  The class_structure, however, may
+// or may not be identical to the current class's class_structure.
+//*****************************************************************************
+
+// The referenced field's class is the current class.  Search the class_struct
+// for the field.
+// Load the pointer to the referenced field's name before starting comparison.
+Current_Class_Field:
+//------0123456789------
+	   iload 8;		// local var 8: CPf(CP item content for the ref)
+				// ..., CPf, class_ptr, CPf
+	    bipush 16;
+	   ishl;
+	    bipush 14;		// to reset upper 16 bits & make word-index
+	   ishr;		// ..., CPf, class_ptr, name_type_index
+	    read_const_pool;	// ..., CPf, class_ptr, name_type_index, CP
+	   iadd;		// ..., CPf, class_ptr, nt_idx + CP
+	   load_word;		// ..., CPf, class_ptr, CP[nt_idx]
+				// 2 index, name index and type index
+	    bipush 16;
+	   ishr;
+	    iconst_2;		// to make a word-index
+	   ishl;		// ..., CPf, class_ptr, name_index	
+	    read_const_pool;	// ..., CPf, class_ptr, name_index, CP
+	   iadd;
+	   load_word;		// ..., CPf, class_ptr, CP[name_idx] == name_ptr
+// Pointer to the referenced field name string(in decaf format) is loaded.
+// Load the 'key' of the referenced field name, to compare to the field table.
+//------0123456789------
+	    dup;
+	    load_word;	// ..., CPf, class_ptr, name_ptr, name_key
+
+// Now, load the field_info_table before start searching
+	     iload 9;	// class_ptr is from local var 9
+	      bipush C_FIELDCNT;// offset for 'number_of_fields'
+	     iadd;
+	     load_word;	// load the number of fields in the class ->
+			// ...,CPf, class_ptr, name_ptr, key, num_of_fields
+			// CPf: local_var 6, ..., num_of_fields: local_var 10
+//------0123456789------
+	      iload 9;	// load the class pointer again
+	       bipush 8;// offset for '*fields'
+	      iadd;
+	      load_word;// offset for the pointer to the 'field_info_table'
+			// ...,CPf,class_ptr,name_ptr,key,num_fields,f_tab_ptr
+// JCD change
+// array ref to the array of field blocks
+//------0123456789------
+               sipush 0xFFFC;
+              iand;
+               bipush 8;        // actual array contents starts from 3rd word
+              iadd;
+// JCD change end
+             istore 4;
+
+Key_Match_Loop:
+//------0123456789------
+	      iload 12;
+	     ifeq Error_No_Such_Field;
+	      iload 4;
+// JCD change
+	      load_word;
+	       bipush F_NAMEPTR_4;
+// JCD change end
+	      iadd;	// ..., CPf, ..., num_fields, f_tab_ptr+offset
+	      load_word;// load the name pointer for this info tab entry
+	      load_word;// load the 'key' of this entry's field name
+	       iload 11;// the key for referenced field name is local var 11
+	     if_icmpeq Key_Match_OK;
+Key_Match_Fail:
+//------0123456789------
+// JCD change
+  	     iinc 4, 4;
+//  	     iinc 4, F_BLOCKSIZE;
+// JCD change ends
+	     iinc 12, -1;
+	     goto Key_Match_Loop;
+
+// An entry with a matching 'key' is found.  Now verify by matching the strings.
+// The stack is: ..., CPf, class_ptr, name_ptr, key, num_fields
+Key_Match_OK:
+//------0123456789------
+	      iload 4;
+// JCD change
+	      load_word;
+	       bipush F_NAMEPTR_4;
+// JCD change end
+	      iadd;
+	      load_word;// the ptr to the field entry's Decaf name string
+	       iconst_4;
+	      iadd;	// ptr to the field's name string itself
+// ..., CPf, class_ptr, name_ptr, key, num_fields, f_str_ptr
+//------0123456789------
+	       iload 10;
+		iconst_4;
+	       iadd;	// ptr to the referenced name string itself
+// ..., CPf, class_ptr, name_ptr, key, num_fields, f_str_ptr, r_str_ptr
+		iload 11;// the key for the referenced field name
+		 bipush 16;
+		ishr;	// the size of the name string
+	       istore 5;// store the string size into trap_tmp1
+
+String_Match_Loop:
+//------0123456789------
+		iload 13;
+		load_ubyte;// a char from the field name string
+		 iload 14;
+		 load_ubyte;	// a char from the referenced name string
+	       if_icmpne String_Match_Fail;
+
+// matching 2 chars from both strs is OK. Check the size before going for next. 
+//------0123456789------
+	       iinc 5, -1;	// decrement the size of name string
+		iload 5;
+	       ifeq String_Match_OK;
+	       iinc 13, 1;
+	       iinc 14, 1;
+	       goto String_Match_Loop;
+
+String_Match_Fail:
+// The 2 name string do not match, even the keys are matching - key collision!!
+// Clean up the stack and go back to the Key_Match_Fail to resume key matching.
+// ..., CPf, class_ptr, name_ptr, key, num_fields, f_str_ptr, r_str_ptr
+//------0123456789------
+	     pop2;
+	     goto Key_Match_Fail;
+String_Match_OK:
+Both_Match_Succeed:
+//...,CPf,class_ptr,name_ptr,key,num_fields, f_str_ptr,r_str_ptr
+//------0123456789------
+	     pop2;
+
+// Now compare the signature string to verify the field types
+// Load the signature string pointer first from the constant pool
+//------0123456789------
+              iload 8;  // local var 8: CPf(CP item content for the ref)
+               bipush 16;
+              ishl;
+               bipush 14;
+              ishr;                // removed the class index
+               read_const_pool;
+              iadd;
+//------0123456789------
+              load_word;           // 2 index, name index and type index
+               bipush 16;
+              ishl;
+               bipush 14;
+              ishr;
+               read_const_pool;
+              iadd;
+              load_word;           // signature ptr
+// Load the searched field's signature
+//------0123456789------
+               iload 4;            // field block
+// JCD change
+	       load_word;
+                bipush F_SIGNATURE_4;
+// JCD change end
+               iadd;
+	       load_word;		// field block's signature ptr
+              jsr DecafStrCmp;
+             ifeq Key_Match_Fail;
+ 
+// The searched method's signature matches the referenced field's signature.
+// Store the field_table_pointer into CP[index] for future, quick reference.
+SigMatch:
+//------0123456789------
+// JCD change
+              iload 4;          // ptr to the field_block array's item
+              load_word;        // field object reference
+               iconst_4;
+              iadd;             // to bypass the MVB word of class Field
+             istore 4;
+// JCD change ends
+//------0123456789------
+	      read_const_pool;// load CP
+	       iload 7;	// load the CP index
+		iconst_2;
+	       ishl;
+	      iadd;
+	       iload 4;
+	       swap;
+	     store_word;	// CP[index] <- the_field's table pointer
+
+// Update the CP[0] resolution status array to indicate it's been resolved.
+//------0123456789------
+	      read_const_pool;// load CP
+	      load_word;	// CP[0]: ptr to the array of "resolution&type"
+	       iload 7;	// load the CP index
+	      iadd;		// type_byte ptr of indexed field(CP[0][index])
+	       dup;
+	       load_ubyte;	// load the type byte for the referenced field
+		sipush 0x80;
+	       ior;		// Set the resolution bit(1 == resolved)
+	       swap;		// ..., address, value -> ..., value, address
+	     store_byte;	// CP[0][index] <- CP[0][index] | 0x80;
+	   pop2;
+	 pop2;
+
+//------0123456789------
+// The referenced field is now resolved.  Access the field_info_tab entry to
+// verify the access permission.  Also access the type-resolution byte to
+// find out the field's size and to determine the quick instruction type.
+// Note that the stack should have
+// ..., CPf, field_block_ptr
+//
+Field_Resolved:
+// Now, check the ACCESS_FLAG to verify this access is legal.
+//------0123456789------
+	  iload 4;		// load back the field_tab_ptr
+	   bipush F_ACCESSFLAG;// location of ACCESS_FLAG in the entry
+	  iadd;
+	  load_word;// 16-bit ACCESS_FLAG is at the lower halfword
+	   dup;
+	    bipush 0x08;	// flag STATIC
+	   iand;
+	  ifne ErrorStaticField;
+
+// Check for PRIVATE flag
+InstanceVarField:
+//------0123456789------
+	   bipush 0x02;	// flag PRIVATE
+	  iand;
+	 ifeq CheckFieldOffset;
+// A PRIVATE field.  Compare the field's class against the current class.
+// Access is legal if they match, illegal otherwise.
+// (actual matching is undertaken with CONST_POOL pointers)
+PrivateField:
+//------0123456789------
+	  iload 4;		// load the field_tab_ptr;
+	   bipush F_CLASSPTR;
+	  iadd;
+	  load_word;		// class ptr for the field
+// JCD, new fix
+	   iconst_4;
+	  iadd;
+	  load_word;		// constant pool pointer for the class
+	   bipush 8;
+	  iadd;
+// JCD, new fix end
+	   read_const_pool;	// load the current class's constant pool ptr
+	 if_icmpne ErrorPrivateField;
+
+// Check for PROTECTED field 
+//------0123456789------
+//      ... 
+ 
+// All done.  Access the field's offset from the field block and check if
+// it is greater than 255.  Update the 1st index operand with the offset
+// if it is not greater than 255.
+CheckFieldOffset:
+//------0123456789------
+	  iload 4;	// field block ptr
+	  load_word;	// offset stored in the 'object' field
+	   dup;
+	    bipush 8;
+	   ishr;
+	  ifne PutFieldQuickW;
+	 istore 5;		// save the method index
+
+FieldClass_Equal_CurrentClass:
+Flag_Non_Private_Field:
+// Check the field's sigature str to determine the field's type, which will
+// determine the type of the 'quick' instruction.
+//------0123456789------
+	  iload 4;
+	   bipush F_SIGNATURE;	// 3rd field is the signature str
+	  iadd;
+	  load_word;	// ptr to the sig. str
+	  load_word;	// key of the sig. str
+	   dup;		// to compare twice
+	    sipush 0x0001;
+	     bipush 16;
+	    ishl;
+	     sipush 0x0044;
+	    ior;	// to produce, "00010044" == "D", type DOUBLE
+	  if_icmpeq Type_2_Word;
+//------0123456789------
+	   sipush 0x0001;
+	    bipush 16;
+	   ishl;
+	    sipush 0x004A;
+	   ior;		// to produce, "0001004A" == "J", type LONG
+	 if_icmpne Type_1_Word;
+
+// Check the object ref for a Null.
+// The field type is either 'long' or 'double'.  Use 'putfield_quick_2'.
+Type_2_Word:
+//------0123456789------
+         read_vars;
+          dup;
+           bipush 12;	// the objref is at 3 words below
+          iadd;
+         write_vars;    // Now, the object ref is local 0
+          iload_0;
+         ifnonnull Type2ObjRef;
+	  iconst_0;
+	 istore 7;	// reset the word right above current frame
+         goto ErrorNullPtrReference;
+// Object ref is good. Push the quick instruction.
+Type2ObjRef:
+//------0123456789------
+        write_vars;     // restore old vars
+	 sipush 0xD1;	// 0xD1(209) == putfield2_quick
+	  iload_1;
+	store_byte;
+//------0123456789------
+	 iload 5;
+	  iload_1;	// PC
+	   iconst_1;
+	  iadd;
+	store_byte;	// replace the 1st index operand with the offset
+	goto FlushCache;
+
+// The fileld is 1 word-long.  Use 'putfield_quick'.
+Type_1_Word:
+//------0123456789------
+         read_vars;
+          dup;
+           bipush 8;	// the objref is at 2 words below
+          iadd;
+         write_vars;    // Now, the object ref is local 0
+          iload_0;
+         ifnonnull Type1ObjRef;
+	  iconst_0;
+	 istore 6;	// reset the word right above current frame
+         goto ErrorNullPtrReference;
+// Object ref is good. Push the quick instruction.
+Type1ObjRef:
+//------0123456789------
+        write_vars;     // restore old vars
+	 sipush 0xCF;	// 0xCF(207) == putfield_quick
+	  iload_1;
+	store_byte;
+//------0123456789------
+	 iload 5;
+	  iload_1;	// PC
+	   iconst_1;
+	  iadd;
+	store_byte;	// replace the 1st index operand with the offset
+	goto FlushCache;
+
+PutFieldQuickW:
+//------0123456789------
+	 pop;
+	  sipush 0xE4;	// 0xE4(228) == putfield_quick_w
+	   iload_1;
+	 store_byte;
+
+// The i$ line now must be invalidated, and the D$ needs to be flushed out
+FlushCache:
+
+          iload_1;      // load the PC: local_var 1
+          load_byte;    // load back the quick opcode which make sure store_byte
+                        // update in the memory before I$ fetch it
+         pop;           // Pop the value
+// End of the modification
+
+//------0123456789-----
+	 bipush 8;		// I$ line size, to increment the address
+	  iload_1;		// PC
+	  cache_flush;		// flush out both I$ and D$
+	  cache_flush;		// flush out 2nd line in I$,possibly 2nd D$ line
+	pop2;
+
+Replace_Instruction_Done:
+// All done except going back to the trapping method to resume the execution.
+// The 'return_from_trap' will take care restoring the frame, and this trap
+// only has to set the FRAME to point to the PC where the control is returned.
+// The OPTOP will be set equal to the current VARS which points to where
+// the PSR is saved(upon the trap enterance). The actual field access operation
+// will be carried out by the replaced 'putstatic_quick' instruction.
+//
+Epilogue:
+//------0123456789------
+	 read_vars;// load the VARS
+	  bipush 4;	// 1 word between PSR and new FRAME reg should point
+	 isub;
+	write_frame;// update reg FRAME to point to where the returnPC is.
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The referenced class can not be resolved
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ClassCannotBeResolved:
+//------0123456789------
+           sipush 0x71;         // "Class can not be resolved"
+           sethi 0x0002;
+            sipush 0xFFFC;      // msg box location
+            sethi 0x0;
+          ncstore_word;
+          goto ClassCannotBeResolved;
+// should HALT here
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Incompatible Class ERROR: the field is a static field, not an instance field.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorStaticField:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/IncompatibleClassChangeError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+//
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Such Field ERROR: the field is not existing in the specified class struct
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Error_No_Such_Field:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoSuchFieldError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Illegal Access ERROR: the field is PRIVATE and field's class != current class
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorPrivateField:
+//------0123456789------
+	  sipush 0x90;		// "Illegal Access Error"
+	   sethi 0x0002;
+	   sipush 0xFFFC;	// msg box location
+	    sethi 0x0;
+	 ncstore_word;
+	 goto ErrorPrivateField;
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The object reference is null
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorNullPtrReference:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NullPointerException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+         athrow;         // should never return
+
+#include "picokernel.s"
+    }
+}

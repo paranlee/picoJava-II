@@ -1,0 +1,484 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+#define		TYPE		5
+#define		ARRAY_REF	5
+#define		TYPE_SIZE	6
+#define		WORD_COUNT	6
+#define	   	ARRAY_PTR	6
+#define		TMP_1		7
+#define 	TYPE_MASK	8
+
+//
+// Trap "newarray" -
+//
+//	Allocate the size amount of 'type' elements, initialize array 
+//	descriptor fields(number of type-components, and the method_vector_base
+//	address of the class, 'Object' and return the pointer to method_vector
+//	base address as an array reference.
+//
+//	Arrays are allocated as 'packed' but on 32-bit word-boundary.
+//	This means a 4-elements byte array will occupy 1 word storage, but
+//	between 5 to 8-elements arrays are all taking 2 words.
+//
+//	Note that the bit 1 of array reference will be set to 1 to indicate
+//	that it is an array reference.(bit 0 represents handle or non-handle)
+
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|         count		|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//		|			|
+//		+-----------------------+
+//	 VARS->	|         count		|  <-- local var 0
+//		+-----------------------+
+//	 	|	   PSR		|
+//		+-----------------------+   
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|      Element Type	|  <-- local var 5(TYPE)
+//		+-----------------------+
+//		|      Type Size	|  <-- local var 6(TYPE_SIZE)
+//		+-----------------------+
+//		|     Array Pointer	|  <-- local var 7(ARRAY_PTR)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will complete building
+//
+//	 	|			|
+//		+-----------------------+
+//	 	|    Array Reference	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |         PC+2		|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of PSR).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+#include "struct.h"
+
+
+public class newarray
+{
+
+    public static Method newarray:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the array element count to be allocated
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 20;		// count is at 5 words below
+	 iadd;			// pointer to 'count' arg
+	write_vars;	// set the VAR, 'count' is now local_var 0
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 5(TYPE): the component type, from the operand byte
+			// 5(ARRAY_REF): reference address of allocated array
+	  iconst_0;	// 6(TYPE_SIZE): size of type in bytes
+			// 6(WORD_COUNT): array size in words
+	   iconst_0;	// 7(ARRAY_PTR): ptr to the allocated array
+			// 7(TMP_1): tmp
+	    iconst_0;	// 8(TYPE_MASK): type size mask
+
+// Extract and store the type operand
+//------0123456789-----
+	 iload_2;		// load(push) PC(local_var 2)
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'type'
+	 load_ubyte;		// push 'type'
+	istore TYPE;		// local var 5
+
+// Get the array type specified in the operand byte and check for invalid type
+// BOOLEAN(4), BYTE(8): 1 byte,			0100, 1000
+// CHAR(5), SHORT(9): 2 bytes,			0101, 1001
+// FLOAT(6),  INT(10): 4 bytes(1 word)		0110, 1010
+// DOUBLE(7), LONG(11): 8 bytes(2 words)	0111, 1011
+//------0123456789-----
+	 iload TYPE;
+	  iconst_4;
+	if_icmplt ErrorInvalidArrayType;
+	 iload TYPE;
+	  bipush 11;
+	if_icmpgt ErrorInvalidArrayType;
+
+// Mask off the type byte to calculate the byte size of each type
+// masked_type 0 : 1 byte -> 1 SHIFT 0 == 1
+// masked_type 1 : 2 byte -> 1 SHIFT 1 == 2
+// masked_type 2 : 4 byte -> 1 SHIFT 2 == 4
+// masked_type 3 : 8 byte -> 1 SHIFT 3 == 8
+//------0123456789-----
+	 iload TYPE;
+	  iconst_3;
+	 iand;		// mask all but the 2LSBs
+	istore TYPE_MASK;
+	 iconst_1;
+	  iload TYPE_MASK;	// ..., 1, masked_type
+	 ishl;		// this is the size_byte for each type
+	istore TYPE_SIZE;
+// Calculate the actual number of words to be allocated
+//------0123456789-----
+	 iload_0;	// count of array elements to be allocated
+	  dup;
+	 iflt ErrorNegativeArraySize;
+	  iload TYPE_SIZE;
+	 imul;
+	  dup;
+	   iconst_4;
+	  idiv;		// byte_count, word count(not normalized)
+//------0123456789-----
+	  swap;		// word_count, byte_count
+	   iconst_4;
+	  irem;		// to see if there is any remainder
+	 ifeq WordCountDone;
+	  iconst_1;
+	 iadd;		// add 1 more word if there is a remainder
+
+WordCountDone:
+//------0123456789-----
+	  iconst_3;	// Need 3 extra words: size_word, <null>, type_word
+	 iadd;
+	  bipush 22;	//service request 22:double-word aligned mem allocation
+	  jsr PicoKernel;// will replace the service num with new 'arrayref'
+	   dup;		// ..., word_count, arrayref, arrayref
+	  ifeq ErrorNoMemory;
+
+ArrayAllocated:		// .., word_count, arrayref
+//------0123456789-----
+	 istore ARRAY_REF;
+	pop;
+	 iload ARRAY_REF;
+	  sipush 0xFFFE;
+	 iand;
+	  dup;
+	 istore ARRAY_PTR;
+	  iconst_4;
+	 isub;
+	  iconst_0;
+	  swap;
+	store_word;	// clear the monitor word
+
+// Search for class, "java/lang/Object", to init the array's method vector ptr
+//------0123456789-----
+         sipush 0x0010;         // lenth of 'java/lang/Object'
+          bipush 16;
+         ishl;
+          sipush 0x76bc;        // hash of 'java/lang/Object'
+         ior;
+	  sipush LOW_BUF_ADDR;
+	  sethi HIGH_BUF_ADDR;
+           dup;
+          istore TMP_1;
+        store_word;             // MEM[BUF_ADDR] = key of 'java/lang/Object'
+//------0123456789-----
+         sipush 0x6a61;
+          bipush 16;
+         ishl;
+          sipush 0x7661;
+         ior;                   // "java"
+          iload TMP_1;
+           iconst_4;
+          iadd;                 // BUF_ADDR + 4
+        store_word;             // MEM[BUF_ADDR+4] = "java"
+//------0123456789-----
+         sipush 0x2f6c;
+          bipush 16;
+         ishl;
+          sipush 0x616e;
+         ior;                   // "/lan"
+          iload TMP_1;
+           bipush 8;
+          iadd;                 // BUF_ADDR + 8
+        store_word;             // MEM[BUF_ADDR+8] = "/lan"
+//------0123456789-----  
+         sipush 0x672f;
+          bipush 16;
+         ishl; 
+          sipush 0x4f62;
+         ior;                   // "g/Ob"
+          iload TMP_1;
+           bipush 12;
+          iadd;                 // BUF_ADDR + 12 
+        store_word;             // MEM[BUF_ADDR+12] = "g/Ob"
+//------0123456789-----  
+         sipush 0x6a65;
+          bipush 16;
+         ishl; 
+          sipush 0x6374;
+         ior;                   // "ject"
+          iload TMP_1;
+           bipush 16;
+          iadd;                 // BUF_ADDR + 16 
+        store_word;             // MEM[BUF_ADDR+12] = "ject"
+
+//------0123456789-----
+         iload TMP_1;		// ptr to the string, 'java/lang/Object'
+          bipush 31;		// service request 31: resolve class
+          jsr PicoKernel;	// it returns ptr to class 'java/lang/Object' 
+	   dup;
+	  ifeq ErrorNoSuchClass;
+	   bipush C_OBJHINTBLK;	// ObjHintBlk is 7th word in class structure
+	  iadd;
+	  load_word;		// base address of the ObjHintBlk
+//------0123456789-----
+	   bipush O_METD_VEC_BASE;// Method Vector Table starts from 6th word
+	  iadd;			// base of the decafObject's Method Vector Tab
+	   iload TYPE_MASK;
+	  ior;
+	   iload ARRAY_PTR;
+	 store_word;		// put class Object's Method Tab Base
+	pop;
+
+// Add the element type byte into the size word
+//------0123456789-----
+	 iload_2;		// load(push) PC(local_var 2)
+	  iconst_1;		// push 1
+	 iadd;		// pointer to 'type'
+	 load_ubyte;
+	  dup;
+	   iconst_4;		// boolean
+	 if_icmpeq BooleanArray;
+	  dup;
+	   iconst_5;		// character
+	 if_icmpeq CharArray;
+	  dup;
+	   bipush 6;		// float
+	 if_icmpeq FloatArray;
+	  dup;
+	   bipush 7;		// double
+	 if_icmpeq DoubleArray;
+	  dup;
+	   bipush 8;		// byte
+	 if_icmpeq ByteArray;
+	  dup;
+	   bipush 9;		// short
+	 if_icmpeq ShortArray;
+	  dup;
+	   bipush 10;		// int
+	 if_icmpeq IntArray;
+	  bipush 11;		// long
+	if_icmpeq LongArray;
+
+BooleanArray:
+//------0123456789-----
+	pop;
+	 bipush 0x5A;		// 'Z'
+	 goto PutSizeWord;
+CharArray:
+	pop;
+	 bipush 0x43;		// 'C'
+	 goto PutSizeWord;
+FloatArray:
+	pop;
+	 bipush 0x46;		// 'F'
+	 goto PutSizeWord;
+DoubleArray:
+	pop;
+	 bipush 0x44;		// 'D'
+	 goto PutSizeWord;
+ByteArray:
+	pop;
+	 bipush 0x42;		// 'B'
+	 goto PutSizeWord;
+ShortArray:
+	pop;
+	 bipush 0x53;		// 'S'
+	 goto PutSizeWord;
+IntArray:
+	pop;
+	 bipush 0x49;		// 'I'
+	 goto PutSizeWord;
+LongArray:
+	 bipush 0x4A;		// 'J'
+
+PutSizeWord:
+//------0123456789----- (TYPE on TOS)
+	  iload_0;		// array length
+	   iload ARRAY_REF;
+	    iconst_1;
+	   iand;
+	  ifeq WithoutHandle;
+WithHandle:
+//------0123456789----- TYPE, SIZE on stack
+	  iinc ARRAY_PTR, 4;
+           iload ARRAY_PTR;
+           load_word;            // ptr to the actual storage
+         store_word;            // store the size word
+	  iload ARRAY_PTR;
+	  load_word;
+	   dup;
+	   load_word;	
+	    iconst_1;
+	     iload TYPE_MASK;
+	    ishl;
+	   imul;
+	  iadd;   
+	   iconst_3;
+	  iadd;
+	   bipush 0xfc;
+	  iand;
+	   bipush 8;
+	  iadd;
+	store_word;	// store type word
+	goto ArrayInitDone;
+
+WithoutHandle:
+//------0123456789----- TYPE, SIZE on stack
+	  iinc ARRAY_PTR, 4;
+           iload ARRAY_PTR;
+         store_word;            // store the size word
+	  iload ARRAY_PTR;
+	   dup;
+	   load_word;	
+	    iconst_1;
+	     iload TYPE_MASK;
+	    ishl;
+	   imul;
+	  iadd;   
+	   iconst_3;
+	  iadd;
+	   bipush 0xfc;
+	  iand;
+	   bipush 8;
+	  iadd;
+	store_word;	// store type word
+ 
+ArrayInitDone:
+// All done.  Reorganize the stack and execute trap_return to resume execution
+//------0123456789-----
+	 iload ARRAY_REF;
+	  iconst_2;	// bit 1 represents an array reference
+	 ior;
+	istore_0;	// in order to return, put into 'count' argument area
+	 iload_2;	// load saved PC
+	  iconst_2;	// to return to next instruction following 'newarray'
+	 iadd;
+	istore_2;	// return PC
+
+Epilogue:
+// Finally, set the VARS and FRAME for the 'trap_return'.
+// The VARS will point to where the PSR is(the OPTOP starts there) and
+// the FRAME will point to returnPC location.
+//------0123456789-----
+	 read_vars;	// read VARS, pointing to return val, ARRAY_PTR
+	  dup;
+	   iconst_4;
+	  isub;
+	 write_vars;	// VARS now points to base of trap_frame, PSR
+	  bipush 8;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ErrorInvalidArrayType:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The array type specified in the operand byte is not valid
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0xC1;         // "Error: Invalid Array Type Specified"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto ErrorInvalidArrayType;
+// Simulator should HALT execution here
+
+ErrorNoSuchClass:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The class serached with decaf str name is not found in the class table
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0x87;         // "Error: No Such Class Found In The Class Table"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto ErrorNoSuchClass;
+// Simulator should HALT execution here
+
+ErrorNegativeArraySize:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The array size is less than 0
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NegativeArraySizeException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 5;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorNoMemory:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Memory ERROR: memory allocator returned no memory avail.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0x8A;         // "Error:Memory Not Available"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto ErrorNoMemory;
+// Simulator should HALT execution here
+
+#include "picokernel.s"
+
+    }
+}

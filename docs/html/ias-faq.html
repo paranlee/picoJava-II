@@ -1,0 +1,273 @@
+<html>
+<head>
+<TITLE>IAS: Frequently Asked Questions</TITLE>
+</head>
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+
+<H1><B>IAS<br>Frequently Asked Questions</B></H1>
+</center>
+<HR SIZE=4 WIDTH="100%">
+<P>
+<B>Q. What environment variables can control the execution of IAS?</B> 
+<BLOCKQUOTE>
+<P>
+The following are the environment variables that IAS looks for:
+<P>
+<B><code>DSVHOME</code></b>: Not used by the backend, but used by IAS 
+or MFS front-ends to load trap handlers from <code>$DSVHOME/class/<var>predefined_class_names</var>.class</code> and to locate the TCL front-end shell from <code>$DSVHOME/etc/sim/sim.tcl</code>.
+<P>
+<B><code>PICOJAVA_MEMORY_SIZE</code></B>: Sets the size of the "common memory."
+Has to be set to the size of the memory required in Mbytes. For example, either of:
+<P>
+<code>setenv PICOJAVA_MEMORY_SIZE 24</code><br> 
+<code>setenv PICOJAVA_MEMORY_SIZE 0x18</code> 
+<P>
+sets the size of the memory to 24MB. If the variable is not set, or is set
+incorrectly, reverts to the default value (typically 16 Mbytes). 
+<P>
+This does not affect the "scratch" area.
+The size of the main memory should not be set such that it overruns the scratch
+area. 
+<P>
+This environment variable is applicable to both RTL and ias.
+<P>
+<P>
+<B><code>PICOJAVA_SYSCALL_LIB</code></B>
+contains the name of the dynamic library to be used for 
+the syscall functions. For example: 
+<P>
+<code>setenv PICOJAVA_SYSCALL_LIB libsyscall.so.1</code>
+<P>
+This environment variable is applicable to both RTL and ias.
+<P>
+
+<B><code>IAS_MAX_INSTRUCTIONS</code></B>: An environment variable that IAS
+looks up during reset. If IAS reaches an internal maximum instruction 
+limit of 5,000,000 it terminates a program (as a safeguard to halt runaway 
+programs) You can change this 
+maximum by setting the <code>IAS_MAX_INSTRUCTIONS</code> environment variable to a numeric value, up to 64 bits. For example:
+</FONT>
+
+<P>
+<TABLE BORDER="1">
+<TR>
+<TD>
+<code>setenv IAS_MAX_INSTRUCTIONS 23000</code>
+</TD>
+<TD><font face="arial, helvetica">Sets the limit to 23,000 instructions.
+</font></TD>
+</TR>
+<TR>
+<TD>
+<code>setenv IAS_MAX_INSTRUCTIONS 0x23000</code>
+</TD>
+<TD><font face="arial, helvetica">
+Sets the limit to 0x23000 instructions.
+</font></TD>
+</TR>
+<TR>
+<TD>
+<code>setenv IAS_MAX_INSTRUCTIONS 023</code>
+</TD>
+<TD><font face="arial, helvetica">
+Sets the limit to 023 (octal!) instructions.
+</font></TD>
+</TR>
+<TR>
+<TD>
+<code>setenv IAS_MAX_INSTRUCTIONS 12345678901234567</code>
+</TD>
+<TD><font face="arial, helvetica">
+Sets the limit to 12345678901234567 instructions.
+</font></TD>
+</TR>
+<TR>
+<TD>
+<code>setenv IAS_MAX_INSTRUCTIONS -1</code><font face="arial, helvetica"> (or any negative number)</font>
+</TD>
+<TD><font face="arial, helvetica">
+Removes the limit. 
+</font></TD>
+</TR>
+</Table>
+
+<font face="arial, helvetica">
+<P>
+<B><code>PJSIM_EXIT_ON_WARNING</code></B>: If set to any value, causes a memory 
+access warning to halt the simulator. The default is to print the warning and 
+continue execution.
+
+<P>
+<B><code>PJSIM_PORT_HANDLER</code></B>: If set, contains the path to a dynamic 
+library that simulates the serial port, which can be attached to IAS 
+for interfacing a debugger, for example:<BR>
+<code>PJSIM_PORT_HANDLER libconsole.so.1</code>.
+
+<P>
+<B><code>PJSIM_TRACE_LIB</code></B>: If set, contains the path to a dynamic 
+library which provides functions that are called on every execution of an 
+instruction and on every memory access, for example:<BR>
+<code>PJSIM_TRACE_LIB sample_libtrace.so.1</code>.
+<P>
+</BLOCKQUOTE>
+<P>
+<B>Q. Can I change the values of the machine registers?</B> 
+<BLOCKQUOTE>
+<P>
+Yes, all machine registers are bound to TCL variables. You can set these variables using the TCL syntax and the machine registers are then set accordingly. 
+
+</BLOCKQUOTE><P>
+<B>Q. What happens if I switch off the stack cache with the <code>scache off</code> 
+command in IAS?</B>
+<BLOCKQUOTE>
+<P>
+The stack model specified by the Java virtual machine operates on a stack
+in memory: the definition of the stack cache, the data cache, and so forth
+are implementation issues and outside the scope of the Java virtual machine. 
+Hence, the stack cache and the data cache are totally transparent to a 
+program with pure instructions. 
+<P>
+When you switch off the stack cache in IAS, it operates as if 
+there was no stack cache and all stack operations were being performed
+directly on memory. (An analogous condition can never exist on the real
+hardware since hardware can perform its operations only on the stack cache, 
+which is a register file.  Therefore, you cannot switch off the stack cache
+on the hardware--this is a convenience feature in IAS.)
+</BLOCKQUOTE>
+<P>
+<B>Q. How accurately does IAS model the picoJava hardware? In particular, 
+how does IAS model dribbling, which is supposed to be asynchronous?</B>
+<BLOCKQUOTE>
+<P>
+Fairly accurately, since picoJava has a simple microarchitecture without
+too many asynchronous entities. Modelling stack cache dribbling does pose
+a problem, however, because dribbling occurs in the background, depending on when 
+the bus is available and other factors.  Also, stack cache modelling requires 
+detailed, clock-cycle accurate information. Since this is beyond the scope of 
+IAS, the simulator simplifies things by assuming an infinitely fast 
+memory system, which satisfies all dribble requests before any other requests 
+can go through. For example, if an instruction causes the number of valid 
+stack cache entries to go to 7 and the PSR.LWM is set to 16, IAS 
+<em>instantaneously</em> dribbles in all the entries that are required to 
+make the number of valid s-cache entries equal to 16. 
+<P>
+Basically, at the end of each instruction (more precisely, at every update
+to <code>OPTOP</code>), the dribbling watermark conditions are satisfied before continuing. The 
+rules on saving and discarding data for overflows and underflows are specified in 
+the caches chapter of the picoJava-II PRM.
+</BLOCKQUOTE>
+<P>
+<B>Q. Can the contents of the caches in IAS be different from what the
+contents would be on real hardware?</B> 
+<BLOCKQUOTE>
+<P>
+Yes, they can. Due to the differences between how IAS does dribbling
+and how it would be done on real hardware, the patterns of memory access 
+in /IAS and in real hardware can be different, leading to divergence
+in the cache contents. Of course, the state of memory visible from normal 
+programs is consistent between the two.
+</BLOCKQUOTE>
+<P>
+<B>Q. How accurately does IAS model the FPU inside picojava, esp 
+FP operations involving Nan's whose outputs are not precisely spec'ed by IEEE ?</B>
+<BLOCKQUOTE>
+<P>
+Completely accurately, down to the last bit pattern. the FPU behaviour
+for results not completely specified by IEEE is defined in the picoJava-II PRM; 
+ias implements the same. Be sure to compile ias in IEEE-compliant mode on
+your platform.
+</BLOCKQUOTE>
+<P>
+<B>Q. Does IAS understand folding?</B>
+<BLOCKQUOTE>
+<P>
+No, because IAS does not need to understand folding. As far as cosimulation with 
+RTL is concerned, it understands that two or more instructions are folded in RTL
+and simply issues two <code>step</code> commands to IAS before comparing the
+state.
+<P>
+IAS does look at the <code>PSR.FLE</code> (folding enabled) bit to decide 
+if hardware level breakpoints are enabled. (Hardware level breakpoints are 
+different from simulator breakpoints.)
+</BLOCKQUOTE>
+<P>
+<B>Q. How can I extend the simulator?</B>
+<BLOCKQUOTE>
+<P>
+Any way you want, but the preferred model is to set 
+an environment variable to enable the extensible feature, place the extension 
+code into a dynamic library, and have the IAS core look for this library. 
+You must code into the IAS core the details of when and how to invoke
+functions in the library that you provide. 
+<P>
+Currently, external interfaces exist for the following: 
+<UL>
+<LI>
+Calling user-supplied functions after every instruction or every 
+memory reference.
+<LI>
+A system call library, triggered by a memory write to a magic
+location, which causes the simulator to transfer control to
+a function in a dynamically linked library.
+</UL>
+
+</BLOCKQUOTE>
+<P>
+<B>Q. Can I do limited program I/O?</B> 
+<BLOCKQUOTE>
+<P>
+The preferred way to implement I/O is through the system call mechanism 
+described above. However, if you need very limited functionality, 
+a simple form of program I/O is available through a "console" at address 
+0x2f0000c0. A <code>ncstore_byte</code> to this address is interpreted specially 
+by the simulator; the ASCII character represented by the byte is written to the 
+screen.
+</BLOCKQUOTE>
+<P>
+<B>Q. Can the simulator load ELF files generated by the picoJava C compiler?</B>
+<BLOCKQUOTE>
+<P>
+Yes. Use the <code>loadElf</code> command, which loads your ELF file
+into the machine's memory. 
+</BLOCKQUOTE>
+<P>
+<B>Q. What is the picoJava memory map in the current environment? Are there 
+any special locations I can access to trigger special actions? </B> 
+<BLOCKQUOTE>
+<P>
+Yes, some memory addresses have special semantics. For details of the memory 
+map, see the <i>picoJava-II Verification Guide</i>, or see file <code>$DSVHOME/ldr/src/cm.h</code>.
+</BLOCKQUOTE>
+<P>
+<B>Q. Can IAS collect instruction counts and other statistics?</B>
+<BLOCKQUOTE>
+<P>
+IAS collects some information as it runs; however, it does not model 
+clock-cycle-accurate information. See the dumpStats command for details.
+</BLOCKQUOTE>
+<P>
+<B>Q.  Since the picoJava core can be configured for different cache sizes, and for 
+the absence of an FPU, how can I configure these parameters in the 
+simulator?</B> 
+<BLOCKQUOTE>
+<P>
+Use the <code>configure</code> command.
+</BLOCKQUOTE>
+<P>
+<A HREF="./ias.html">IAS</A></font>
+ 
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</font>
+</BODY>
+</HTML>

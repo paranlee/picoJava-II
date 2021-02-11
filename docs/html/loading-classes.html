@@ -1,0 +1,105 @@
+<html>
+<head>
+<TITLE>picoJava(TM)-II Project:RTL Class Loading</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<body>
+
+<center>
+<H1>Class Loading </H1>
+</center>
+
+
+<HR SIZE=4 WIDTH="100%">
+
+<H2>Loading a class in IAS or RTL</H2>
+<p>
+All classes are loaded statically in the
+picoJava<SUP><SMALL>TM</SUP></small>-II environment.
+<P>
+
+Use the <code>loadClass</code> command to load a class in IAS.
+Use the <code>+class+&lt;classfile&gt;</code> option or 
+call the <code>loadClass</code>() function in <code>libloader.a</code>
+for the RTL model and cosimulation.
+<P>
+Files of the form <code>&lt;class_prefix.binit&gt;</code> and 
+<code>&lt;class_prefix&gt;.init</code>, such as <code>loadClass A</code>
+if found, are also loaded. This file in IAS reads
+<code>A.binit</code>, 
+<code>A.init</code>, and <code>A.class</code>.
+</p>
+
+<P>
+The order of loading files into memory is:
+<OL>
+<LI>&lt;.binit&gt; file: Binary initialization file
+<LI>&lt;.init&gt; file: ASCII initialization file
+<LI>class contents: Methods, constant pool, and so on
+</OL>
+
+<p>
+For detailed information on class loading, see Chapter 2 of the <A
+HREF="../pj2-verif-guide.pdf"><I>picoJava-II Verification
+Guide</I></A>.
+<P>
+Related sources related are in <code>$DSVHOME/ldr/src/loader.c</code> 
+and <code>$DSVHOME/ldr/src/copy.c</code> files.
+</p>
+
+<P>
+<B>Note:</B> All loader operations always operate directly on common
+or  main memory, and can have unpredictable effects if
+the caches are enabled. Usually classes are preloaded into memory, before 
+the caches are enabled, so this does not cause any problem. If this same
+loader is extended to a dynamic loader however, this point should be taken 
+care of.
+<P>
+The   <code>.init</code> file format is:
+<UL>
+&lt;word address&gt; &lt;32-bit data&gt;<BR>
+&lt;word address&gt; &lt;32-bit data&gt;<BR>
+...
+</UL>
+<P>
+The <code>.binit</code> file format is:
+<UL>
+&lt;signature&gt; (1 word)<BR>
+&lt;version&gt; (1 word)<BR>
+&lt;section&gt;<BR>
+&lt;section&gt;<BR>
+....
+</UL>
+<P>
+Each section is compressed using the <code>libz.a</code> library in
+the 
+<code>$DSVHOME/lib</code> directory. 
+<P>
+The format of each section is as follows:
+<UL>
+&lt;start mem address&gt; (1 word)<BR>
+&lt;size in bytes&gt; (1 word): This is number of bytes, not words.<BR>
+&lt;csize in bytes&gt; (1 word): This is number of bytes after compression.<BR>
+&lt;csize bytes for the data&gt;: This does not need to be word-aligned.<BR>
+--
+</UL>
+</font>
+<P>
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+
+</body>
+</html>

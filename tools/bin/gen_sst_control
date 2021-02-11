@@ -1,0 +1,152 @@
+#!/bin/sh --	# -*- perl -*-
+eval 'exec perl5 -S $0 ${1+"$@"}'
+if 0;
+
+# ****************************************************************
+# ***
+# ***    Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+# ***    Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+# ***    The contents of this file are subject to the current
+# ***    version of the Sun Community Source License, picoJava-II
+# ***    Core ("the License").  You may not use this file except
+# ***    in compliance with the License.  You may obtain a copy
+# ***    of the License by searching for "Sun Community Source
+# ***    License" on the World Wide Web at http://www.sun.com.
+# ***    See the License for the rights, obligations, and
+# ***    limitations governing use of the contents of this file.
+# ***
+# ***    Sun, Sun Microsystems, the Sun logo, and all Sun-based
+# ***    trademarks and logos, Java, picoJava, and all Java-based
+# ***    trademarks and logos are trademarks or registered trademarks
+# ***    of Sun Microsystems, Inc. in the United States and other
+# ***    countries.
+# ***
+# *****************************************************************
+# usage : $0 [options...] logfile
+# options:  -error (check ERROR messages only)
+#           -mismatch (check NOT EQUAL 'mismatch' messages only)
+#           -before (begin dump n cycles before the error/mismatch)
+#           -after (end dump n cycles after the error/mismatch)
+#           -all (dump segments for every error/mismatch, not just first one)
+
+$error_only = 0;
+$mismatch_only = 0;
+$dump_for_all = 0;
+$before_amount = 100;
+$after_amount = 100;
+$file = "";
+
+&get_args;
+
+
+open(FILE, "$file") || &error("Cannot open $file");
+while($line = <FILE>) {
+  if (!$mismatch_only) {
+    if ($line =~ /[Ee][Rr][Rr][Oo][Rr]:/) {
+      while ($line = <FILE>) {
+        if ($line =~ /^(\d+):/) {
+	  $one = $1;
+	  last;
+	}
+      }
+      last if (eof FILE);
+      push(@magic_numbers, $one);
+    }
+  }
+  if (!$error_only) {
+    if ($line =~ /NOT EQUAL/) {
+      while ($line = <FILE>) {
+	if ($line =~ /^(\d+):/) {
+	  $one = $1;
+	  last;
+        }
+      }
+      last if (eof FILE);
+      push(@magic_numbers, $one);
+    }
+  }
+}
+close FILE;
+
+open (SST, ">sst_control") || &error("Cannot create sst_control file");
+while ($first = shift @magic_numbers) {
+  $low = $first - $before_amount;
+  $high = $first + $after_amount;
+  if ($low < 0) {
+    $low = 0;
+  }
+  printf SST "%x %x\n", $low, $high;
+  last unless ($dump_for_all);
+}
+close SST;
+
+
+exit 0;
+
+### end
+
+sub get_args {
+  my @args = @ARGV;
+  if (@ARGV < 1) {
+    &usage;
+    &error("No arguments given to $0");
+  }
+  $file = pop @args;
+  if (!-e "$file") {
+    &usage;
+    &error("$file does not exist.");
+  }
+  while ($arg = shift @args) {
+    if ($arg eq "-error") {
+      $error_only = 1;
+      if ($mismatch_only) {
+	&error("cannot specify both -error and -mismatch.");
+      }
+    }
+    elsif ($arg eq "-mismatch") {
+      $mismatch_only = 1;
+      if ($error_only) {
+	&error("cannot specify both -error and -mismatch.");
+      }
+    }
+    elsif ($arg eq "-all") {
+      $dump_for_all = 1;
+    }
+    elsif ($arg eq "-before") {
+      $before_amount = shift @args;
+      if ($before_amount !~ /\d+/) {
+	&usage;
+	&error("value for -before must be a number.");
+      }
+    }
+    elsif ($arg eq "-after") {
+      $after_amount = shift @args;
+      if ($after_amount !~ /\d+/) {
+	&usage;
+	&error("value for -after must be a number.");
+      }
+    }
+    else {
+      &usage;
+      &error("unknown argument: \'$arg\'.");
+    }
+  }
+}
+
+sub error {
+  my $message = $_[0];
+  print "Error: $message\n";
+  exit 1;
+}
+
+sub usage {
+  print "usage : $0 [options...] logfile\n";
+  print "options:  -error (check \'ERROR:\' messages only)\n";
+  print "          -mismatch (check \'NOT EQUAL\' mismatch messages only)\n";
+  print "          -before (begin dump n cycles before the error/mismatch)\n";
+  print "          -after (end dump n cycles after the error/mismatch)\n";
+  print "          -all (dump segments for every error/mismatch, " .
+	"not just first one)\n";
+  print "\n";
+}
+

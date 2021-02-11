@@ -1,0 +1,500 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+#define		INDEX		5
+#define		ARRAY_REF	5
+#define	   	ARRAY_PTR	6
+#define		WORD_COUNT	7
+#define		TMP_0		7
+
+#include	"struct.h"
+//
+// Trap "anewarray_quick" -
+//
+//	Allocate the size amount of object references, initialize the array 
+//	descriptors(number of array references, and the method_vector_base_addr
+//	of the class, Object ) and return the pointer to the method_vector_base
+//	address as the reference of object-array.
+//
+//	Note that the bit 1 of array reference will be set to 1 to indicate
+//	that it is an array reference.(bit 0 represents handle or non-handle)
+
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|         count		|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//		|			|
+//		+-----------------------+
+//	 VARS->	|         count		|  <-- local var 0
+//		+-----------------------+
+//	 	|	   PSR		|
+//		+-----------------------+   
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|       CP Index	|  <-- local var 5(INDEX)
+//		+-----------------------+
+//		|     Array Pointer	|  <-- local var 6(ARRAY_PTR)
+//		+-----------------------+
+//		|     	  tmp_1		|  <-- local var 7(TMP_0)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will complete building
+//
+//	 	|			|
+//		+-----------------------+
+//	 	|    Array Reference	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |         PC+3		|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of PSR).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+public class anewarray_quick
+{
+
+    public static Method anewarray_quick:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the array element count to be allocated
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 20;		// count is at 5 words below
+	 iadd;			// pointer to 'count' arg
+	write_vars;	// set the VAR, 'count' is now local_var 0
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 5(INDEX): index to constant pool
+			// 5(ARRAY_REF): reference address of allocated array
+	  iconst_0;	// 6(ARRAY_PTR): ptr to the allocated array
+	   iconst_0;	// 7(WORD_COUNT): array size
+			// 7(TMP_0): tmp
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789------
+         iload_2;               // load(push) PC
+          iconst_1;             // push 1
+         iadd;                  // pointer to 'index1'
+         load_ubyte;            // push 'index1'
+          bipush 8;
+         ishl;                  // index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+          iload_2;              // load(push) PC
+           iconst_2;            // push 2
+          iadd;                 // pointer to index2
+          load_ubyte;           // push 'index2'
+         iadd;                  // index1<<8 + index2
+        istore INDEX;           // Now, *local var 5* is the CP index
+
+// Now check if the class has already been resolved.  Issue class_resolution
+// request to the kernal if not resolved.
+//------0123456789-----
+         read_const_pool;	// load the CP
+         load_word;		// load the ptr to the "resolution&type array"
+	  iload INDEX;
+         iadd;			// type_byte ptr of indexed field(CP[0][index])
+         load_ubyte;		// load the type byte for the associated class
+				// ..., c-index, ubyte(the class status)
+          bipush 7;
+         ishr;			// To check the resolution bit(1 == resolved)
+        ifeq ClassUnresolved;	// branch if not equal to 0(if == 1, resolved)
+
+//------0123456789------
+         read_const_pool;
+          iload INDEX;
+           iconst_2;
+          ishl;
+         iadd;
+         load_word;
+	istore TMP_0;
+	goto ClassResolved;
+
+// The class hasn't been resolved(and possibly not loaded yet).
+// Issue a request to Decaf kernel to load and resolve the class.
+ClassUnresolved:
+//------0123456789------
+         read_const_pool;
+          iload INDEX;
+           iconst_2;
+          ishl;
+         iadd;			// CP[c_index<<2]
+         load_word;		// CP index to the class name string
+          iconst_2;
+         ishl;
+//------0123456789------
+          read_const_pool;
+         iadd;			// CP[class_name_index<<2]
+         load_word;		// ptr to the class name
+	  dup;
+	   iconst_4;
+	  iadd;
+	  load_ubyte;
+	   bipush 0x5B;
+	 if_icmpeq ArrayClass;
+//------0123456789------
+          bipush 31;           // service request 31: resolve class
+          jsr PicoKernel;
+           dup;
+          ifeq ErrorUnLoadedClass;
+	 istore TMP_0;		// save the class pointer
+	pop;
+	goto UpdateCP;
+ArrayClass:
+	istore TMP_0;
+
+// Update the constant pool for the class newly resolved.
+UpdateCP:
+//------0123456789------
+         read_const_pool;	// load the CP
+         load_word;		// load the ptr to the "resolution&type array"
+	  iload INDEX;
+         iadd;			// type_byte ptr of indexed field(CP[0][index])
+	  dup;
+          load_ubyte;		// load the type byte for the associated class
+           sipush 0x80;
+	  ior;
+	  swap;
+	store_byte;		// update the type&resolution byte
+//------0123456789------
+         read_const_pool;
+          iload INDEX;
+           iconst_2;
+          ishl;
+         iadd;			// CP[c_index<<2]
+	  iload TMP_0;		// resolved class pointer
+	  swap;
+	store_word;
+
+ClassResolved:
+// Allocate an array of object references
+//------0123456789------
+	 iload_0;	// number of array elements to be allocated
+	  dup;
+	 iflt ErrorNegativeArraySize;
+          iconst_3;     // Need 2 extra words: size_word, class_struct_ptr, type
+         iadd;          // array size with type byte and ptr to class or string
+	  bipush 22;	// service request 22:double-word aligned mem allocation
+	  jsr PicoKernel;// will replace the service num with new 'arrayref'
+	   dup;		// ..., allocated_words, arrayref, arrayref
+	  ifeq ErrorNoMemory;
+
+ArrayAllocated:
+//------0123456789-----
+	 istore ARRAY_REF;
+	pop;
+	 iload ARRAY_REF;
+	  sipush 0xFFFE;
+	 iand;		// reset possible handle bit
+	  dup;
+	 istore ARRAY_PTR;
+	  iconst_4;
+	 isub;
+	  iconst_0;
+	  swap;
+	store_word;		// clear off the 1st word: monitor ptr
+//------0123456789-----
+	 iload_0;		// array_size
+	  iload TMP_0;		// resolved class ptr
+	   iconst_4;
+	  iadd;
+	  load_ubyte;		// load the 1st byte of the 2nd word
+	   bipush 0x5B;
+	 if_icmpeq ArrayOfArray;
+ArrayOfObject:
+//------0123456789-----
+	  bipush 0x4C;	// 'L'
+	  goto AddTypeByte;
+ArrayOfArray:
+	  bipush 0x5B;	// '['
+AddTypeByte:
+//------0123456789----- SIZE, TYPE on stack
+	   iload ARRAY_REF;
+	    iconst_1;
+	   iand;
+	  ifeq WithoutHandle;
+WithHandle:
+//------0123456789----- SIZE, TYPE on stack
+           iload ARRAY_PTR;
+            iconst_4;
+           iadd;
+           load_word;           // ptr to the actual storage
+            iload_0;
+             iconst_2;
+            iadd;
+             iconst_2;
+            ishl;
+           iadd;
+         store_word;            // store type
+	  iload ARRAY_PTR;
+	   iconst_4;
+	  iadd;
+	  load_word;		// ptr to the actual storage
+	   dup_x1;
+	 store_word;		// store the (type || size) word
+//------0123456789-----
+	 iinc 0, 1;	// size word
+	  iload_0;	// array size
+	   iconst_2;
+	  ishl;
+	 iadd;
+	  iload TMP_0;	// ptr to either class structure OR array type str
+	  swap;
+	store_word;
+	goto InitMVB;
+
+WithoutHandle:
+//------0123456789----- SIZE, TYPE on stack
+           iload ARRAY_PTR;
+            iconst_4;
+           iadd;                // ptr to the actual storage
+            iload_0;
+             iconst_2;
+            iadd;
+             iconst_2;
+            ishl;
+           iadd;
+         store_word;            // store type
+//------0123456789-----
+	  iload ARRAY_PTR;
+	   iconst_4;	// the size info will be the next word
+	  iadd;		// 
+	store_word;	// array size into 1st word of allocated array object
+//------0123456789-----
+	 iload TMP_0;	// ptr to either class structure OR array type str
+	  iload ARRAY_PTR;
+	  iinc 0, 2;
+	   iload_0;	// size of the array
+	    iconst_2;
+	   ishl;
+	  iadd;		// ptr to the last word of allocated storage
+	store_word;
+
+// Search for class, "java/lang/Object", to init the array's method vector ptr
+InitMVB:
+//------0123456789-----
+         sipush 0x0010;         // lenth of 'java/lang/Object'
+          bipush 16;
+         ishl;
+          sipush 0x76bc;        // hash of 'java/lang/Object'
+         ior;
+	  sipush LOW_BUF_ADDR;
+	  sethi HIGH_BUF_ADDR;
+           dup;
+          istore TMP_0;
+        store_word;             // MEM[BUF_ADDR] = key of 'java/lang/Object'
+//------0123456789-----
+         sipush 0x6a61;
+          bipush 16;
+         ishl;
+          sipush 0x7661;
+         ior;                   // "java"
+          iload TMP_0;
+           iconst_4;
+          iadd;                 // BUF_ADDR + 4
+        store_word;             // MEM[BUF_ADDR+4] = "java"
+//------0123456789-----
+         sipush 0x2f6c;
+          bipush 16;
+         ishl;
+          sipush 0x616e;
+         ior;                   // "/lan"
+          iload TMP_0;
+           bipush 8;
+          iadd;                 // BUF_ADDR + 8
+        store_word;             // MEM[BUF_ADDR+8] = "/lan"
+//------0123456789-----  
+         sipush 0x672f;
+          bipush 16;
+         ishl; 
+          sipush 0x4f62;
+         ior;                   // "g/Ob"
+          iload TMP_0;
+           bipush 12;
+          iadd;                 // BUF_ADDR + 12 
+        store_word;             // MEM[BUF_ADDR+12] = "g/Ob"
+//------0123456789-----  
+         sipush 0x6a65;
+          bipush 16;
+         ishl; 
+          sipush 0x6374;
+         ior;                   // "ject"
+          iload TMP_0;
+           bipush 16;
+          iadd;                 // BUF_ADDR + 16 
+        store_word;             // MEM[BUF_ADDR+12] = "ject"
+
+//------0123456789-----
+         iload TMP_0;		// ptr to the string, 'java/lang/Object'
+          bipush 31;		// service request 31: resolve class
+          jsr PicoKernel;	// should return ptr to 'java/lang/Object' 
+	  dup;
+	 ifeq ErrorNoSuchClass;
+          bipush C_OBJHINTBLK; // ObjHintBlk is 7th word in class structure
+         iadd;
+         load_word;            // base address of the ObjHintBlk
+//------0123456789-----
+	  bipush O_METD_VEC_BASE;// Method Vector Table starts from 6th word
+	 iadd;			// base of the decafObject's Method Vector Tab
+	  iconst_2;
+	 ior;			// 4-byte element size (1<<3)
+	  iload ARRAY_PTR;
+	store_word;		// Method Tab Base into the 2nd word of array
+//	 iload ARRAY_REF;
+//	istore ARRAY_PTR;
+//	iinc ARRAY_REF, 4;
+//	 iload_0;
+//	istore WORD_COUNT;
+ 
+ReplaceInstruction:
+// All done.  Replace the instruction with 'anewarray_quick' and reorganize
+// the stack and execute trap_return to resume execution
+//------0123456789-----
+	 sipush 0xDE;	// 0xDE(222): anewarray_quick
+	  iload_2;	// load saved PC
+// Barry modify it on 11/24
+	store_byte;	// replace the instruction with 'quick'
+
+         iload_2;      // load the PC: local_var 2
+         load_byte;    // load back the quick opcode which make sure store_byte
+                       // update in the memory before I$ fetch it
+        pop;           // Pop the value
+// End of the modification
+
+         bipush 8;      // I$ line size, to increment the address
+          iload_2;      // PC
+          cache_flush;  // flush out both I$ and D$
+          cache_flush;  // flush out 2nd I$ line, possibly 2nd D$ line
+
+//------0123456789-----
+	 iload ARRAY_REF;
+	  iconst_2;	// bit 1 represents an array reference
+	 ior;
+	istore_0;	// in order to return, put into 'count' argument area
+
+	 iload_2;
+	  iconst_3;	// to return to next instruction following 'anewarray'
+	 iadd;
+	istore_2;	// return PC
+
+Epilogue:
+// Finally, set the VARS and FRAME for the 'trap_return'.
+// The VARS will point to where the PSR is(the OPTOP starts there) and
+// the FRAME will point to returnPC location.
+//------0123456789-----
+	 read_vars;	// read VARS, pointing to return val, ARRAY_REF
+	  dup;
+	   iconst_4;
+	  isub;
+	 write_vars;	// VARS now points to base of trap_frame, PSR
+	  bipush 8;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ErrorUnLoadedClass:
+ErrorNoSuchClass:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// The class serached with decaf str name is not found in the class table
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!//------0123456789-----
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoClassDefFoundError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 5;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorNegativeArraySize:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The array size is less than 0
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NegativeArraySizeException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 5;      // clear off the word above trap frame for 'athrow'
+         athrow;        // should never return
+
+ErrorNoMemory:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Memory ERROR: memory allocator returned no memory avail.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0x8A;         // "Error:Memory Not Available"
+	  sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto ErrorNoMemory;
+// Simulator should HALT execution here
+
+#include	"picokernel.s"
+
+    }
+}

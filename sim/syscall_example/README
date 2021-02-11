@@ -1,0 +1,45 @@
+To try out system call functionality in the picoJava-II environment,
+do the following:
+
+1. Set your DSVHOME environment variable, and build ias. 
+(See instructions to build ias in the online docs)
+
+2. type make
+This builds the sample system call library included with the picoJava
+distribution, and a small Hello, World application.
+
+If you are using a different compiler, or using a system other than
+Sparc/Solaris you may have to change the compiler options in the makefile.
+
+3. Type source setup.csh. This sets up the PICOJAVA_SYSCALL_LIB variable.
+
+4. Run ias. The .iasrc file in this directory loads up the test program 
+into memory.
+
+5. Type 'run' at the ias prompt.
+This should print out the following:
+
+Hello World!
+IAS: Test PASSED, 40512 instructions, 0 interrupts taken, 56 total traps
+
+
+The files picoJava_io_lib.c and PicoIO.jasm in this directory provide a 
+template for how system calls should be implemented in the picoJava simulation
+environment. This mechanism works while running simulations on either ias or
+on the RTL.
+
+On a write to a magic location, control is turned over to the 
+picojava_syscall () function. This function then reads the
+syscall code and the parameters for the syscall from locations in picoJava
+memory which have been set up prior to setting off the syscall. The syscall
+library uses the cmMemoryRead and cmMemoryWrite functions to directly
+access the picoJava memory. Once the required syscall has been performed, 
+it returns and simulation continues. (Simulation is frozen during the time
+the syscall library is doing it's stuff - therefore syscalls appear to
+execute in zero time)
+
+Note that the cmMemoryRead/write functions directly access main memory,
+so s/w running on picoJava has to ensure that those locations are flushed
+from the cache before setting off the syscall. (There is no way for
+the syscall library to peek into caches and read/write cached data)
+

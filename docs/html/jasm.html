@@ -1,0 +1,78 @@
+<html>
+<head>
+<TITLE>picoJava(TM) Assembler & Disassembler</TITLE>
+</head>
+<body bgcolor="white">
+<FONT FACE="arial, helvetica">
+<center>
+<H1>The picoJava<sup><small>TM</small></sup> Assembler & Disassembler</H1>
+</center>
+
+
+<HR SIZE=4 WIDTH="100%">
+
+<H2>
+<B>Overview</B>
+</H2>
+<p>
+The primary goal for the picoJava(TM) assembler & disassembler is to 
+facilitate the verification of picoJava(TM) cores. Test cases written in
+Java(TM) & compiled by a java compiler are restricted by the Java Language
+Specification.  The assembler allows the user to write a class with methods 
+containing arbitrary code.  The disassembler recognizes such class files &
+can generate the source code for them.
+</p>
+
+<H2>
+<B>Requirement</B>
+</H2>
+<p>
+To use the assembler & disassembler,
+you need to use a recent version of the Java runtime environment, 
+compatible with JDK1.1.3 or higher. You will also need a Java compiler, 
+such as javac.
+You can download a recent version of the JDK from <a href=http://java.sun.com>java.sun.com.</a>
+</p>
+
+<H2>
+<B>Installation</B>
+</H2>
+<blockquote>
+set JASM_SRC_DIR = $DSVHOME/jasm <br>
+set JDIS_SRC_DIR = $DSVHOME/jdis <br>
+set INSTALL_DIR  = $DSVHOME/classes <br>
+
+javac -d $INSTALL_DIR $JASM_SRC_DIR/*.java <br>
+javac -d $INSTALL_DIR $JDIS_SRC_DIR/*.java <br>
+
+alias	jasm	'java com.sun.picojava.jasm.Main' <br>
+alias	jdis	'java com.sun.picojava.jdis.Jdis' <br>
+</blockquote>
+
+<H2>
+<B>Usage</B>
+</H2>
+<blockquote>
+<LI>
+<A HREF="./jasm-grammar.txt">Abridged Grammar</A>
+<LI>
+<A HREF="./jasm-mnemonics.txt">Mnemonics</A>
+<LI>
+<A HREF="./jasm-example.txt">Example</A>
+<LI>
+<A HREF="./jasm-faq.html">Frequently asked questions</A>
+</UL>
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</body>
+</html>

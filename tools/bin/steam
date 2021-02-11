@@ -1,0 +1,3800 @@
+#!/bin/sh --	# -*- perl -*-
+eval 'exec perl5 -S $0 ${1+"$@"}'
+if 0;
+
+# ****************************************************************
+# ***
+# ***    Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+# ***    Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+# ***    The contents of this file are subject to the current
+# ***    version of the Sun Community Source License, picoJava-II
+# ***    Core ("the License").  You may not use this file except
+# ***    in compliance with the License.  You may obtain a copy
+# ***    of the License by searching for "Sun Community Source
+# ***    License" on the World Wide Web at http://www.sun.com.
+# ***    See the License for the rights, obligations, and
+# ***    limitations governing use of the contents of this file.
+# ***
+# ***    Sun, Sun Microsystems, the Sun logo, and all Sun-based
+# ***    trademarks and logos, Java, picoJava, and all Java-based
+# ***    trademarks and logos are trademarks or registered trademarks
+# ***    of Sun Microsystems, Inc. in the United States and other
+# ***    countries.
+# ***
+# *****************************************************************
+# ------------------------------------------------------------------------
+# initialize global variables...
+# ------------------------------------------------------------------------
+
+# variables to print out debug messages
+# If 0 - no messages
+# if 1 - print messages
+# note that this can be overridden by using the -debug[0,1,2]
+# command-line options
+$debug0 = 0;		#Highest level messages  
+$debug1 = 0;		#more detailed messages
+$debug2 = 0;		#temporary debug messages
+
+# the name of the steam logfile
+$steam_log = "steam.log";
+
+# by default, logging of steam's progress will be done.  Use -nolog to
+# turn it off.
+$do_logging = 1;
+
+# the command line argument list.  Will contain the list of arguments which
+# should override any arguments picked up in suite control files.
+@cmd_line_args = ();
+
+# the list of tests to be run.  This becomes the master list of
+# unique test names.
+@test_list = ();
+
+# use suite control files?  The default is yes.
+$use_scf = 1;
+
+# build vcs before starting execution?  The default is no.
+$build_vcs = 0;
+
+#Initialization to choose phases
+# do the BUILD PHASE.  The default is currently NO!
+$do_build_phase = 0;
+
+# do the COPY PHASE.  The default is yes.
+$do_copy_phase = 1;
+
+# do the RUN PHASE.  The default is yes.
+$do_run_phase = 1;
+
+# do the CHECK PHASE. The deafult is yes.
+$do_check_phase = 1;
+
+# print out summary at completion of test run?  The default is yes.
+$do_summary = 1;
+
+# the set of test tags to run.  The default is to run all tests.
+$setlist = "ALL";
+
+# if you don't want to actually run the tests, this will be set to 1.
+# this option is specified with -n.
+$dont_run = 0;
+
+# if defined, the list of people to send mail to at the completion of
+# all the tests.
+undef $mailing_list;
+
+# the output directory.  This is where the log files, run directories, etc.
+# will be created.
+$outdir = ".";
+
+# in quiet mode, run without generating (much) output.  Otherwise dump
+# normal operating messages.
+$quiet_mode = 0;
+
+# the name of the suite control file.  This file is expected to exist in
+# every valid test directory if -scf is used.
+$scf_filename = "suite.control";
+
+# where the script was run from.  Has miscellaneous uses.
+chop($topdir = `pwd`);
+
+# a place holder for the tags, files, and flags associative arrays.
+$not_an_arg = "not_an_argument";
+
+# the prefix of runme files.
+$runme_prefix = "runme";
+
+# will be set if any gate level simulations are being done.
+$do_gate_level_simulation = 0;
+
+# will be set if any test being run requires the chronologic vcs executable
+$need_vcs = 0;
+
+# will be set if any test being run requires the cadence verilog-xl executable
+$need_vlog = 0;
+
+# will be set if any test being run will be run using vericov's
+# instrumented vfiles
+$vcov_needed = 0;
+
+# these two variables control the number of clock cycles before and after
+# a failure, if any, the second run will dump signals to the sst file.
+# For example, if a failure occurred at clock cycle X, dumping to sst file
+# will commence at cycle X - $dump_before and end at cycle X + $dump_after.
+# Since dumping is slow, making this range as narrow as possible will
+# improve performance.
+$dump_before = 500;
+$dump_after = 100;
+
+# the list of java runtime classes.  The order is important.  Note that
+# we should not be relying on this script to maintain the order.  Ideally
+# we should have a data file where this list is kept.
+
+@java_rt_classes = ( "java/lang/Float.class", "java/lang/Double.class",
+  "java/lang/String.class", "java/util/Dictionary.class",
+  "java/util/Hashtable.class", "java/util/HashtableEntry.class",
+  "java/lang/Throwable.class", "java/lang/Exception.class",
+  "java/lang/RuntimeException.class", "java/lang/NullPointerException.class",
+  "java/lang/IndexOutOfBoundsException.class",
+  "java/lang/ArrayIndexOutOfBoundsException.class",
+  "java/lang/ArithmeticException.class", "java/lang/Error.class",
+  "java/lang/LinkageError.class", "java/lang/NoClassDefFoundError.class",
+  "java/lang/ClassCastException.class",
+  "java/lang/NegativeArraySizeException.class",
+  "java/lang/IncompatibleClassChangeError.class",
+  "java/lang/NoSuchFieldError.class", "java/lang/NoSuchMethodError.class",
+  "java/lang/IllegalAccessError.class",
+  "java/lang/AbstractMethodError.class",
+  "java/lang/UnsatisfiedLinkError.class",
+  "java/lang/ArrayStoreException.class" );
+
+# the suffix for log files
+$logfilesuffix = ".log";
+
+# iasrc file name
+$iasrc = ".iasrc";
+
+#the list of files that failed
+$failfile = "list.failfile";
+$passfile = "list.passfile";
+$notrunfile = "list.notrun";
+
+# the top point of the test case source tree
+unless ($cdms_top = $ENV{'PICOJAVAHOME'}) {
+  &warning("PICOJAVAHOME not set: defaulting to \$PICOJAVAHOME");
+  $decafhome = $ENV{'PICOJAVAHOME'} ||
+                    &error("PICOJAVAHOME is not set.  Cannot proceed.");
+  $cdms_top = $decafhome;
+}
+else {
+  $decafhome = $ENV{'PICOJAVAHOME'};
+}
+
+# the default location of the vfiles used by verilog XL.
+$vfiles_path = "$cdms_top/sim/env/vfiles";
+if ($ENV{'VFILES_PATH'}) {
+  $vfiles_path = $ENV{'VFILES_PATH'};
+}
+
+# if the test case name is already in use, prefix the run directory with
+# this so as to avoid name conflicts
+$dir_prefix = "run_";
+
+# the location of the jobc constraint files.
+$jobfile_home = "$cdms_top/picoJava-II/sim/env";
+
+if ($ENV{'JOBFILE_HOME'}) {
+  $jobfile_home = $ENV{'JOBFILE_HOME'};
+}
+
+# the name of the jobc constraint file
+$jobfile = "jobc";
+
+if ($ENV{'JOBFILE_CONSTRAINT'}) {
+  $jobfile = $ENV{'JOBFILE_CONSTRAINT'};
+}
+
+# the user's home directory
+$homedir = $ENV{'HOME'} || &error("\$HOME not set.");
+
+# the directory to ${project_name}Vcov.cov, ${project_name}Vcov.db,
+# ${project_name}Vcov.inv, and cf.run
+$vcov_dir = "$homedir/bin";
+
+if ($ENV{'VCOV_DIR'}) {
+  $vcov_dir = $ENV{'VCOV_DIR'};
+}
+
+# the default watch option for dream.  changed with -poll, -exit, -wait
+$drm_watch = "wait";
+
+# the amount of time to sleep between polling to see if all jobs have
+# completed.
+$sleep_time = 20;
+
+# merge the 'COVERAGE:' lines in final statistics?
+$merge_monitor_coverage = 0;
+
+# if set, don't generate sst file on second run.
+$no_second_sst = 0;
+
+# merge the 'RTL-STAT:' lines in final statistics?
+$merge_rtl_stats = 1;
+
+# ckchen 09/15/98 -- add cache size support
+$dcs = 16;
+$ics = 16;
+
+$vcs_name = "pj2vcs";
+if ($ENV{'VCS_NAME'}) {
+  $vcs_name = $ENV{'VCS_NAME'};
+}
+
+$vcs_gate_name = "decafvcs_gate";
+if ($ENV{'VCS_GATE_NAME'}) {
+  $vcs_gate_name = $ENV{'VCS_GATE_NAME'};
+}
+
+$vcs_vcov_name = "decafvcs.vcov";
+if ($ENV{'VCS_VCOV_NAME'}) {
+  $vcs_vcov_name = $ENV{'VCS_VCOV_NAME'};
+}
+
+$vlog_name = "pj2vlog";
+if ($ENV{'VLOG_NAME'}) {
+  $vlog_name = $ENV{'VLOG_NAME'};
+}
+
+$ias_name = "ias";
+if ($ENV{'IAS_NAME'}) {
+  $ias_name = $ENV{'IAS_NAME'};
+}
+
+$format_string = 'Test Summary Report:\n\n//%w %r (err=%e, mm=%m) -- ' .
+		 'cyc: %c, inst: %i, fold: %f\n//' .
+		 '\nTotal cycles: %C\nTotal instructions: %I\n' .
+		 'Total instructions folded away: %X\n' .
+		 'Total tests passed: %P\nTotal tests failed: %F\n' .
+		 'Total tests not run: %N\nTotal tests: %T\n' .
+		 'Total cpu time: %Y seconds\n' ;
+if ($ENV{'FORMAT_STRING'}) {
+  $format_string = $ENV{'FORMAT_STRING'};
+}
+
+$project_name = $ENV{'PROJECT'} || &error("Fatal: \$PROJECT not set");
+$project_name =~ tr/A-Z/a-z/;
+
+$makefile_loc = "$cdms_top/$project_name/config";
+$makefile_name = "Makefile";
+if ($ENV{'MAKEFILE_LOC'}) {
+  $makefile_loc = $ENV{'MAKEFILE_LOC'};
+}
+if ($ENV{'MAKEFILE_NAME'}) {
+  $makefile_name = $ENV{'MAKEFILE_NAME'};
+}
+
+if ($project_name eq "decaf") {
+  @gate_sim_files = ("pico_pin.tape", "pico_pout.tape");
+}
+else {
+  push(@gate_sim_files, "${project_name}_pin.tape");
+  push(@gate_sim_files, "${project_name}_pout.tape");
+}
+
+$options_filename = "steam.plusargs";
+if (-e "./$options_filename") {
+  $options_path = ".";
+}
+elsif ($ENV{'STEAM_PLUSARGS'}) {
+  $options_path = $ENV{'STEAM_PLUSARGS'};
+}
+elsif (-e "$decafhome/sys/config/$options_filename") {
+  $options_path = "$decafhome/sys/config";
+  &warning("STEAM_PLUSARGS not set: using default.");
+}
+else {
+  &error("Fatal: cannot find $options_filename in STEAM_PLUSARGS\n(and " .
+	 "default could not be found: what is PICOJAVAHOME?)");
+}
+
+open(OPTIONS, "$options_path/$options_filename") ||
+	    &error("Cannot open $options_path/$options_filename");
+
+while(<OPTIONS>) {
+  chop;
+  if (/^(-[^:]*):([^:]*):([^:]*)/) {
+    my $flag = $1;
+    my $proj = $2;
+    my $desc = $3;
+    if (defined $project{$flag}) {
+      &error("Flag defined twice in $options_path/$options_filename");
+    }
+    if ($desc =~ /^\s*$/) {
+      &error("$options_path/$options_filename: no description of $flag given");
+    }
+    next if ($proj ne $project_name);
+    $project{$flag} = $proj;
+    $description{$flag} = $desc;
+  }
+  elsif (/^\s*$/) {
+    next;
+  }
+  elsif (/^#/) {
+    next;
+  }
+  else {
+    &error("Unrecognized line in $options_path/$options_filename: \'$_\'");
+  }
+}
+close OPTIONS;
+@all_plusargs = keys %description;
+
+# ------------------------------------------------------------------------
+
+$| = 1;  # flush buffer after every write
+
+# parse the command line arguments.  This will also fill up the @test_list
+# with the args which are not options.
+@cmd_line_args = &get_args(1, @ARGV);
+
+# ------------------------------------------------------------------------
+
+# begin logging, unless it was turned off
+$steam_log = $outdir . "/" . $steam_log;
+`rm -f $steam_log` if (-e "$steam_log");
+if ($do_logging) {
+  open(LOG, ">$steam_log") || &error("Cannot create $steam_log");
+}
+&dual_log("Log messages are being written to $steam_log");
+&log("All command line arguments are: @ARGV");
+&log("Test-specific command line flags are: @cmd_line_args");
+&log("(Unrefined) test list is: @test_list");
+if ($use_scf) {
+  &log("Suite control files WILL be parsed.");
+}
+else {
+  &log("Suite control files will NOT be parsed.");
+}
+if ($build_vcs) {
+  &log("VCS will be built before executing tests.");
+}
+else {
+  &log("VCS will NOT be built before executing tests.");
+}
+if ($do_summary) {
+  &log("A summary of tests passed/failed/not run WILL be produced.");
+}
+else {
+  &log("A summary of tests passed/failed/not run will NOT be produced.");
+}
+&log("the set of tests to be run is $setlist");
+&log("dont_run = $dont_run");
+&log("mail will be sent to \'$mailing_list\'");
+&log("outdir = $outdir");
+&log("quiet_mode = $quiet_mode");
+&log("scf_filename = $scf_filename");
+&log("runme_prefix = $runme_prefix");
+if ($do_gate_level_simulation) {
+  &log("One or more tests will be run in gate level simulation.");
+}
+else {
+  &log("No tests will be run in gate level simulation.");
+}
+if ($need_vcs) {
+  &log("One or more tests will be run using vcs.");
+}
+else {
+  &log("No tests will be run using vcs (this may change later).");
+}
+if ($need_vlog) {
+  &log("One or more tests will be run using vlog.");
+}
+else {
+  &log("No tests will be run using vlog.");
+}
+if ($vcov_needed) {
+  &log("One or more tests will be run with vericov.");
+}
+else {
+  &log("No tests will be run with vericov.");
+}
+&log("Java runtime classes, if loaded, will be loaded in the following order:");
+foreach $item (@java_rt_classes) {
+  &log("  $item");
+}
+&log("logfilesuffix = \'$logfilesuffix\'");
+&log("iasrc file name = $iasrc");
+&log("failfile = $failfile");
+&log("passfile = $passfile");
+&log("notrunfile = $notrunfile");
+if (defined $ENV{'PICOJAVAHOME'}) {
+  &log("\$PICOJAVAHOME is set to $ENV{'PICOJAVAHOME'}");
+}
+else {
+  &log("\$PICOJAVAHOME is undefined");
+}
+&log("cdms_top = $cdms_top");
+if (defined $ENV{'VFILES_PATH'}) {
+  &log("\$VFILES_PATH is set to $ENV{'VFILES_PATH'}");
+}
+else {
+  &log("\$VFILES_PATH is undefined");
+}
+&log("vfiles_path = $vfiles_path");
+&log("dir_prefix = $dir_prefix");
+if (defined $ENV{'JOBFILE_HOME'}) {
+  &log("\$JOBFILE_HOME is set to $ENV{'JOBFILE_HOME'}");
+}
+else {
+  &log("\$JOBFILE_HOME is undefined");
+}
+&log("jobfile_home = $jobfile_home");
+&log("jobfile = $jobfile");
+&log("drm_watch = $drm_watch");
+&log("sleep_time = $sleep_time");
+if (defined $ENV{'VCS_NAME'}) {
+  &log("\$VCS_NAME is set to $ENV{'VCS_NAME'}");
+}
+else {
+  &log("\$VCS_NAME is undefined");
+}
+&log("vcs_name = $vcs_name");
+if (defined $ENV{'VCS_GATE_NAME'}) {
+  &log("\$VCS_GATE_NAME is set to $ENV{'VCS_GATE_NAME'}");
+}
+else {
+  &log("\$VCS_GATE_NAME is undefined");
+}
+&log("vcs_gate_name = $vcs_gate_name");
+if (defined $ENV{'VCS_VCOV_NAME'}) {
+  &log("\$VCS_VCOV_NAME is set to $ENV{'VCS_VCOV_NAME'}");
+}
+else {
+  &log("\$VCS_VCOV_NAME is undefined");
+}
+if (defined $ENV{'VLOG_NAME'}) {
+  &log("\$VLOG_NAME is set to $ENV{'VLOG_NAME'}");
+}
+else {
+  &log("\$VLOG_NAME is undefined");
+}
+&log("vlog_name = $vlog_name");
+if (defined $ENV{'IAS_NAME'}) {
+  &log("\$IAS_NAME is set to $ENV{'IAS_NAME'}");
+}
+else {
+  &log("\$IAS_NAME is undefined");
+}
+&log("ias_name = $ias_name");
+if (defined $ENV{'PROJECT'}) {
+  &log("\$PROJECT is set to $ENV{'PROJECT'}");
+}
+else {
+  &log("\$PROJECT is undefined");
+}
+&log("project_name = $project_name");
+&log("gate_sim_files = @gate_sim_files");
+&log("options_filename = $options_filename");
+if (defined $ENV{'STEAM_PLUSARGS'}) {
+  &log("\$STEAM_PLUSARGS is set to $ENV{'STEAM_PLUSARGS'}");
+}
+else {
+  &log("\$STEAM_PLUSARGS is undefined");
+}
+&log("options_path = $options_path\n");
+&log("The valid plusargs are: @all_plusargs");
+if ($|) {
+  &log("File buffers will be flushed after every write");
+}
+else {
+  &log("File buffers will NOT be flushed after every write");
+}
+&log("------------------------------------------------------------");
+
+
+# ------------------------------------------------------------------------
+# Determine whether each argument is a test case or a test directory.
+# Use some (artificial) intelligence to figure out what the user meant.
+# If it's a directory, need to parse the suite control files if they
+# exist.  Otherwise, need to find out as much info about the particular
+# test case.
+
+if ($debug1) {
+  my $num_elts = $#test_list + 1;
+  print "--# of test list elements = $num_elts\n";
+}
+if (1) {
+  my $num_elts = $#test_list + 1;
+  &log("--# of test list elements = $num_elts");
+}
+
+if ($#test_list < 0) {
+  &error("A test name or test directory must be specified on the command line.\n");
+}
+
+foreach $testcase (@test_list) {
+  if ($debug1) {
+    print "-- parsing testlist:  testcase = $testcase\n";
+  }
+  &log("-- parsing testlist:  testcase = $testcase");
+  if ((-d "$testcase") && ($use_scf == 0)) {
+    &error("Cannot use -noscf when suite directory is given.\n");
+  }
+  elsif ((-f "$testcase") && ($testcase !~ /\.class$/) && ($use_scf == 0)) {
+    &error("$testcase is not *.class: don't know how to handle.");
+  }
+  elsif (-f "$testcase") {
+    # is a single test case...
+    if (($testcase !~ /^\//) && ($testcase !~ /^\.\//)) {
+      $testcase = "./$testcase";
+    }
+    if ($use_scf) {
+      if ($debug1) {
+	print "running parse_scf on . with $testcase\n";
+      }
+      &log("running parse_scf on . with $testcase");
+      &parse_scf(".", $testcase);
+    }
+    else {
+      # can't use scf, we have a foo.class, so take our best guess
+      $testcase =~ s/\.class$//;
+      $files{$testcase} = "$dir/$testcase.class";
+      $tags{$testcase} = $not_an_arg;
+      $flags{$testcase} = $not_an_arg;
+      &add_test_info($testcase, $not_an_arg, 0);
+    }
+  }
+  elsif ((-d "$testcase") && (-e "$testcase/$scf_filename")) {
+    # definitely a test suite given
+    push(@dirs_to_run, "$topdir/$testcase");
+    chdir("$testcase");
+    if ($debug1) {
+      print "running parse_scf on $testcase\n";
+    }
+    &log("running parse_scf on $testcase");
+    &parse_scf("$testcase");
+    chdir("$topdir");
+  }
+  elsif ((-d "$testcase") && ($use_scf == 1)) {
+    # hardest case: could be a remnant from a previous run, or maybe
+    # a name of a test case which has '/' in it.
+    my $pop_count;
+    my @fields = split(/\//, $testcase);
+    for ($pop_count = 1; $pop_count <= scalar @fields; $pop_count++) {
+      my $test;
+      undef $test;
+      my @foo;
+      @foo = split(/\//, $testcase);
+      for ($i = 0; $i < $pop_count; $i++) {
+	my $new_elt = pop @foo;
+	if (defined $test) {
+	  $test = "$new_elt/$test";
+	}
+	else {
+	  $test = $new_elt;
+	}
+      }
+      $dir = join('/', @foo);
+      if ($dir =~ /^\s*$/) {
+	$dir = ".";
+      }
+      chdir("$topdir");
+      chdir("$dir");
+      if (!-e "$topdir/$dir/$scf_filename") {
+	if ($debug1) {
+	  print "$dir/$scf_filename nonexistent.  Skipping...\n";
+	}
+	&log("$dir/$scf_filename nonexistent.  Skipping...");
+	next;
+      }
+      if ($debug1) {
+	print "parsing scf on $dir with $dir/$test\n";
+      }
+      &log("parsing scf on $dir with $dir/$test");
+      my @output = &parse_scf($dir, "$dir/$test");
+      chdir("$topdir");
+      if (scalar @output == 1) {
+	last;
+      }
+    }
+  }
+  elsif ($use_scf == 0) {
+    # we don't know what it is and we're not allowed to use the scf
+    # to gain any more information, so complain.
+    &error("$testcase is not a test and is not a test directory");
+  }
+  else {
+    # assume it's in the current suite.control file and let parse_scf
+    #     complain if it ain't
+    if (($testcase !~ /^\//) && ($testcase !~ /^\.\//)) {
+      $testcase = "./$testcase";
+    }
+    if ($debug1) {
+      print "-- running parse_scf on . with $testcase\n";
+    }
+    &log("-- running parse_scf on . with $testcase");
+    &parse_scf(".", $testcase);
+  }
+}
+
+# maintain global variable consistency
+
+# if no tests need vlog, then we definitely need vcs.  This check is
+# necessary because -vcs is the default option and may not be specified.
+if (!$need_vlog) {
+  $need_vcs = 1;
+  &log("No tests need vlog -> setting need_vcs to 1");
+}
+
+# perform all $this, $test substitutions from the information in the
+# suite control files.
+
+&dual_log("cleaning up parameter list...");
+&do_parameter_substitutions;
+
+# place info from %flags into the main array
+while(($test, $flag) = each %flags) {
+  my @new_flags = split(/\s+/, $flag);
+  foreach $item (@new_flags) {
+    &add_test_info($test, $item, 0);
+  }
+}
+
+# insert command line args for each test case.  Will place them on the
+# end of the list.  Does not resolve conflicts...
+@test_list = &get_all_tests;
+foreach $testcase (@test_list) {
+  foreach $arg (@cmd_line_args) {
+    &add_test_info($testcase, $arg, 1);
+  }
+}
+
+# resolve argument overriding (right-most wins since command line args
+# were inserted later) and remove $not_an_arg to clean up the lists.
+
+&final_parameter_cleanup; 
+
+# remove tests from @test_list which are not in the
+# list of tests desired to be run...
+
+# $setlist, @test_list, %tags
+while (($test, $tag) = each %tags) {
+  if (&logic_eval($tag, $setlist) eq "FALSE") {
+    print "deleting $test from @test_list\n";
+    &delete_from($test, \@test_list);
+  }
+}
+#####
+
+if ($vcov_needed) {
+  if (!-e "$vcov_dir/${project_name}Vcov.cov") {
+    &error("$vcov_dir/${project_name}Vcov.cov does not exist.");
+  }
+  if (!-e "$vcov_dir/${project_name}Vcov.db") {
+    &error("$vcov_dir/${project_name}Vcov.db does not exist.");
+  }
+  if (!-e "$vcov_dir/${project_name}Vcov.inv") {
+    &error("$vcov_dir/${project_name}Vcov.inv does not exist.");
+  }
+  if (!-e "$vcov_dir/cf.run") {
+    &error("$vcov_dir/cf.run does not exist.");
+  }
+}
+
+#Choose phases to execute
+
+if (&is_in ("-build", @cmd_line_args)) {   #build, copy, run, check
+  print "***********Build Selected\n" if ($debug0);
+  &log("***********Build Selected");
+  $do_build_phase = 1;
+} 
+
+if (&is_in ("-build_only", @cmd_line_args)) {   #build, copy, run, check
+  print "***********Build_only Selected\n" if ($debug0);
+  &log("***********Build_only Selected");
+  $do_build_phase = 1;
+  $do_copy_phase =0;
+  $do_run_phase = 0;
+  $do_check_phase = 0;
+}
+
+if (&is_in ("-check_only", @cmd_line_args)) {      #check only
+  print "***********Check_only Selected \n" if ($debug0);
+  &log("***********Check_only Selected");
+  $do_build_phase = 0;
+  $do_copy_phase =0;		
+  $do_run_phase = 0;
+  $do_check_phase = 1;
+}    
+ 
+if ($debug0) {
+  print "***********Modules Selected: \n";
+  print "build phase = $do_build_phase, run phase = $do_run_phase, " .
+	"check_phase = $do_check_phase\n";
+}
+&log("***********Modules Selected:");
+&log("build phase = $do_build_phase, run phase = $do_run_phase, " .
+     "check_phase = $do_check_phase");
+
+if ($outdir !~ /\//) {
+  chop(my $cwd = `pwd`);
+  $outdir = "$cwd/$outdir";
+}
+
+print "-- outdir = $outdir\n" if ($debug1);
+&log("-- outdir = $outdir");
+
+while(($test, $filelist) = each %files) {
+  if (-f "$outdir/$test") {
+    my $foo = $test;
+    $foo =~ s/^\.\///;
+    $rundir{$test} = "$outdir/$dir_prefix$foo";
+  }
+  else {
+    $rundir{$test} = "$outdir/$test";
+  }
+  print "-- rundir = $rundir{$test}, test = $test\n" if ($debug1);
+  &log("-- rundir = $rundir{$test}, test = $test");
+}
+
+# last-minute test argument checking...
+
+foreach $test (@test_list) {
+  my @test_args = @{$all_tests{$test}};
+  my $arg;
+  my ($timeout_z, $nodream_z, $rc_z, $no_rtime_classes_z);
+  $timeout_z = $nodream_z = 0;
+  while ($arg = shift @test_args) {
+    $timeout_z = 1 if ($arg =~ /-timeout/);
+    $nodream_z = 1 if ($arg =~ /-nodream/);
+    $rc_z = 1 if ($arg =~ /-rc/);
+    $no_rtime_classes_z = 1 if ($arg =~ /-no_rtime_classes/);
+  }
+  if ($timeout_z && $nodream_z) {
+    &error("-timeout cannot be specified with -nodream");
+  }
+  if ($timeout_z && ($drm_watch ne "poll")) {
+    &error("$test: -timeout must be specified with -poll");
+  }
+  if ($no_rtime_classes_z && !$rc_z) {
+    &warning("$test: ignoring -no_rtime_classes for non-rc-test");
+  }
+}
+
+# last-minute global argument checking...
+
+if ($format_string =~ /^(.*)\/\/(.*)\/\/(.*)$/) {
+  $format_top = $1;
+  $format_middle = $2;
+  $format_bottom = $3;
+  &check_format_string($format_top);
+  &check_format_string($format_middle);
+  &check_format_string($format_bottom);
+}
+else {
+  &error("Format string has bad value.");
+}
+
+################## BUILD PHASE #############################
+
+if ($do_build_phase == 1) {
+  if (scalar %test_prebuild) {
+    &dual_log("Executing test prebuild commands...");
+  }
+  foreach $test (@test_list) {
+    if (defined $test_prebuild{$test}) {
+      chdir("$rundir{$test}");
+      system("$test_prebuild{$test}");
+    }
+  }
+}
+
+foreach $dir (@dirs_to_run) {
+  chdir("$dir");
+  $ENV{'PWD'} = "$dir";
+  # chdir("$rundir{$testcase}");
+  my @test_args = @{$all_tests{$testcase}};
+
+# build the test if necessary
+  if ($do_build_phase == 1) {
+    &dual_log("Building test files....");
+
+    if ($dont_run) {
+      # print "$testcase: make should produce this output\n";
+      # system("make -n");
+      `ln -s $makefile_loc/$makefile_name .` if (!-e "$makefile_name");
+      system("make");
+    }
+    else {
+      `ln -s $makefile_loc/$makefile_name .` if (!-e "$makefile_name");
+      system("make");
+    }
+    if ($? >> 8) {
+      &warning("$testcase: Bad return from make.  Skipping...");
+      next;
+    }
+    &delete_from("-build", \@test_args);
+  }
+}
+
+################### COPY PHASE #############################
+
+chdir("$outdir");
+if ($do_copy_phase == 1) {
+  &dual_log("Copying files....");
+  if ($debug1) {
+    print "-- outdir = $outdir\n";
+  }
+  &log("-- outdir = $outdir");
+  while(($test, $filelist) = each %files) {
+    if (-f "$outdir/$test") {
+      my $foo = $test;
+      $foo =~ s/^\.\///;
+      `mkdir -p $outdir/$dir_prefix$foo`;
+      &error("Cannot mkdir $dir_prefix$test") if ($? >> 8);
+    }
+    else {
+      `rm -fr $outdir/$test`;
+      `mkdir -p $outdir/$test`;
+      &error("Cannot mkdir $test") if ($? >> 8);
+    }
+    my @list = split(/\s+/, $filelist);
+    # if (($outdir ne ".") && ($outdir ne $topdir)) {
+      foreach $item (@list) {
+	next if ($item =~ /^\s*$/);
+	chop(my $cwd = `pwd`);
+	my $thing_to_copy;
+	if ($item =~ /^\//) {
+	  $thing_to_copy = $item;
+	}
+	else {
+	  $thing_to_copy = "$topdir/$item";
+	}
+	if ($thing_to_copy =~ /\[([^\]]+)\](.*)$/) {
+	  my $string = $1;
+	  my $stuff_after = $2;
+	  $string =~ s/\/$//;
+	  $string =~ s/^\///;
+	  if ($stuff_after =~ /^\s*$/) {
+	    my @foo = split(/\//, $string);
+	    pop @foo;
+	    $string = join('/', @foo);
+	  }
+	  $copyto = "$rundir{$test}/$string";
+	  `mkdir -p $rundir{$test}/$string 2> /dev/null`;
+	}
+	else {
+	  $copyto = $rundir{$test};
+	}
+	$thing_to_copy =~ s/\[//g;
+	$thing_to_copy =~ s/\]//g;
+	if ($debug1) {
+	  print "cp $thing_to_copy $copyto ($cwd)\n";
+	}
+	if ($debug2) {
+	  print "outdir = $outdir\n";
+	  print "topdir = $topdir\n";
+	  print "item = $item\n";
+	  print "thing_to_copy = $thing_to_copy\n";
+	  print "copyto = $copyto\n";
+	}
+	&log("cp $thing_to_copy $copyto");
+	`cp $thing_to_copy $copyto`;
+	&error("failed when trying to copy $thing_to_copy to " .
+	       "$copyto") if ($? >> 8);
+      }
+    # }
+  }	# end of while
+  
+  chdir($outdir);
+  
+  # build vcs if -buildvcs is specified
+  
+  if ($build_vcs) {
+    &error("Dan has not implemented -buildvcs yet.  Complain to him...\n");
+  }
+  else {
+    `rm -f $outdir/$vcs_name`;
+    `rm -f $outdir/$vcs_name.daidir`;
+    `rm -f $outdir/$vcs_gate_name`;
+    `rm -f $outdir/$vcs_gate_name.daidir`;
+    `rm -f $outdir/$vcs_vcov_name`;
+    `rm -f $outdir/$vcs_vcov_name.daidir`;
+    my $vcs_path;
+    if ($do_gate_level_simulation) {
+      if ($vcs_gate_name =~ /^\//) {
+	$vcs_path = $vcs_gate_name;
+      }
+      elsif ($vcs_name =~ /\//) {
+	my $cwd = `pwd`;
+	chop $cwd;
+	$vcs_path = "$cwd/$vcs_gate_name";
+      }
+      else {
+	$vcs_path = &path_of($vcs_gate_name);
+      }
+      if ($need_vcs) {
+        &dual_log("linking $vcs_path to $outdir");
+        `ln -s $vcs_path $outdir 2> /dev/null`;
+        `ln -s $vcs_path.daidir $outdir 2> /dev/null`;
+      }
+    }
+    if ($need_vcs) {
+      if ($vcs_name =~ /^\//) {
+        $vcs_path = $vcs_name;
+      }
+      elsif ($vcs_name =~ /\//) {
+        my $cwd = `pwd`;
+        chop $cwd;
+        $vcs_path = "$cwd/$vcs_name";
+      }
+      else {
+        $vcs_path = &path_of($vcs_name);
+      }
+      &dual_log("linking $vcs_path to $outdir");
+      `ln -s $vcs_path $outdir 2> /dev/null`;
+      `ln -s $vcs_path.daidir $outdir 2> /dev/null`;
+    }
+    if ($vcov_needed) {
+      if ($vcs_vcov_name =~ /^\//) {
+	$vcs_path = $vcs_vcov_name;
+      }
+      elsif ($vcs_vcov_name =~ /\//) {
+	my $cwd = `pwd`;
+	chop $cwd;
+	$vcs_path = "$cwd/$vcs_vcov_name";
+      }
+      else {
+	$vcs_path = &path_of($vcs_vcov_name);
+      }
+      &dual_log("linking $vcs_path to $outdir");
+      `ln -s $vcs_path $outdir 2> /dev/null`;
+      `ln -s $vcs_path.daidir $outdir 2> /dev/null`;
+    }
+  }   # end of build_vcs
+
+  if ($vcov_needed) {
+    `rm -f ${project_name}Vcov.cov`;
+    `rm -f ${project_name}Vcov.db`;
+    `rm -f ${project_name}Vcov.inv`;
+    `rm -f cf.run`;
+    `ln -s $vcov_dir/${project_name}Vcov.cov .`;
+    `ln -s $vcov_dir/${project_name}Vcov.db .`;
+    `ln -s $vcov_dir/${project_name}Vcov.inv .`;
+    `ln -s $vcov_dir/cf.run .`;
+  }
+  
+  &dual_log("Generating runme files...");
+  foreach $testcase (@test_list) {
+    chdir($outdir);
+    chdir("$rundir{$testcase}");
+    my @test_args = @{$all_tests{$testcase}};
+  
+    # if rt-type, need to copy to reset.class
+  
+    if (&is_in("-rt", @test_args)) {
+      my $classfile_seen = 0;
+      my $initfile_seen = 0;
+      foreach $file (split(/\s+/, $files{$testcase})) {
+	if ($file =~ /\.init$/) {
+	  if ($initfile_seen) {
+	    &error("$testcase: Cannot have multiple init files with -rt.\n");
+	  }
+	  $initfile_seen = 1;
+	  `cp -f $file reset.init`;
+	  &log("init file copied: cp -f $file reset.init");
+	}
+	next unless ($file =~ /\.class$/);
+	if ($classfile_seen) {
+	  &error("$testcase: Cannot have multiple class files with -rt.\n");
+	}
+	$classfile_seen = 1;
+	my @foo = split(/\//, $file);
+	$the_file = pop @foo;
+	chop(my $cwd = `pwd`);
+	`cp -f $the_file reset.class`;
+	&log("reset.class made: cp -f $the_file reset.class");
+      }
+    }
+    elsif (!&is_in("-rc", @test_args)) {
+      &error("$testcase: Must specify -rc or -rt.");
+    }
+
+    # link to 'sys' or 'picoJava-II'...
+    # Note that this is not very "project-independent" code
+
+    if ($project_name eq "decaf") {
+      `ln -s $cdms_top/sys .`;
+    }
+    else {
+      `ln -s $cdms_top/picoJava-II .`;
+    }
+
+    # generate the iasrc, runme file
+
+    open(IASRC, ">$iasrc") || &error("Cannot create $iasrc");
+  
+    my @foo = split(/\//, $testcase);
+    my $test_root = pop @foo;
+    $runme_file{$testcase} = "$runme_prefix.$test_root";
+    open(RUNME, ">$runme_file{$testcase}") || &error("Cannot create runme");
+  
+    print RUNME "\#!/bin/csh -f\n";
+
+    print RUNME "set modified_argv = ()\n";
+    print RUNME "while (\$\#argv >= 1)\n";
+    print RUNME "  set elt = \$argv\[1\]\n";
+    print RUNME "  shift argv\n";
+    print RUNME "  if (\$elt == TPL_DBG) then\n";
+    print RUNME "    set modified_argv = (\$modified_argv +define+TPL_DBG)\n";
+    print RUNME "  else\n";
+    print RUNME "    set modified_argv = (\$modified_argv \$elt)\n";
+    print RUNME "  endif\n";
+    print RUNME "end\n";
+  
+    if (&is_in("-logfilename", @test_args)) {
+      my @temp = @test_args;
+      while (shift @temp ne "-logfilename") {};
+      $logfilename = shift @temp;
+      &delete_from("-logfilename", \@test_args);
+      &delete_from($logfilename, \@test_args);
+      $logfilename = "$logfilename$logfilesuffix";
+    }
+    else {
+      $logfilename = "$test_root$logfilesuffix";
+    }
+    $logfile{$testcase} = $logfilename;
+
+    if (defined $test_prerun{$testcase}) {
+      print RUNME "$test_prerun{$testcase}\n";
+    }
+
+    if ($debug1) {
+      print "files = \'$files{$testcase}\'\n";
+    }
+    &log("files = \'$files{$testcase}\'\n");
+  
+    if (!&is_in("-rt", @test_args)) {
+      foreach $file (split /\s+/, $files{$testcase}) {
+	next unless ($file =~ /\.class[\]]?$/);
+	my $bar;
+	my $preserve;
+	if ($file =~ /\[([^\]]+)\](.*)$/) {
+	  $preserve = $1;
+	  my $other = $2;
+	  $preserve =~ s/^\///;
+	  $preserve =~ s/\/$//;
+	  my @foo = split(/\//, $file);
+	  if ($other =~ /^\s*$/) {
+	    my @x = split(/\//, $preserve);
+	    # pop @x;
+	    $bar = pop @x;
+	    $preserve = join('/', @x);
+	  }
+	  else {
+	    $bar = pop @foo;
+	  }
+	  $bar =~ s/\]//g;
+	  $bar = "$preserve/$bar";
+	}
+	else {
+	  my @foo = split(/\//, $file);
+	  $bar = pop @foo;
+	}
+	print IASRC "loadClass $bar\n";
+      }
+    }
+    if ((&is_in("-ias", @test_args)) || (&is_in("-pjsim", @test_args))) {
+      &delete_from("-ias", \@test_args);
+      &delete_from("-pjsim", \@test_args);
+      if ($quiet_mode) {
+	print RUNME "$ias_name << EOF >& $logfilename\n";
+      }
+      else {
+	print RUNME "$ias_name << EOF |& tee $logfilename\n";
+      }
+      print RUNME "run\n";
+      print RUNME "quit\n";
+      print RUNME "EOF\n";
+    }
+    else {
+      my($cosim_line, $cosim_line_end);
+      if (&is_in("-vlog", @test_args)) {
+	$vlog_mode = 1;
+	$cosim_line = "$vlog_name ";
+	&delete_from("-vlog", \@test_args);
+	if (&is_in("-vcov", @test_args)) {
+	  &error("-vcov can not be specified with -vlog (not supported)");
+	}
+      }
+      else {
+	if (&is_in("-gate", @test_args) && (&is_in("-vcov", @test_args))) {
+	  &error("cannot specify -gate with -vcov");
+	}
+	$vlog_mode = 0;
+	chop(my $cwd = `pwd`);
+	my @fields;
+	if (&is_in("-gate", @test_args)) {
+	  @fields = split(/\//, $vcs_gate_name);
+	}
+	elsif (&is_in("-vcov", @test_args)) {
+	  @fields = split(/\//, $vcs_vcov_name);
+	}
+	else {
+	  @fields = split(/\//, $vcs_name);
+	}
+	my $vcs_name_root = pop @fields;
+	`ln -s $outdir/$vcs_name_root .`;
+	`ln -s $outdir/$vcs_name_root.daidir .`;
+	$cosim_line = "./$vcs_name_root ";
+	&delete_from("-vcs", \@test_args);
+      }
+      if (&is_in("-vcov", @test_args)) {
+	`ln -s $outdir/${project_name}Vcov.cov .`;
+	`ln -s $outdir/${project_name}Vcov.db .`;
+	`ln -s $outdir/${project_name}Vcov.inv .`;
+	`ln -s $outdir/cf.run .`;
+	$cosim_line .= "+vcov+config+cf.run ";
+	print RUNME "setenv VCOV_DUMP $test_root.cov\n";
+      }
+      if (&is_in("-rtl", @test_args)) {
+	&delete_from("-rtl", \@test_args);
+      }
+      else {
+	$cosim_line .= "+cosim+$ias_name ";
+	&delete_from("-cosim", \@test_args);
+      }
+      if (&is_in("-rc", @test_args)) {
+	$cosim_line .= "+class";
+	foreach $file (split /\s+/, $files{$testcase}) {
+	  next unless ($file =~ /\.class[\]]?$/);
+	  if ($file =~ /\[([^\]]+)\](.*)$/) {
+	    my $preserve = $1;
+	    my $other = $2;
+	    $other =~ s/.*\///;
+	    $preserve =~ s/\/$//;
+	    $file = "$preserve/$other";
+	    $file =~ s/^\///;
+	  }
+	  else {
+	    $file =~ s/.*\///;
+	  }
+	  $file =~ s/\/$//;
+	  $cosim_line .= "+$file";
+	}
+
+	# want to load the runtime classes for all -rc tests
+	if(!&is_in("-no_rtime_classes", @test_args)) {
+	  my $rt_class_list = join('+', @java_rt_classes);
+	  $cosim_line .= "+$rt_class_list";
+	}
+
+	# parse config file, if specified...
+	foreach $entry (@test_args) {
+	  next unless ($entry =~ /^-config\s+(\S+)/);
+	  $config_file = $1;
+	  my @temp = @test_args;
+	  if (-f "$config_file") {
+	    open(CONFIG, "$config_file") ||
+		&error("$testcase: cannot open $config_file");
+	    while(<CONFIG>) {
+	      chomp;
+	      if (/^\+\s+$test_root\s+(.*)$/) {
+		$helper_list = $1;
+		$helper_list =~ s/\s*$/\.class/;
+		$helper_list =~ s/\s+/\.class\+/g;
+		if ($helper_list ne ".class") {
+		  $cosim_line .= "+$helper_list";
+		}
+	      }
+	    }
+	    close CONFIG;
+	  }
+	  else {
+	    &warning("$testcase: cannot find $config_file");
+	  }
+	}
+	$cosim_line .= " ";
+      }
+      if (&is_in("TPL_DBG", @test_args)) {
+	$cosim_line .= "+define+TPL_DBG ";
+	&delete_from("TPL_DBG", \@test_args);
+      }
+      $cosim_line .= "+vcs+lic+wait ";
+  
+      foreach $arg (@test_args) {
+	if ($arg =~ /^\+/) {
+	  $cosim_line .= "$arg ";
+	}
+	elsif (&is_in($arg, @all_plusargs)) {
+	  $arg =~ s/^-/\+/;
+	  $cosim_line .= "$arg ";
+	}
+      }
+      if ($vlog_mode == 1) {
+	$cosim_line .= "-f $vfiles_path ";
+      }
+      $cosim_line .= "\$modified_argv ";
+      if ($quiet_mode) {
+	$cosim_line_end = ">& $logfilename\n";
+      }
+      else {
+	$cosim_line_end = "|& tee $logfilename\n";
+      }
+      if (&is_in("-gate", @test_args)) {
+	my $cosim_line_nogate = $cosim_line;
+	$cosim_line_nogate =~ s/$vcs_gate_name/$vcs_name/;
+	print RUNME "$cosim_line_nogate +record $cosim_line_end";
+	print RUNME "set rc = \$status\n";
+	print RUNME "set err = \`grep -i \'error:\' $logfilename | wc -l\`\n";
+	print RUNME "set mm = \`grep \'NOT EQUAL\' $logfilename | wc -l\`\n";
+	print RUNME "mv -f $logfilename $logfilename.record\n";
+	print RUNME "if (\$rc || \$err || \$mm) then\n";
+	print RUNME "  echo Error: run with +record failed.  Cannot proceed.\n";
+	print RUNME "  exit 1\n";
+	print RUNME "endif\n";
+	foreach $file (@gate_sim_files) {
+	  print RUNME "if (! -e $file) then\n";
+	  print RUNME "  echo Error: $file does not exist.\n";
+	  print RUNME "  exit 1\n";
+	  print RUNME "endif\n";
+	}
+      }
+      if (&is_in("-once", @test_args)) {
+	print RUNME "$cosim_line $cosim_line_end";
+      }
+      else {
+	if ($no_second_sst) {
+	  $cosim_line =~ s/\+define\+TPL_DBG //;
+	}
+	print RUNME "$cosim_line $cosim_line_end";
+	print RUNME "set rc = \$status\n";
+	print RUNME "set err = \`grep -i \'error:\' $logfilename | wc -l\`\n";
+	print RUNME "set mm = \`grep \'NOT EQUAL\' $logfilename | wc -l\`\n";
+	print RUNME "if (\$rc || \$err || \$mm) then\n";
+	print RUNME "  echo \"First pass: test failed.  rc = \$rc; " .
+		       "err = \$err; mm = \$mm\"\n";
+	if (! $no_second_sst) {
+	  print RUNME "  gen_sst_control -before $dump_before -after $dump_after $logfilename\n";
+	  print RUNME "  if (\$status != 0) rm sst_control\n";
+	}
+	print RUNME "  mv -f $logfilename $logfilename.1\n";
+	if (! $no_second_sst) {
+	  print RUNME "  echo \'******** Beginning Second Run, generate sst file *******\'\n";
+	}
+	print RUNME "  echo \'*** Second run: first logfile is $logfilename.1\' > $logfilename\n";
+	if ($no_second_sst) {
+	  print RUNME "    $cosim_line $cosim_line_end\n";
+	}
+	else {
+	  print RUNME "  if (-e sst_control) then\n";
+	  print RUNME "    $cosim_line +define+TPL_DBG +sst_control +dcu_debug $cosim_line_end\n";
+	  print RUNME "  else\n";
+	  print RUNME "    $cosim_line +define+TPL_DBG +dcu_debug $cosim_line_end";
+	  print RUNME "  endif\n";
+	  print RUNME "endif\n";
+	}
+      }
+    }
+    if (defined $test_postrun{$testcase}) {
+      print RUNME "$test_postrun{$testcase}\n";
+    }
+
+    # for all -rc tests, load runtime classes...
+    if (&is_in("-rc", @test_args) && !&is_in("-no_rtime_classes", @test_args)) {
+      print IASRC "loadRT\n";
+    }
+
+    if (&is_in("+handle", @test_args)) {
+      print IASRC "memPoke 0xffec 0xffffffff\n";
+    }
+    if (&is_in("+expcount", @test_args) && &is_in("+flush", @test_args)) {
+      print IASRC "memOR 0xfff0 0xff\n";
+    }
+    elsif (&is_in("-expcount", @test_args) && &is_in("-flush", @test_args)) {
+      print IASRC "memOR 0xfff0 0xff\n";
+    }
+    elsif (&is_in("+expcount", @test_args) && &is_in("-flush", @test_args)) {
+      print IASRC "memOR 0xfff0 0xff\n";
+    }
+    elsif (&is_in("-expcount", @test_args) && &is_in("+flush", @test_args)) {
+      print IASRC "memOR 0xfff0 0xff\n";
+    }
+    elsif (&is_in("+expcount", @test_args)) {
+      print IASRC "memOR 0xfff0 0xf0\n";
+    }
+    elsif (&is_in("-expcount", @test_args)) {
+      print IASRC "memOR 0xfff0 0xf0\n";
+    }
+    elsif (&is_in("+flush", @test_args)) {
+      print IASRC "memOR 0xfff0 0x0f\n";
+    }
+    elsif (&is_in("-flush", @test_args)) {
+      print IASRC "memOR 0xfff0 0x0f\n";
+    }
+    # ckchen 09/15/98 -- add cache size support
+    elsif ($dcs != 16 || $ics != 16) {
+      print IASRC "cache $dcs $ics\n";
+    }
+    print IASRC "set not_count_limit 5\n";
+    print IASRC "itrace 2\n";
+
+    close IASRC;
+    close RUNME;
+    `chmod +x $runme_file{$testcase}`;
+  } #end of foreach (runme)
+  
+  if ($dont_run) {
+    &print_test_info;
+    # &print_file_info;
+    exit 0;
+  }
+}
+else {
+  # If copy phase is not selected, still need $logfilename
+  foreach $testcase (@test_list) {
+    chdir("$rundir{$testcase}");
+    my @test_args = @{$all_tests{$testcase}};
+
+    if (&is_in("-logfilename", @test_args)) {
+      my @temp = @test_args;
+      while (shift @temp ne "-logfilename") {};
+      $logfilename = shift @temp;
+      &delete_from("-logfilename", \@test_args);
+      &delete_from($logfilename, \@test_args);
+      $logfilename = "$logfilename$logfilesuffix";
+    }
+    else {
+      $logfilename = "$testcase$logfilesuffix";
+    }
+    my @foo = split(/\//, $logfilename);
+    $logfile{$testcase} = pop @foo;
+    print "testcase = $testcase, logfile = $logfile{$testcase}\n"
+        if ($debug1);
+  }
+} # end of copy phase
+
+#################### RUN PHASE ################################
+# begin the run dispatch loop
+
+if ($do_run_phase == 1) {
+
+  # avoid the tcsh problems with dream...
+  $ENV{'SHELL'} = "/bin/csh";
+
+  # gather the maximum time information for each test
+  foreach $testcase (@test_list) {
+    my @test_args = @{$all_tests{$testcase}};
+    $timeout{$testcase} = "unlimited";
+    foreach $arg (@test_args) {
+      if ($arg =~ /-timeout\s+(\S+)/) {
+	my $value = $1;
+	if ($value =~ /(\d+):(\d+)/) {
+	  my $hour = $1;
+	  my $minute = $2;
+	  $timeout{$testcase} = $hour * 3600 + $minute * 60;
+	}
+	else {
+	  &error("timeout argument \'$value\' is not in hour:minute format");
+	}
+	last;
+      }
+    }
+    &log("Time limit for $testcase is $timeout{$testcase}\n");
+  }
+
+  my $num = scalar @test_list;
+  &dual_log("Total tests to be run: $num");
+  &dual_log("Running each test....");
+
+  foreach $testcase (@test_list) {
+    chdir($outdir);
+    chdir("$rundir{$testcase}");
+    my @test_args = @{$all_tests{$testcase}};
+  
+    # run the test
+    $begin_time{$testcase} = time;
+    if (&is_in("-dream", @test_args)) {
+      my $line;
+      my $command = "drmsubmit -f $jobfile_home/$jobfile ";
+      if (&is_in("-immediate", @test_args)) {
+	$command .= "-m ";
+      }
+      $command .= "$runme_file{$testcase}";
+      $line = `$command`;
+      chop $line;
+      $line = $1 if ($line =~ /(\d+)$/);
+      $wait_list .= " $line";
+      $job_timeout{$line} = $timeout{$testcase};
+      $job_begin{$line} = $begin_time{$testcase};
+    }
+    else {
+      system("$runme_file{$testcase}");
+    }
+    $end_time{$testcase} = time;
+  }
+  
+  # poll, wait, or exit
+  &poll_exit_wait($wait_list);
+  
+} # end run phase
+
+####################### CHECK PHASE ############################
+# postprocessing cleanup...
+
+if ($do_check_phase == 1) {
+	
+  &dual_log("Checking results for each test...");
+
+  #Remove files before adding tests to them.  DAI 7/16/97
+  if (-f "$outdir/$failfile") {
+    `rm "$outdir/$failfile"`;
+  }
+  if (-f "$outdir/$passfile") {
+    `rm "$outdir/$passfile"`;
+  }
+  if (-f "$outdir/$notrunfile") {
+    `rm "$outdir/$notrunfile"`;
+  }
+
+  foreach $testcase (@test_list) {
+    print "$testcase , outdir = $outdir, rundir = $rundir{$testcase} \n"
+                                                          if ($debug0);
+    &log("$testcase , outdir = $outdir, rundir = $rundir{$testcase}");
+    chdir($outdir);
+    chdir("$rundir{$testcase}");
+    my @test_args = @{$all_tests{$testcase}};
+  
+    # do the -nommcnt, -noerrcnt stuff;  Determine test result outcome;
+    # collect statistics...
+  
+    my($errcnt, $mmcnt, $logsize);
+    my $cputime;
+
+    # Added if/else to check for log file  DAI 7/15/97
+    if (-f $logfile{$testcase}) {
+      chop($mmcnt = `grep 'NOT EQUAL' $logfile{$testcase} | wc -l`);
+      $mmcnt =~ s/\s+//g;
+      chop($errcnt = `grep -i 'error:' $logfile{$testcase} | wc -l`);
+      $errcnt =~ s/\s+//g;
+      chop($logsize = `cat $logfile{$testcase} | wc -l`);
+      $logsize =~ s/\s+//g;
+      chop($dsv_return = `grep 'DSV return code' $logfile{$testcase}`);
+      $dsv_return =~ s/DSV return code //;
+      if (&is_in("-ias", @test_args) || &is_in("-pjsim", @test_args)) {
+	$cyc_cnt = "undefined";
+	my $foo = `grep 'instructions' $logfile{$testcase} | grep '^IAS'`;
+	if ($foo =~ /(\d+)\s+instructions/) {
+	  $inst_cnt = $1;
+	}
+	else { 
+	  $inst_cnt = "undefined";
+	}
+	$fold_cnt = "undefined";
+	$cputime = "undefined";
+      }
+      else {
+	chop($cyc_cnt = `grep 'CYCLE COUNT' $logfile{$testcase}`);
+	chop($inst_cnt = `grep 'INSTRUCTION COUNT' $logfile{$testcase}`);
+	chop($fold_cnt = `grep 'INSTRUCTIONS FOLDED' $logfile{$testcase}`);
+	if (&is_in("-vlog", @test_args)) {
+	  chop($cputime = `grep '^CPU time:' $logfile{$testcase}`);
+	  if ($cputime =~ /^.*\+\s+([1234567890\.]+)/) {
+	    $cputime = $1;
+	  }
+	  else {
+	    $cputime = "error";
+	  }
+	}
+	else {
+	  chop($cputime = `grep '^CPU Time:' $logfile{$testcase}`);
+	  if ($cputime =~ /^CPU Time:\s*([1234567890\.]+)/) {
+	    $cputime = $1;
+	  }
+	  else {
+	    $cputime = "error";
+	  }
+	}
+      }
+      $cpu_time{$testcase} = $cputime;
+      `head -1 $logfile{$testcase} | grep '*** Second run'`;
+      if ($? >> 8) {
+	$first_run_failed = 0;
+      }
+      else {
+	$first_run_failed = 1;
+      }
+
+      # grep out the 'COVERAGE:' lines in the logfile.  Store them into
+      # the %coverage associative array.  %coverage is a hash of hashes,
+      # where the coverage type (ibuffer, folding, etc) is
+      # used as the first key and the testcase name is used as the second.
+      if ($merge_monitor_coverage) {
+	my @foo = `grep 'COVERAGE:' $logfile{$testcase}`;
+	foreach $line (@foo) {
+	  if ($line =~ /^COVERAGE:\s*(\S+)\s+(\S+)/) {
+	    my $key = $1;
+	    my $value = $2;
+	    $coverage{$key}{$testcase} = $value;
+	  }
+	}
+      }
+
+      # grep out the 'RTL-STAT:' lines in the logfile.  Store them into the
+      # %rtl_stats associative array.  %rtl_stats is a hash of hashes, where
+      # the name of the statistic ("SMU_HOLD_CYCLES", "CLOCK_CYCLES", etc)
+      # is used as the first key and the testcase name is used as the second.
+      # The value of each statistic should be numerical or it will not be
+      # counted.
+      if ($merge_rtl_stats) {
+	my @foo = `grep 'RTL-STAT:' $logfile{$testcase}`;
+	foreach $line (@foo) {
+	  if ($line =~ /^RTL-STAT:\s*(\S+)\s+(\d+)/) {
+	    my $key = $1;
+	    my $value = $2;
+	    $rtl_stats{$key}{$testcase} = $value;
+	  }
+	}
+      }
+    }
+    else {
+      &dual_log("No logfile for testcase $testcase");
+      $test_result{$testcase} = "not run";
+    }
+    if ($debug1) {
+      print "--- Checking error counts \n";
+      print "mmcnt = $mmcnt, errcnt = $errcnt, logsize = $logsize, " .
+	    "dsv_return = $dsv_return \n";
+    }
+    &log("--- Checking error counts");
+    &log("mmcnt = $mmcnt, errcnt = $errcnt, logsize = $logsize, " .
+	 "dsv_return = $dsv_return");
+  
+    # changed to remove $dsv_return since it fails with it - DAI 7/15/97
+    # add back in since they all pass then.
+    #	  if (($mmcnt > 0) || ($errcnt > 0) || ($dsv_return eq "") ||
+    if (($mmcnt > 0) || ($errcnt > 0) || ($logsize < $min_logfile_size)) {
+      unless (&is_in("-nommcnt", @test_args)) {
+	if ($mmcnt > 0) {
+	  `echo COSIM MISMATCH: $mmcnt >> $logfile{$testcase}`;
+	}
+      }
+      unless (&is_in("-noerrcnt", @test_args)) {
+	if ($errcnt > 0) {
+	  `echo ERROR COUNT: $errcnt >> $logfile{$testcase}`;
+	}
+      }
+
+      #if ($dsv_return eq "") {
+      #  `echo 'Cannot find a DSV return code line!  Assuming failure..' >> $logfile{$testcase}`;
+      #}
+
+      if ($logsize < $min_logfile_size) {
+	`echo 'Log file is too short!  Assuming failure..' >> $logfile{$testcase}`;
+      }
+      `echo '$testcase failed!' >> $logfile{$testcase}`;
+      $test_result{$testcase} = "failed";
+    }
+    elsif ($first_run_failed) {
+      `echo '$testcase failed! (first run failed)' >> $logfile{$testcase}`;
+      $test_result{$testcase} = "failed";
+    }
+    elsif (`grep PASSED $logfile{$testcase} `) {
+      $test_result{$testcase} = "passed";
+      `echo '$testcase passed!' >> $logfile{$testcase}`;
+    }
+    elsif (`grep 'RANDOM TEST RETURN' $logfile{$testcase} `) {
+      $test_result{$testcase} = "passed";
+      `echo '$testcase passed!' >> $logfile{$testcase}`;
+    }
+    elsif (&is_in("-rtl", @test_args)) {
+      if (($dsv_return == 0) || ($dsv_return == 5)) {
+	&log("-rtl: dsv return code $dsv_return => passed");
+	$test_result{$testcase} = "passed";
+	`echo '$testcase passed!' >> $logfile{$testcase}`;
+      }
+      else {
+	&log("-rtl: dsv return code $dsv_return => failed");
+	$test_result{$testcase} = "failed";
+	`echo '$testcase failed!' >> $logfile{$testcase}`;
+      }
+    }
+    else {
+      `echo '$testcase has undetermined result!' >> $logfile{$testcase}`;
+      $test_result{$testcase} = "not run";
+    }
+
+    $error_count{$testcase} = $errcnt;
+    $mismatch_count{$testcase} = $mmcnt;
+
+    if ($cyc_cnt =~ /(\d+)/) {
+      $cycle_count{$testcase} = $1;
+    }
+    elsif ($cyc_cnt eq "undefined") {
+      $cycle_count{$testcase} = "undefined";
+    }
+    else {
+      $cycle_count{$testcase} = 0;
+    }
+    if ($inst_cnt =~ /(\d+)/) {
+      $instr_count{$testcase} = $1;
+    }
+    elsif ($inst_cnt eq "undefined") {
+      $instr_count{$testcase} = "undefined";
+    }
+    else {
+      $instr_count{$testcase} = 0;
+    }
+    if ($fold_cnt =~ /(\d+)/) {
+      $fold_count{$testcase} = $1;
+    }
+    elsif ($fold_cnt eq "undefined") {
+      $fold_count{$testcase} = "undefined";
+    }
+    else {
+      $fold_count{$testcase} = 0;
+    }
+  }
+
+  # collect final statistics ("total out the books") based on
+  # individual test statistics.
+  # Modified to print out files to pass, fail, or not run files DAI 7/17/97
+  if ($debug0) {
+    print "\nCollecting statistics....\n";
+  }
+  &log("Collecting statistics....");
+
+  # total out the statistics in the %coverage array.  For each statistic
+  # type, go through each result of the test cases, and "or" them all
+  # together.  This is appropriate since coverage is either true ("1")
+  # or false ("0").  Each string should contain only 0's and 1's, or steam
+  # might get messed up.
+  if ($merge_monitor_coverage) {
+    foreach $coverage_type (keys %coverage) {
+      my $total = "0";
+      &log("Coverage for $coverage_type\n");
+      foreach $testcase (keys %{ $coverage{$coverage_type} } ) {
+	my $value = $coverage{$coverage_type}{$testcase};
+	&log("$value $testcase");
+	$total = $total | $value;
+      }
+      &dual_log("\n$coverage_type $total\n");
+    }
+  }
+
+  # total out the statistics in the %rtl_stats array.  For each
+  # statistic type, go through each result of the test cases, and add them
+  # all together.  This is appropriate since statistics are all numerical
+  # and we are interested in the final totals at the end.
+  if ($merge_rtl_stats) {
+    foreach $stat_type (keys %rtl_stats) {
+      my $total = 0;
+      &log("Stats for $stat_type\n");
+      foreach $testcase (keys %{ $rtl_stats{$stat_type} } ) {
+	my $value = $rtl_stats{$stat_type}{$testcase};
+	&log("$value $testcase");
+	$total = $total + $value;
+      }
+      &dual_log("\n$stat_type $total\n");
+    }
+  }
+  
+  $passed = $failed = $not_run = 0;
+  $total_cycles = $total_instr = $total_folded = 0;
+  $total_cpu_time = 0;
+
+  my $some_cycles_undefined = 0;
+  my $all_cycles_undefined = 1;
+  my $some_instr_undefined = 0;
+  my $all_instr_undefined = 1;
+  my $some_folded_undefined = 0;
+  my $all_folded_undefined = 1;
+
+  foreach $testcase (@test_list) {
+    if ($debug0) { print "testcase = $testcase \n";}
+    if ($test_result{$testcase} eq "passed") {
+      $passed++;
+      `echo '$testcase' >> "$outdir/$passfile"`;
+    }
+    elsif ($test_result{$testcase} eq "failed") {
+      $failed++;
+      `echo '$testcase' >> "$outdir/$failfile"`;
+    }
+    elsif ($test_result{$testcase} eq "not run") {
+      $not_run++;
+      `echo '$testcase' >> "$outdir/$notrunfile"`;
+    }
+    else {
+      &dual_log("test result for $testcase is \'$test_result{$testcase}\'");
+    }
+    $total_cycles += $cycle_count{$testcase};
+    $total_instr += $instr_count{$testcase};
+    $total_folded += $fold_count{$testcase};
+
+    if ($cycle_count{$testcase} eq "undefined") {
+      $some_cycles_undefined = 1;
+    }
+    else {
+      $all_cycles_undefined = 0;
+    }
+    if ($instr_count{$testcase} eq "undefined") {
+      $some_instr_undefined = 1;
+    }
+    else {
+      $all_instr_undefined = 0;
+    }
+    if ($fold_count{$testcase} eq "undefined") {
+      $some_folded_undefined = 1;
+    }
+    else {
+      $all_folded_undefined = 0;
+    }
+    $elapsed_time{$testcase} = $end_time{$testcase} - $begin_time{$testcase};
+  }
+  $some_cpu_time_undefined = 0;
+  $all_cpu_time_undefined = 1;
+  $total_cpu_time = "0.0";
+  foreach $testcase (@test_list) {
+    if ($cpu_time{$testcase} eq "undefined") {
+      $some_cpu_time_undefined = 1;
+    }
+    elsif ($cpu_time{$testcase} eq "error") {
+      $some_cpu_time_undefined = 1;
+    }
+    else {
+      $total_cpu_time += $cpu_time{$testcase};
+      $all_cpu_time_undefined = 0;
+    }
+  }
+  
+  if ($debug0) { 
+    print "# passed = $passed \n";
+    print "# failed = $failed \n";
+    print "# not_run = $not_run \n";
+  }
+  &log("# passed = $passed");
+  &log("# failed = $failed");
+  &log("# not_run = $not_run");
+  
+  # keepdirs/nokeepdirs/keepfailures
+  
+  chdir($outdir);
+  foreach $testcase (@test_list) {
+    my @test_args = @{$all_tests{$testcase}};
+    my @foo = split(/\//, $testcase);
+    my $test_root = pop @foo;
+    if ((&is_in("-nokeepdirs", @test_args)) ||
+	(&is_in("-keepfailures", @test_args))) {
+      next if ((&is_in("-keepfailures", @test_args)) &&
+	       ($test_result{$testcase} ne "passed"));
+      chdir("$rundir{$testcase}");
+      opendir(DIR, ".");
+      my @files = readdir(DIR);
+      closedir DIR;
+      foreach $file (@files) {
+	if ($file eq $runme_file{$testcase}) {
+	  next unless (&is_in("-runme", @test_args));
+	}
+	if (-e "$outdir/$file") {
+	  `cp -f $file $outdir/$file.$test_root`;
+	}
+	else {
+	  # print "in $rundir{$testcase}\n";
+	  `cp -f $file $outdir/$file`;
+	}
+      }
+      chdir($outdir);
+      `rm -rf $rundir{$testcase}`;
+    }
+  }
+
+  # before printing the summary, do a little bookkeeping
+  if ($all_cycles_undefined) {
+    $total_cycles = "undefined";
+  }
+  elsif ($some_cycles_undefined) {
+    $total_cycles = "$total_cycles + some undefined";
+  }
+  if ($all_instr_undefined) {
+    $total_instr = "undefined";
+  }
+  elsif ($some_instr_undefined) {
+    $total_instr = "$total_instr + some undefined";
+  }
+  if ($all_folded_undefined) {
+    $total_folded = "undefined";
+  }
+  elsif ($some_folded_undefined) {
+    $total_folded = "$total_folded + some undefined";
+  }
+  if ($all_cpu_time_undefined) {
+    $total_cpu_time = "undefined";
+  }
+  elsif ($some_cpu_time_undefined) {
+    $total_cpu_time = "$total_cpu_time + some undefined";
+  }
+  $total = $passed + $failed + $not_run;
+  
+  # print out the summary...
+  
+  &dual_log("printing the summary");
+  if ($do_summary) {
+    &print_summary($format_top);
+    foreach $testcase (@test_list) {
+      &print_summary($format_middle, $testcase);
+    }
+    &print_summary($format_bottom);
+  
+    if (defined $mailing_list) {
+      &log("Sending mail...");
+      open (MAIL, "|mail $mailing_list");
+      print MAIL "Subject: tests results summary\n";
+      select MAIL;
+      &print_summary($format_top);
+      foreach $testcase (@test_list) {
+	&print_summary($format_middle, $testcase);
+      }
+      &print_summary($format_bottom);
+      select STDOUT;
+      close MAIL;
+    }
+  }
+  elsif (defined $mailing_list) {
+    open (MAIL, "|mail $mailing_list");
+    print MAIL "Subject: test run completed.\n";
+    close MAIL;
+  }
+} # end do check phase
+
+
+exit 0;
+########################### END OF MAIN PROGRAM ##########################
+
+# ------------------------------------------------------------------------
+# sub print_file_info prints each key and value in the %files
+#                     associative array.
+# ------------------------------------------------------------------------
+sub print_file_info {
+  while(($test,$file) = each %files) {
+    &dual_log("$test -> $file");
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub poll_exit_wait will do one of three things:
+#  -run drmstat continuously until all submitted jobs have been completed.
+#  -exit immediately
+#  -use 'drmwait' to wait for all jobs completed.
+# the list of dream jobs is given in parameter wait_list
+# 
+# ------------------------------------------------------------------------
+sub poll_exit_wait {
+  my $wait_list = $_[0];
+  if ($drm_watch eq "exit") {
+    &dual_log("All tests submitted.  Exiting...");
+    exit 0;
+  }
+  elsif (($drm_watch eq "wait") && (defined $wait_list)) {
+    &dual_log("drmwaiting on $wait_list");
+    `drmwait $wait_list`;
+    &dual_log("the wait is over...");
+    `drmdelete -c`;
+  }
+  elsif (($drm_watch eq "poll") && (defined $wait_list)) {
+    my $wait_again = 1;
+    while ($wait_again) {
+      my @drmstat = `drmstat`;
+      &dual_log("polling for completion of $wait_list");
+      $wait_again = 0;
+      foreach $elt (@drmstat) {
+	my $job;
+	if ($elt =~ /^\s*(\d+)/) {
+	  $job = $1;
+	}
+	else {
+	  next;
+	}
+	if ($job_timeout{$job} ne "unlimited") {
+	  if (time - $job_begin{$job} > $job_timeout{$job}) {
+	    &dual_log("job $job timed out.  Killing it.");
+	    `drmnuke $job`;
+	  }
+	  else {
+	    $wait_again = 1;
+	  }
+	}
+	elsif ($wait_list =~ /\b$job\b/) {
+	  $wait_again = 1;
+	}
+      }
+      if ($wait_again) {
+	&dual_log("sleeping for $sleep_time seconds...");
+	`sleep $sleep_time`;
+	&dual_log("woke up...");
+      }
+      `drmdelete -c`;
+    }
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub check_format_string($string)
+#    will check that $string has no bad formatting characters.
+# ------------------------------------------------------------------------
+sub check_format_string {
+  my $string = $_[0];
+  my @broken_string = split(/\%/, $string);
+  shift @broken_string;
+  foreach $substring (@broken_string) {
+    if ($substring !~ /^([cifqrksmelzdwtuyYPFNCIXKSOT,%])/) {
+      &error("bad character after \'\%\' ($1) in format string.");
+    }
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub print_summary($string)
+# sub print_summary($string, $testcase)
+#   prints out the summary report according to the format specifications
+#   in $string.  If $testcase is specified, will use $testcase as key
+#   to associative array references.
+# ------------------------------------------------------------------------
+sub print_summary {
+  my $string = $_[0];
+  my $testcase;
+  if (scalar @_ == 2) {
+    $testcase = $_[1];
+  }
+  else {
+    $testcase = "**no_name**";
+  }
+  my $testcase_end = $testcase;
+  $testcase_end =~ s/^.*\///;
+  while ($string) {
+    if ($string =~ /^%c/) {
+      $string =~ s/^%c//;
+      &dual_log("$cycle_count{$testcase}", 1);
+    }
+    elsif ($string =~ /^%i/) {
+      $string =~ s/^%i//;
+      &dual_log("$instr_count{$testcase}", 1);
+    }
+    elsif ($string =~ /^%f/) {
+      $string =~ s/^%f//;
+      &dual_log("$fold_count{$testcase}", 1);
+    }
+    elsif ($string =~ /^%q/) {
+      $string =~ s/^%q//;
+      &dual_log("$elapsed_time{$testcase}", 1);
+    }
+    elsif ($string =~ /^%r/) {
+      $string =~ s/^%r//;
+      if (defined $test_result{$testcase}) {
+	&dual_log("$test_result{$testcase}", 1);
+      }
+      else {
+	&dual_log("**unknown**", 1);
+      }
+    }
+    elsif ($string =~ /^%k/) {
+      $string =~ s/^%k//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%s/) {
+      $string =~ s/^%s//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%m/) {
+      $string =~ s/^%m//;
+      &dual_log("$mismatch_count{$testcase}", 1);
+    }
+    elsif ($string =~ /^%e/) {
+      $string =~ s/^%e//;
+      &dual_log("$error_count{$testcase}", 1);
+    }
+    elsif ($string =~ /^%l/) {
+      $string =~ s/^%l//;
+      &dual_log("$timeout{$testcase}", 1);
+    }
+    elsif ($string =~ /^%z/) {
+      $string =~ s/^%z//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%d/) {
+      $string =~ s/^%d//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%y/) {
+      $string =~ s/^%y//;
+      &dual_log("$cpu_time{$testcase}", 1);
+    }
+    elsif ($string =~ /^%w/) {
+      $string =~ s/^%w//;
+      &dual_log("$testcase", 1);
+    }
+    elsif ($string =~ /^%t/) {
+      $string =~ s/^%t//;
+      &dual_log("$testcase_end", 1);
+    }
+    elsif ($string =~ /^%u/) {
+      $string =~ s/^%u//;
+      &dual_log("$rundir{$testcase}", 1);
+    }
+    elsif ($string =~ /^%,/) {
+      $string =~ s/^%,//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%P/) {
+      $string =~ s/^%P//;
+      &dual_log("$passed", 1);
+    }
+    elsif ($string =~ /^%F/) {
+      $string =~ s/^%F//;
+      &dual_log("$failed", 1);
+    }
+    elsif ($string =~ /^%N/) {
+      $string =~ s/^%N//;
+      &dual_log("$not_run", 1);
+    }
+    elsif ($string =~ /^%C/) {
+      $string =~ s/^%C//;
+      &dual_log("$total_cycles", 1);
+    }
+    elsif ($string =~ /^%I/) {
+      $string =~ s/^%I//;
+      &dual_log("$total_instr", 1);
+    }
+    elsif ($string =~ /^%X/) {
+      $string =~ s/^%X//;
+      &dual_log("$total_folded", 1);
+    }
+    elsif ($string =~ /^%Y/) {
+      $string =~ s/^%Y//;
+      &dual_log("$total_cpu_time", 1);
+    }
+    elsif ($string =~ /^%K/) {
+      $string =~ s/^%K//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%S/) {
+      $string =~ s/^%S//;
+      ## UNIMPLEMENTED
+    }
+    elsif ($string =~ /^%O/) {
+      $string =~ s/^%O//;
+      &dual_log("$outdir", 1);
+    }
+    elsif ($string =~ /^%T/) {
+      $string =~ s/^%T//;
+      &dual_log("$total", 1);
+    }
+    elsif ($string =~ /^%%/) {
+      $string =~ s/^%%//;
+      &dual_log("%", 1);
+    }
+    elsif ($string =~ /^\\n/) {
+      $string =~ s/^\\n//;
+      &dual_log("");
+    }
+    elsif ($string =~ /^(.)/) {
+      my $letter = $1;
+      $string =~ s/^.//;
+      &dual_log("$letter", 1);
+    }
+  }
+}
+
+
+# ------------------------------------------------------------------------
+# sub path_of($file) will return the full path of its argument.
+# ------------------------------------------------------------------------
+sub path_of {
+  my $file = $_[0];
+  my @path = split(/:/, $ENV{'PATH'});
+  foreach $dir (@path) {
+    if (-x "$dir/$file") {
+      &log("the path to $file is $dir/$file");
+      return "$dir/$file";
+    }
+  }
+  &error("Cannot find $file in PATH");
+}
+
+# ------------------------------------------------------------------------
+# sub delete_from($elt, $arrayref)
+# 
+# will delete the array element $elt from the array
+# whose array reference is $arrayref
+#
+# ------------------------------------------------------------------------
+sub delete_from {
+  my($elt, $arrayref) = @_;
+  my $index = -1;
+  foreach $item (@$arrayref) {
+    $index++;
+    if ($item eq $elt) {
+      splice(@$arrayref, $index, 1);
+      return;
+    }
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub is_in($element, @array)
+#
+# will return 1 if $element is contained in @array and 0 otherwise.
+#
+# ------------------------------------------------------------------------
+sub is_in {
+  my ($element, @array) = @_;
+  foreach $item (@array) {
+    if ($item eq $element) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+# ------------------------------------------------------------------------
+# sub substitute_test_info($testcase, $old, $new)
+#
+# will find element $old in the argument list for $testcase and
+# replace it with element $new
+# ------------------------------------------------------------------------
+sub substitute_test_info {
+  my($testcase, $old, $new) = @_;
+  my @scratch = ();
+  my @foo = @{$all_tests{$testcase}};
+  foreach $test_arg (@{$all_tests{$testcase}}) {
+    if ($test_arg =~ /\Q$old/) {
+      $test_arg =~ s/\Q$old/$new/g;
+    }
+    # if we are substituting one arg for more than one argument
+    # (as in a $this or $test substitution), we'll need to store
+    # the args as individual array elements, so split first...
+    my @splitted = split(/\s+/, $test_arg);
+    foreach $splittage (@splitted) {
+      push(@scratch, $splittage);
+    }
+  }
+  @{$all_tests{$testcase}} = @scratch;
+}
+
+# ------------------------------------------------------------------------
+# sub do_parameter_substitutions
+#
+# will look for all $this parameters and substitute them with the
+# testcase name;
+# will look for all $<test> parameters and substitute them with the
+# parameters currently being used by the referenced testcase
+# ------------------------------------------------------------------------
+sub do_parameter_substitutions {
+  my @tests = keys %flags;
+  my @all_flags = values %flags;
+  my $dsvhome = $ENV{'DSVHOME'};
+  my $dsvhome_set = defined $ENV{'DSVHOME'};
+  foreach $test (@tests) {
+    my @foo = split (/\//, $test);
+    my $test_root = pop @foo;
+    &substitute_test_info($test, '$this', $test_root);
+    &substitute_test_info($test, '$runtime', "$dsvhome/class");
+    my $flag_string = shift @all_flags;
+    my @these_flags = split(/\s+/, $flag_string);
+    my($one, $two, $three, $new_flag);
+    foreach $flag (@these_flags) {
+      $flag =~ s/\$this/$test_root/g;
+      if ($flag =~ /\$runtime/) {
+	if ($dsvhome_set == 0) {
+	  &error("Tried to substitute \$runtime but \$DSVHOME not set");
+	}
+        $flag =~ s/\$runtime/$dsvhome\/class/g;
+      }
+      if ($flag =~ /^([^\$]*)\$(\w+)(.*)$/) {
+        $one = $1;
+        $two = $2;
+        $three = $3;
+	foreach $case (@tests) {
+	  if ($case =~ /$two/) {
+	    $two = $case;
+	    last;
+	  }
+	}
+        if ((defined $flags{$two}) && ($flags{$two} ne "")) {
+	  my $new_two = $flags{$two};
+	  $new_flag = "$one$new_two$three";
+	}
+	else {
+	  &error("Cannot find substitute match for \$$two");
+	}
+      }
+      else {
+	$new_flag = $flag;
+      }
+      &substitute_test_info($test, $flag, $new_flag);
+    }
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub final_parameter_cleanup
+#
+# clean up the parameter list: get rid of duplicates; remove any
+# $not_an_arg arguments; add "ALL" to tag lists; 
+# ------------------------------------------------------------------------
+sub final_parameter_cleanup {
+  #my @tests = keys %flags;
+  #my @all_flags = values %flags;
+  my @tests = keys %all_tests;
+  # @{$all_tests{$testcase}} = @scratch;
+
+  foreach $test (@tests) {
+    my @this_test_flags = @{$all_tests{$test}};
+    my @new_test_flags = ();
+    my($rtrc, $dream, $maxjobs, $sim, $vlogvcs, $poll, $config, $once);
+    my($log, $keepage, $timeout, $jobc);
+    $rtrc = $dream = $maxjobs = $sim = $vlogvcs = $poll = $config = 0;
+    $once = $log = $keepage = $timeout = $jobc = 0;
+    while ($oneflag = pop @this_test_flags) {
+      next if ($oneflag eq $not_an_arg);
+      next if (($rtrc) && (($oneflag eq "-rt") || ($oneflag eq "-rc")));
+      next if (($dream) &&
+                (($oneflag eq "-dream") || ($oneflag eq "-nodream")));
+      next if (($maxjobs) && ($oneflag eq "-maxjobs"));
+      next if (($sim) && (($oneflag eq "-ias") || ($oneflag eq "-pjsim") ||
+			  ($oneflag eq "-rtl") || ($oneflag eq "-cosim")));
+      next if (($vlogvcs) && (($oneflag eq "-vlog") || ($oneflag eq "-vcs")));
+      next if (($poll) && (($oneflag eq "-poll") || ($oneflag eq "-exit") ||
+			   ($oneflag eq "-wait")));
+      next if (($once) && (($oneflag eq "-once") || ($oneflag eq "-twice")));
+      next if (($log) && ($oneflag eq "-logfilename"));
+      next if (($keepage) && (($oneflag eq "-keepdirs") ||
+			      ($oneflag eq "-nokeepdirs") ||
+			      ($oneflag eq "-keepfailures")));
+      next if (($timeout) && ($oneflag eq "-timeout"));
+      next if (($jobc) && ($oneflag eq "-jobc"));
+
+      if (($oneflag eq "-rt") || ($oneflag eq "-rc")) {
+	$rtrc = 1;
+      }
+      elsif (($oneflag eq "-nodream") || ($oneflag eq "-dream")) {
+	$dream = 1;
+      }
+      elsif ($oneflag eq "-maxjobs") {
+	$maxjobs = 1;
+	$oneflag = "$oneflag $value";
+      }
+      elsif (($oneflag eq "-ias") || ($oneflag eq "-pjsim") ||
+	     ($oneflag eq "-rtl") || ($oneflag eq "-cosim")) {
+	$sim = 1;
+      }
+      elsif (($oneflag eq "-vlog") || ($oneflag eq "-vcs")) {
+	$vlogvcs = 1;
+      }
+      elsif (($oneflag eq "-poll") || ($oneflag eq "-exit") ||
+	     ($oneflag eq "-wait")) {
+	$poll = 1;
+      }
+      elsif ($oneflag eq "-config") {
+	$config = 1;
+	$oneflag = "$oneflag $value";
+      }
+      elsif (($oneflag eq "-once") || ($oneflag eq "-twice")) {
+	$once = 1;
+      }
+      elsif ($oneflag eq "-logfilename") {
+	$log = 1;
+	$oneflag = "$oneflag $value";
+      }
+      elsif (($oneflag eq "-keepdirs") || ($oneflag eq "-nokeepdirs") ||
+	     ($oneflag eq "-keepfailures")) {
+	$keepage = 1;
+      }
+      elsif ($oneflag eq "-timeout") {
+	$timeout = 1;
+	$oneflag = "$oneflag $value";
+      }
+      elsif ($oneflag eq "-jobc") {
+	$jobc = 1;
+	$oneflag = "$oneflag $value";
+      }
+      else {
+	# must be valid argument; assume it's the value of a parameter
+	$value = $oneflag;
+      }
+      push(@new_test_flags, $oneflag);
+    }
+    if (!&is_in("-vcs", @new_test_flags) && !&is_in("-vlog", @new_test_flags)) {
+      push(@new_test_flags, "-vcs");
+      $need_vcs = 1;
+      &log("$test: -vcs/-vlog not set => setting -vcs");
+    }
+    @{$all_tests{$test}} = @new_test_flags;
+
+    $tags{$test} =~ s/$not_an_arg//;
+    $files{$test} =~ s/$not_an_arg//;
+
+    my @foo = split(/\//, $test);
+    $test_root = pop @foo;
+    $tags{$test} =~ s/\$this/$test_root/g;
+    $files{$test} =~ s/\$this/$test_root/g;
+
+    my $dsvhome = $ENV{'DSVHOME'};
+    my $dsvhome_set = defined $ENV{'DSVHOME'};
+    if ($files{$test} =~ /\$runtime/) {
+      if ($dsvhome_set == 0) {
+	&error("DSVHOME not set and need to do a \$runtime substitution");
+      }
+      $files{$test} =~ s/\$runtime/$dsvhome\/class/g;
+    }
+
+    # make sure that "ALL" is a tag for every test
+    if ($tags{$test} !~ /\bALL\b/) {
+      $tags{$test} .= " ALL";
+    }
+  }
+
+  while (($t, $f) = each %files) {
+    my($subst,$copy);
+    if ($f =~ /\$(\w+)/) {
+      $subst = $1;
+      $copy = $subst;
+      foreach $index (keys %files) {
+	if ($index =~ /$subst/) {
+	  $subst = $index;
+	  last;
+	}
+      }
+      my $newval = $files{$subst};
+      if (!defined $newval) {
+	&error("Cannot resolve reference for $subst\n");
+      }
+      $files{$t} =~ s/\$$copy/$newval/g;
+      $f = $files{$t};
+      redo;
+    }
+  }
+
+  while (($t, $tag) = each %tags) {
+    my($subst, $copy);
+    if ($tag =~ /\$(\w+)/) {
+      $subst = $1;
+      $copy = $subst;
+      foreach $index (values %tags) {
+	if ($index =~ /$subst/) {
+	  $subst = $index;
+	  last;
+	}
+      }
+      my $newval = $tags{$subst};
+      if ((!defined $newval) || ($newval eq "")) {
+	&error("Cannot resolve reference for $subst\n");
+      }
+      $tags{$t} =~ s/$copy/$newval/g;
+      redo;
+    }
+  }
+
+}
+
+# ------------------------------------------------------------------------
+# sub parse_scf($dir)
+# sub parse_scf($dir, $single_test)
+#
+# parse the suite control file in $dir.  If $single_test is specified,
+# only gather test information for that particular test case.  Otherwise,
+# gather test information for all tests in the suite control file.
+# If subsuites are in the scf, parse the scf's of the subsuites (unless
+# only one test specified).
+# ------------------------------------------------------------------------
+sub parse_scf {
+  # precondition: we are in the directory where the scf exists
+  # global variables affected:
+  #   %tags, %files, %flags
+  # precondition: this function must be initially called with no items
+  #   in @suite_tags, @suite_flags, @suite_files,
+  #   $suite_test{pre,post}run_cmd.
+  # invariant: the following variables, although they may be changed,
+  #   should always be restored to their original values:
+  #   @suite_tags, @suite_flags, @suite_files, $suite_test_prerun_cmd,
+  #   $suite_test_postrun_cmd, $suite_test_prebuild_cmd
+
+  my $dir = $_[0];   # the suite directory name
+  my($single_test, $single_found);
+  if ((scalar @_) > 1) {
+    $single_test = $_[1];
+  }
+  $single_found = 0;
+
+  my(@subsuites, @tests);
+  my($current_test);
+  my @subsuite_tests = ();
+
+  $suite = 0;
+  my @inherited_suite_tags = @suite_tags;
+  my @inherited_suite_flags = @suite_flags;
+  my @inherited_suite_files = @suite_files;
+  my $inherited_test_prerun_cmd = $suite_test_prerun_cmd;
+  my $inherited_test_postrun_cmd = $suite_test_postrun_cmd;
+  my $inherited_test_prebuild_cmd = $suite_test_prebuild_cmd;
+
+  open(SCF, "$scf_filename") || &error("Cannot find $scf_filename");
+  while(<SCF>) {
+    chomp;
+    /^\s*#/ && next;
+    /^\s*$/ && next;
+    if (/^suite$/) {
+      $current_test = "suite";
+      @subsuites = ();
+      next;
+    }
+    if (/^(\S+)\s*$/) {
+      last if ($single_found);
+      $current_test = "$dir/$1";
+      if (defined $single_test) {
+	if ($single_test eq $current_test) {
+	  $single_found = 1;
+	  push(@tests, $current_test);
+	}
+	else {
+	  $_ = <SCF>;
+	  while ($_ !~ /^(\S+)\s*$/) {
+	    $_ = <SCF>;
+	    last if (eof SCF);
+	  }
+	  if (eof SCF) {
+	    &warning("$single_test: not in $scf_filename");
+	  }
+	  redo;
+	}
+      }
+      else {
+        push(@tests, $current_test);
+      }
+      next;
+    }
+    if (/^\s+tags\s*[:=]\s*(.*)$/) {
+      my $the_tag = $1;
+      if ($current_test eq "suite") {
+	@suite_tags = split (/\s+/, $the_tag);
+	$suite_tag_combine{$dir} = "false";
+      }
+      else {
+        $tags{$current_test} = $the_tag;
+	$tag_combine{$current_test} = "false";
+      }
+      next;
+    }
+    if (/^\s+tags\s*\|=\s*(.*)$/) {
+      my $the_tag = $1;
+      if ($current_test eq "suite") {
+	my @temp_tags = split (/\s+/, $the_tag);
+	foreach $tag (@temp_tags) {
+	  push(@suite_tags, $tag);
+	}
+	$suite_tag_combine{$dir} = "true";
+      }
+      else {
+	if ($tags{$current_test} eq "") {
+	  $tags{$current_test} = "$the_tag";
+	}
+	else {
+	  $tags{$current_test} .= " $the_tag";
+	}
+      $tag_combine{$current_test} = "true";
+      }
+      next;
+    }
+    if (/^\s+subsuites\s*[:=]\s*(.*)$/) {
+      next if (defined $single_test);
+      my $the_suites = $1;
+      &error("$dir/$scf_filename: cannot use \'subsuites\' except in " .
+	     "suite section") if ($current_test ne "suite");
+      my @foo = split (/\s+/, $the_suites);
+      foreach $suite (@foo) {
+	&error("subsuite $suite does not exist")
+	          if (!-e "$suite/$scf_filename");
+	push(@subsuites, $suite);
+      }
+      next;
+    }
+    if (/^\s+test-prerun-command\s*[:=]\s*(.*)$/) {
+      my $the_cmd = $1;
+      if ($current_test eq "suite") {
+	if ((!defined $suite_test_prerun_cmd) ||
+	    ($suite_test_prerun_cmd eq "")) {
+	  $suite_test_prerun_cmd = $the_cmd;
+	}
+	else {
+	  &error("Cannot combine/override test-prerun-command args");
+	}
+      }
+      else {
+	if ($test_prerun{$current_test} eq "") {
+	  $test_prerun{$current_test} = $the_cmd;
+	}
+	else {
+	  &error("Cannot combine/override test-prerun-command args");
+	}
+      }
+      next;
+    }
+    if (/^\s+test-postrun-command\s*[:=]\s*(.*)$/) {
+      my $the_cmd = $1;
+      if ($current_test eq "suite") {
+	if ((!defined $suite_test_postrun_cmd) ||
+	    ($suite_test_postrun_cmd eq "")) {
+	  $suite_test_postrun_cmd = $the_cmd;
+	}
+	else {
+	  &error("Cannot combine/override test-postrun-command args");
+	}
+      }
+      else {
+	if ($test_postrun{$current_test} eq "") {
+	  $test_postrun{$current_test} = $the_cmd;
+	}
+	else {
+	  &error("Cannot combine/override test-postrun-command args");
+	}
+      }
+      next;
+    }
+    if (/^\s+test-prebuild-command\s*[:=]\s*(.*)$/) {
+      my $the_cmd = $1;
+      if ($current_test eq "suite") {
+	if ((!defined $suite_test_prebuild_cmd) ||
+	    ($suite_test_prebuild_cmd eq "")) {
+	  $suite_test_prebuild_cmd = $the_cmd;
+	}
+	else {
+	  &error("Cannot combine/override test-prebuild-command args");
+	}
+      }
+      else {
+	if ($test_prebuild{$current_test} eq "") {
+	  $test_prebuild{$current_test} = $the_cmd;
+	}
+	else {
+	  &error("Cannot combine/override test-prebuild-command args");
+	}
+      }
+      next;
+    }
+    if (/^\s+flags\s*[:=]\s*(.*)$/) {
+      my $the_flags = $1;
+      if ($current_test eq "suite") {
+	@suite_flags = split(/\s+/, $the_flags);
+	$suite_flag_combine{$dir} = "false";
+      }
+      else {
+	$flags{$current_test} = $the_flags;
+	$flag_combine{$current_test} = "false";
+      }
+      next;
+    }
+    if (/\s+flags\s*\|=\s*(.*)$/) {
+      my $the_flags = $1;
+      if ($current_test eq "suite") {
+	my @foo = split(/\s+/, $the_flags);
+	foreach $flag (@foo) {
+	  push(@suite_flags, $flag);
+	}
+	$suite_flag_combine{$dir} = "true";
+      }
+      else {
+	if ($flags{$current_test} eq "") {
+	  $flags{$current_test} = $the_flags;
+	}
+	else {
+	  $flags{$current_test} .= " $the_flags";
+	}
+	$flag_combine{$current_test} = "true";
+      }
+      next;
+    }
+    if (/^\s+files\s*[:=]\s*(.*)$/) {
+      my $the_files = $1;
+      if ($current_test eq "suite") {
+	my @foo = split(/\s+/, $the_files);
+	@suite_files = ();
+	foreach $item (@foo) {
+	  if (($item =~ /^\//) || ($item =~ /^\$runtime/)) {
+	    push(@suite_files, "$item");
+	  }
+	  else {
+	    push(@suite_files, "$dir/$item");
+	  }
+	}
+        $suite_file_combine{"$dir"} = "false";
+      }
+      else {
+	my @foo = split(/\s+/, $the_files);
+	my @bar = ();
+	foreach $item (@foo) {
+	  if (($item =~ /^\//) || ($item =~ /^\$runtime/)) {
+	    push(@bar, "$item");
+	  }
+	  else {
+	    push(@bar, "$dir/$item");
+	  }
+	}
+	$files{$current_test} = join(" ", @bar);
+        $file_combine{$current_test} = "false";
+      }
+      next;
+    }
+    if (/^\s+files\s*\|=\s*(.*)$/) {
+      my $the_files = $1;
+      if ($current_test eq "suite") {
+	my @foo = split(/\s+/, $the_files);
+	foreach $file (@foo) {
+	  if (($file =~ /^\//) || ($file =~ /^\$runtime/)) {
+	    push(@suite_files, "$file");
+	  }
+	  else {
+	    push(@suite_files, "$dir/$file");
+	  }
+	}
+	$suite_file_combine{$dir} = "true";
+      }
+      else {
+	if ($files{$current_test} eq "") {
+	  $files{$current_test} = ();
+	}
+	my @foo = split(/\s+/, $the_files);
+	my @bar = ();
+	foreach $item (@foo) {
+	  if (($item =~ /^\//) || ($item =~ /^\$runtime/)) {
+	    push(@bar, "$item");
+	  }
+	  else {
+	    push(@bar, "$dir/$item");
+	  }
+	}
+	$files{$current_test} .= join(" ", @bar);
+	$files{$current_test} .= " ";
+        $file_combine{$current_test} = "true";
+      }
+      next;
+    }
+    &error("Unrecognized line: $_");
+  }
+  close SCF;
+
+  # if no flags,tags,or files for the test case, still need to put
+  # an entry in the hash tables...
+
+  foreach $test (@tests) {
+    if ((!defined $flags{$test}) || ($flags{$test} eq "")) {
+      $flags{$test} = $not_an_arg;
+    }
+    if ((!defined $tags{$test}) || ($tags{$test} eq "")) {
+      $tags{$test} = $not_an_arg;
+    }
+    if ((!defined $files{$test}) || ($files{$test} eq "")) {
+      $files{$test} = $not_an_arg;
+    }
+  }
+
+  # do the "get_args" for the test cases
+
+  my @all_flags = values %flags;
+  my @all_tests = keys %flags;
+
+  foreach $test (@all_tests) {
+    my $this_flag_string = shift @all_flags;
+    my @this_test_flags = split(/\s+/, $this_flag_string);
+    @this_test_flags = &get_args(0, @this_test_flags);
+
+    foreach $flag (@this_test_flags) {
+      &add_test_info($test, $flag, 0);
+    }
+  }
+
+  # process the suite control files of the subsuites.
+  # the associative arrays should pick up the new information.
+
+  foreach $suite (@subsuites) {
+    chdir("$suite");   # already checked that $suite/$scf_filename exists
+    my @child_tests = &parse_scf("$dir/$suite");
+    chdir("..");
+    foreach $test (@child_tests) {
+      push(@subsuite_tests, $test);
+    }
+  }
+
+  # compose the current test hierarchy by combining the current directory's
+  # tests with those of the subsuites
+
+  my @tests_in_scope = (@tests, @subsuite_tests);
+
+  # for each of the test cases in the current directory, or any subsuites,
+  # let it inherit the arguments of the current suite if they're not specified
+
+  foreach $test (@tests) {
+    if ((!defined $tag_combine{$test}) || ($tag_combine{$test} eq "")) {
+      my $foo = join(" ", @suite_tags);
+      $tags{$test} .= " $foo";
+      $tag_combine{$test} = $suite_tag_combine{$dir};
+    }
+    if ((!defined $flag_combine{$test}) || ($flag_combine{$test} eq "")) {
+      my $foo = join(" ", @suite_flags);
+      $flags{$test} .= " $foo";
+      $flag_combine{$test} = $suite_flag_combine{$dir};
+    }
+    if ((!defined $file_combine{$test}) || ($file_combine{$test} eq "")) {
+      my $foo = join(" ", @suite_files);
+      $files{$test} .= " $foo";
+      $file_combine{$test} = $suite_file_combine{$dir};
+    }
+  }
+
+  foreach $test (@tests_in_scope) {
+    my @subtest_tags = split (/\s+/, $tags{$test});
+    my @subtest_flags = split (/\s+/, $flags{$test});
+    my @subtest_files = split (/\s+/, $files{$test});
+
+    my @new_subtest_tags = ();
+    my @new_subtest_flags = ();
+    my @new_subtest_files = ();
+
+    foreach $suite_tag (@suite_tags) {
+      my $suite_tag_found = 0;
+      foreach $subtest_tag (@subtest_tags) {
+	if ($suite_tag eq $subtest_tag) {
+	  $suite_tag_found = 1;
+	}
+	elsif ($suite_tag eq "\!$subtest_tag") {
+	  $suite_tag_found = 1;
+	}
+	elsif ("\!$suite_tag" eq $subtest_tag) {
+	  $suite_tag_found = 1;
+	}
+      }
+      if ($suite_tag_found == 0) {
+	# no override; need to put in if overridable
+	push(@subtest_tags, $suite_tag);
+	push(@new_subtest_tags, $suite_tag);
+      }
+    }
+
+    my $suite_ignore_next = 0;
+    my $subtest_ignore_next = 0;
+    foreach $suite_flag (@suite_flags) {
+      my $suite_flag_found = 0;
+      if ($suite_ignore_next) {
+	$suite_ignore_next = 0;
+	next;
+      }
+      foreach $subtest_flag (@subtest_flags) {
+	if ($subtest_ignore_next) {
+	  $subtest_ignore_next = 0;
+	  next;
+	}
+	if ($suite_flag eq $subtest_flag) {
+	  $suite_flag_found = 1;
+	  if (($suite_flag eq "-maxjobs")
+	      || ($suite_flag eq "-config")
+	      || ($suite_flag eq "-logfilename") 
+	      # || ($suite_flag eq "-summary")
+	      || ($suite_flag eq "-timeout")
+	      || ($suite_flag eq "-setlist")
+	      || ($suite_flag eq "-jobc")
+	      || ($suite_flag eq "-M")
+	      || ($suite_flag eq "-outdir")) {
+	    $suite_ignore_next = 1;
+	    $subtest_ignore_next = 1;
+	  }
+	}
+      }
+      if (!$suite_flag_found) {
+	push(@subtest_flags, $suite_flag);
+	push(@new_subtest_flags, $suite_flag);
+      }
+    }
+
+    foreach $f1 (@subtest_flags) {
+      if (!is_in($f1, @new_subtest_flags)) {
+	unshift(@new_subtest_flags, $f1);
+      }
+    }
+    foreach $suite_file (@suite_files) {
+      my $suite_file_found = 0;
+      foreach $subtest_file (@subtest_files) {
+	if ($suite_file eq $subtest_file) {
+	  $suite_file_found = 1;
+	}
+      }
+      if (!$suite_file_found) {
+	push(@subtest_files, $suite_file);
+	push(@new_subtest_files, $suite_file);
+      }
+    }
+
+    unless ($tag_combine{$test} eq "false") {
+      foreach $tag (@new_subtest_tags) {
+        $tags{$test} .= " $tag";
+      }
+    }
+    unless ($flag_combine{$test} eq "false") {
+      foreach $flag (@new_subtest_flags) {
+	my $this_test_flags = $flags{$test};
+	my @foo = split(/\s+/, $this_test_flags);
+	if (!&is_in($flag, @foo)) {
+	  $flags{$test} .= " $flag";
+	  &add_test_info($test, $flag, 0);
+	}
+      }
+    }
+    unless ($file_combine{$test} eq "false") {
+      foreach $file (@new_subtest_files) {
+        $files{$test} .= " $file";
+      }
+    }
+    if (!defined $test_prerun{$test}) {
+      $test_prerun{$test} = $suite_test_prerun_cmd;
+    }
+    if (!defined $test_postrun{$test}) {
+      $test_postrun{$test} = $suite_test_postrun_cmd;
+    }
+    if (!defined $test_prebuild{$test}) {
+      $test_prebuild{$test} = $suite_test_prebuild_cmd;
+    }
+  }
+
+  # restore the original scope before exiting to the caller
+  @suite_tags = @inherited_suite_tags;
+  @suite_flags = @inherited_suite_flags;
+  @suite_files = @inherited_suite_files;
+  $suite_test_prerun_cmd = $inherited_test_prerun_cmd;
+  $suite_test_postrun_cmd = $inherited_test_postrun_cmd;
+  $suite_test_prebuild_cmd = $inherited_test_prebuild_cmd;
+
+  return @tests;
+}
+
+# ------------------------------------------------------------------------
+# sub get_args($is_command_line, @input)
+#
+# process @input.  Check to make sure that args are valid and not
+# conflicting.  Since more args are accepted on command line, we need
+# to know if it is the command line (@ARGV) that we're processing.  So we
+# use the flag $is_command_line.
+# The return value is a packed array where args that take a value are put
+# into the same array element, e.g., ("-jobc foo", "-maxjobs 10")
+# ------------------------------------------------------------------------
+sub get_args {
+  my($arg, $value);
+  my($is_command_line, @input) = @_;
+  my @output;
+
+  my($rt_z, $rc_z, $nodream_z, $dream_z, $maxjobs_z, $ias_z, $pjsim_z, $rtl_z);
+  my($cosim_z, $vlog_z, $vcs_z, $poll_z, $exit_z, $wait_z, $scf_z);
+  my($noscf_z, $config_z, $once_z, $twice_z, $nommcnt_z, $noerrcnt_z);
+  my($logfilename_z, $build_z, $build_only_z, $check_only_z, $buildvcs_z);
+  my($runme_z, $keepdirs_z, $vcov_z);
+  my($nokeepdirs_z, $keepfailures_z, $nosummary_z, $summary_z, $timeout_z);
+  my($setlist_z, $jobc_z, $n_z, $M_z, $outdir_z, $q_z);
+  my($TPL_DBG_z, $debug0_z, $debug1_z, $debug2_z);
+  my($merge_monitor_coverage_z, $no_merge_rtl_stats_z);
+  my($dump_before_z, $dump_after_z, $immediate_z, $format_string_z);
+  my($no_second_sst_z, $no_rtime_classes_z);
+
+  # ckchen 09/15/98 -- add cache size support
+  my($dcs_z, $ics_z);
+
+  $rt_z = $rc_z = $nodream_z = $dream_z = $maxjobs_z = $ias_z = $rtl_z = 0;
+  $pjsim_z = $vcov_z = 0;
+  $cosim_z = $vlog_z = $vcs_z = $poll_z = $exit_z = $wait_z = $scf_z = 0;
+  $noscf_z = $config_z = $once_z = $twice_z = $nommcnt_z = $noerrcnt_z = 0;
+  $logfilename_z = $build_z = $build_only_z = $check_only_z = $buildvcs_z = 0;
+  $runme_z = $keepdirs_z = 0;
+  $nokeepdirs_z = $keepfailures_z = $nosummary_z = $summary_z = 0;
+  $timeout_z = $setlist_z = $jobc_z = $n_z = $M_z = $outdir_z = $q_z = 0;
+  $TPL_DBG_z = $debug0_z = $debug1_z = $debug2_z = 0;
+  $merge_monitor_coverage_z = $no_merge_rtl_stats_z = 0;
+  $dump_before_z = $dump_after_z = $immediate_z = $format_string_z = 0;
+  $no_second_sst_z = $no_rtime_classes_z = 0;
+
+  # ckchen 09/15/98 -- add cache size support
+  $dcs_z = $ics_z = 0;
+
+  my @plusargs_used = ();
+
+  while ($arg = shift @input) {
+    if ($arg eq "-rt") {
+      push(@output, $arg);
+      &error("-rt cannot be specified twice") if ($rt_z);
+      $rt_z = 1;
+      &error("-rt cannot be specified with -rc") if ($rc_z);
+    }
+    elsif ($arg eq "-rc") {
+      push(@output, $arg);
+      &error("-rc cannot be specified twice") if ($rc_z);
+      $rc_z = 1;
+      &error("-rc cannot be specified with -rt") if ($rt_z);
+    }
+    elsif ($arg eq "-nodream") {
+      push(@output, $arg);
+      &error("-nodream cannot be specified twice") if ($nodream_z);
+      $nodream_z = 1;
+      &error("-nodream cannot be specified with -dream") if ($dream_z);
+    }
+    elsif ($arg eq "-dream") {
+      push(@output, $arg);
+      &error("-dream cannot be specified twice") if ($dream_z);
+      $dream_z = 1;
+      &error("-dream cannot be specified with -nodream") if ($nodream_z);
+    }
+    elsif ($arg eq "-immediate") {
+      push(@output, $arg);
+      &error("-immediate cannot be specified twice") if ($immediate_z);
+      $immediate_z = 1;
+    }
+    elsif ($arg eq "-no_second_sst") {
+      $no_second_sst = 1;
+      $no_second_sst_z = 1;
+    }
+    elsif ($arg eq "-maxjobs") {
+      &error("-maxjobs cannot be specified twice") if ($maxjobs_z);
+      $maxjobs_z = 1;
+      $value = shift @input;
+      if ($value !~ /\d+/) {
+	&error("-maxjobs requires a numeric argument.");
+      }
+      push(@output, "$arg $value");
+    }
+    elsif ($arg eq "-ias") {
+      &error("-ias cannot be specified with -pjsim") if ($pjsim_z);
+      &error("-ias cannot be specified with -rtl") if ($rtl_z);
+      &error("-ias cannot be specified with -cosim") if ($cosim_z);
+      &error("-ias cannot be specified twice") if ($ias_z);
+      $ias_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-pjsim") {
+      &error("-pjsim cannot be specified with -ias") if ($ias_z);
+      &error("-pjsim cannot be specified with -rtl") if ($rtl_z);
+      &error("-pjsim cannot be specified with -cosim") if ($cosim_z);
+      &error("-pjsim cannot be specified twice") if ($pjsim_z);
+      $pjsim_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-rtl") {
+      &error("-rtl cannot be specified with -ias") if ($ias_z);
+      &error("-rtl cannot be specified with -pjsim") if ($pjsim_z);
+      &error("-rtl cannot be specified with -cosim") if ($cosim_z);
+      &error("-rtl cannot be specified twice") if ($rtl_z);
+      $rtl_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-cosim") {
+      &error("-cosim cannot be specified with -ias") if ($ias_z);
+      &error("-cosim cannot be specified with -pjsim") if ($pjsim_z);
+      &error("-cosim cannot be specified with -rtl") if ($rtl_z);
+      &error("-cosim cannot be specified twice") if ($cosim_z);
+      $cosim_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-vlog") {
+      &error("-vlog cannot be specified with -vcs") if ($vcs_z);
+      &error("-vlog cannot be specified twice") if ($vlog_z);
+      $need_vlog = 1;
+      $vlog_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-vcs") {
+      &error("-vcs cannot be specified with -vlog") if ($vlog_z);
+      &error("-vcs cannot be specified twice") if ($vcs_z);
+      $vcs_z = 1;
+      $need_vcs = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-poll") {
+      &error("-poll cannot be specified with -exit") if ($exit_z);
+      &error("-poll cannot be specified with -wait") if ($wait_z);
+      &error("-poll cannot be specified twice") if ($poll_z);
+      $poll_z = 1;
+      if ($is_command_line) {
+        $drm_watch = "poll";
+      }
+      else {
+	&error("Cannot use -poll inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-exit") {
+      &error("-exit cannot be specified with -poll") if ($poll_z);
+      &error("-exit cannot be specified with -wait") if ($wait_z);
+      &error("-exit cannot be specified twice") if ($exit_z);
+      $exit_z = 1;
+      if ($is_command_line) {
+	$drm_watch = "exit";
+      }
+      else {
+	&error("Cannot use -exit inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-wait") {
+      &error("-wait cannot be specified with -poll") if ($poll_z);
+      &error("-wait cannot be specified with -exit") if ($exit_z);
+      &error("-wait cannot be specified twice") if ($wait_z);
+      $wait_z = 1;
+      if ($is_command_line) {
+        $drm_watch = "wait";
+      }
+      else {
+	&error("Cannot use -wait inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-scf") {
+      &error("-scf cannot be specified with -noscf") if ($noscf_z);
+      &error("-scf cannot be specified twice") if ($scf_z);
+      $scf_z = 1;
+      if ($is_command_line) {
+	$use_scf = 1;
+	$scf_filename = shift @input;
+	push(@output, "$arg $value");
+      }
+      else {
+	&error("Cannot use -scf inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-noscf") {
+      &error("-noscf cannot be specified with -scf") if ($scf_z);
+      &error("-noscf cannot be specified twice") if ($noscf_z);
+      $noscf_z = 1;
+      if ($is_command_line) {
+	$use_scf = 0;
+      }
+      else {
+	&error("Cannot use -noscf inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-config") {
+      &error("-config cannot be specified twice") if ($config_z);
+      $config_z = 1;
+      $value = shift @input;
+      push(@output, "$arg $value");
+    }
+    elsif ($arg eq "-once") {
+      &error("-once cannot be specified with -twice") if ($twice_z);
+      &error("-once cannot be specified twice") if ($once_z);
+      $once_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-twice") {
+      &error("-twice cannot be specified with -once") if ($once_z);
+      &error("-twice cannot be specified twice") if ($twice_z);
+      $twice_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-gate") {
+      &error("-gate cannot be specified twice") if ($gate_z);
+      $gate_z = 1;
+      $do_gate_level_simulation = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-nommcnt") {
+      &error("-nommcnt cannot be specified twice") if ($nommcnt_z);
+      $nommcnt_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-noerrcnt") {
+      &error("-noerrcnt cannot be specified twice") if ($noerrcnt_z);
+      $noerrcnt_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-logfilename") {
+      &error("-logfilename cannot be specified twice") if ($logfilename_z);
+      $logfilename_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-build") {
+      &error("-build cannot be specified twice") if ($build_z);
+      $build_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-build_only") {
+      &error("-build_only cannot be specified twice") if ($build_only_z);
+      $build_only_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-check_only") {
+      &error("-check_only cannot be specified twice") if ($check_only_z);
+      $check_only_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-buildvcs") {
+      &error("-buildvcs cannot be specified twice") if ($buildvcs_z);
+      $buildvcs_z = 1;
+      if ($is_command_line) {
+	$build_vcs = 1;
+      }
+      else {
+	&error("Cannot use -buildvcs inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-runme") {
+      &error("-runme cannot be specified twice") if ($runme_z);
+      $runme_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-vcov") {
+      &error("-vcov cannot be specified twice") if ($vcov_z);
+      $vcov_z = 1;
+      $vcov_needed = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-keepdirs") {
+      &error("-keepdirs cannot be specified with -nokeepdirs")
+                      if ($nokeepdirs_z);
+      &error("-keepdirs cannot be specified with -keepfailures")
+		      if ($keepfailures_z);
+      &error("-keepdirs cannot be specified twice") if ($keepdirs_z);
+      $keepdirs_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-nokeepdirs") {
+      &error("-nokeepdirs cannot be specified with -keepdirs")
+                      if ($keepdirs_z);
+      &error("-nokeepdirs cannot be specified with -keepfailures")
+		      if ($keepfailures_z);
+      &error("-nokeepdirs cannot be specified twice") if ($nokeepdirs_z);
+      $nokeepdirs_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-keepfailures") {
+      &error("-keepfailures cannot be specified with -nokeepdirs")
+                      if ($nokeepdirs_z);
+      &error("-keepfailures cannot be specified with -keepdirs")
+		      if ($keepdirs_z);
+      &error("-keepfailures cannot be specified twice") if ($keepfailures_z);
+      $keepfailures_z = 1;
+      push(@output, $arg);
+    }
+    elsif ($arg eq "-summary") {
+      &error("-summary cannot be specified with -nosummary")
+                      if ($nosummary_z);
+      &error("-summary cannot be specified twice") if ($summary_z);
+      $summary_z = 1;
+      if ($is_command_line) {
+	$do_summary = 1;
+      }
+      else {
+	&error("Cannot use -summary inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-nosummary") {
+      &error("-nosummary cannot be specified with -summary")
+		      if ($summary_z);
+      &error("-nosummary cannot be specified twice") if ($nosummary_z);
+      $nosummary_z = 1;
+      if ($is_command_line) {
+	$do_summary = 0;
+      }
+      else {
+	&error("Cannot use -nosummary inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-timeout") {
+      &error("-timeout cannot be specified twice") if ($timeout_z);
+      $timeout_z = 1;
+      $value = shift @input;
+      if ($value !~ /^\d+:\d+$/) {
+	&error("value for -timeout must be in format hour:minute.");
+      }
+      push(@output, "$arg $value");
+    }
+    elsif ($arg eq "-setlist") {
+      &error("-setlist cannot be specified twice") if ($setlist_z);
+      $setlist_z = 1;
+      $value = shift @input;
+      if ($is_command_line) {
+	$setlist = $value;
+      }
+      else {
+	&error("Cannot use -setlist inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-jobh") {
+      &error("-jobh cannot be specified twice") if ($jobh_z);
+      $jobh_z = 1;
+      $value = shift @input;
+      push(@output, "$arg $value");
+      if ($is_command_line) {
+	$jobfile_home = $value;
+      }
+      else {
+	&error("Cannot use -jobh inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-jobc") {
+      &error("-jobc cannot be specified twice") if ($jobc_z);
+      $jobc_z = 1;
+      $value = shift @input;
+      push(@output, "$arg $value");
+      if ($is_command_line) {
+	$jobfile = $value;
+      }
+      else {
+	&error("Cannot use -jobc inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-n") {
+      &error("-n cannot be specified twice") if ($n_z);
+      $n_z = 1;
+      if ($is_command_line) {
+	$dont_run = 1;
+      }
+      else {
+	&error("Cannot use -n inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-M") {
+      &error("-M cannot be specified twice") if ($M_z);
+      $M_z = 1;
+      $value = shift @input;
+      if ($is_command_line) {
+	$mailing_list = $value;
+      }
+      else {
+	&error("Cannot use -M inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-outdir") {
+      &error("-outdir specified twice") if ($outdir_z);
+      $outdir_z = 1;
+      $value = shift @input;
+      if ($is_command_line) {
+	$outdir = $value;
+      }
+      else {
+	&error("Cannot use -outdir inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-q") {
+      &error("-q specified twice") if ($q_z);
+      $q_z = 1;
+      if ($is_command_line) {
+	$quiet_mode = 1;
+      }
+      else {
+	&error("Cannot use -outdir inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-h") {
+      if ($is_command_line) {
+	&usage(1);
+      }
+      else {
+	&error("Cannot use -h in suite control file.");
+      }
+    }
+    elsif ($arg eq "-help") {
+      if ($is_command_line) {
+	&usage(1);
+      }
+      else {
+	&error("Cannot use -help in suite control file.");
+      }
+    }
+    elsif ($arg eq "-merge_monitor_coverage") {
+      if ($is_command_line) {
+	$merge_monitor_coverage = 1;
+      }
+      else {
+	&error("Cannot use -merge_monitor_coverage in suite control file.");
+      }
+      &error("-merge_monitor_coverage specified twice") if ($merge_monitor_coverage_z);
+      $merge_monitor_coverage_z = 1;
+    }
+    elsif ($arg eq "-no_merge_rtl_stats") {
+      if ($is_command_line) {
+	$merge_rtl_stats = 0;
+      }
+      else {
+	&error("Cannot use -no_merge_rtl_stats in suite control file.");
+      }
+      &error("-no_merge_rtl_stats specified twice") if ($no_merge_rtl_stats_z);
+      $no_merge_rtl_stats_z = 1;
+    }
+    elsif (&is_in("$arg", @all_plusargs)) {
+      if (&is_in("$arg", @plusargs_used)) {
+	&error("$arg specified twice");
+      }
+      push(@plusargs_used, "$arg");
+      $arg =~ s/^-//;
+      push(@output, "+$arg");
+    }
+    elsif ($arg eq "TPL_DBG") {
+      &error("TPL_DBG specified twice") if ($TPL_DBG_z);
+      $TPL_DBG_z = 1;
+      push(@output, "+define+TPL_DBG");
+    }
+    elsif ($arg eq "-debug0") {
+      &error("-debug0 specified twice") if ($debug0_z);
+      $debug0_z = 1;
+      $debug0 = 1;
+    }
+    elsif ($arg eq "-debug1") {
+      &error("-debug1 specified twice") if ($debug1_z);
+      $debug1_z = 1;
+      $debug1 = 1;
+    }
+    elsif ($arg eq "-debug2") {
+      &error("-debug2 specified twice") if ($debug2_z);
+      $debug2_z = 1;
+      $debug2 = 1;
+    }
+    elsif ($arg eq "-dump_before") {
+      &error("-dump_before specified twice") if ($dump_before_z);
+      $dump_before_z = 1;
+      if ($is_command_line) {
+	$value = shift @input;
+	if ($value !~ /^\d+$/) {
+	  &error("dump_before value must be a number");
+	}
+	$dump_before = $value;
+      }
+      else {
+	&error("-dump_before cannot be used in suite control file.");
+      }
+    }
+    elsif ($arg eq "-dump_after") {
+      &error("-dump_after specified twice") if ($dump_after_z);
+      $dump_after_z = 1;
+      if ($is_command_line) {
+	$value = shift @input;
+	if ($value !~ /^\d+$/) { 
+	  &error("dump_after value must be a number");
+	}
+	$dump_after = $value;
+      }
+      else {
+	&error("-dump_after cannot be used in suite control file.");
+      }
+    }
+    elsif ($arg eq "-format_string") {
+      &error("-format_string specified twice") if ($format_string_z);
+      $format_string_z = 1;
+      if ($is_command_line) {
+	$value = shift @input;
+	if ($value !~ /^.*\/\/.*\/\/.*$/) {
+	  &error("format_string must be in 3-partitioned format.");
+	}
+      }
+      else {
+	&error("-format_string cannot be used in suite control file.");
+      }
+    }
+    elsif ($arg eq "-no_rtime_classes") {
+      &error("-no_rtime_classes specified twice") if ($no_rtime_classes_z);
+      $no_rtime_classes_z = 1;
+      push(@output, $arg); 
+    }
+    # ckchen 09/15/98 -- add cache size support
+    elsif ($arg eq "-dcs") {
+      &error("-dcs specified twice") if ($dcs_z);
+      $dcs_z = 1;
+      $value = shift @input;
+      push(@output, "$arg $value");
+      if ($is_command_line) {
+	$dcs = $value;
+      }
+      else {
+	&error("Cannot use -dcs inside suite control file.");
+      }
+    }
+    elsif ($arg eq "-ics") {
+      &error("-ics specified twice") if ($ics_z);
+      $ics_z = 1;
+      $value = shift @input;
+      push(@output, "$arg $value");
+      if ($is_command_line) {
+	$ics = $value;
+      }
+      else {
+	&error("Cannot use -ics inside suite control file.");
+      }
+    }
+    elsif ($arg =~ /^-/) {
+      &error("Unrecognized option: $arg");
+    }
+    elsif ($is_command_line) {
+      # none of the above, and is on the command line, so assumed to be the name of a test case.
+      # note that a test name cannot begin with '-'...
+      push(@test_list, $arg);
+    }
+    elsif ($arg =~ /^\$/) {
+      # handle the $this and $test inputs...
+      push(@output, $arg);
+    }
+    elsif ($arg eq $not_an_arg) {
+      # dummy argument: ignore
+    }
+    else {
+      &error("Unrecognized option: $arg");
+    }
+  }  # end of while loop
+
+  return @output;
+}  # end of subroutine
+
+# ------------------------------------------------------------------------
+# sub print_test_info
+#
+# prints out the argument flags for the testcase.  Mainly for debugging.
+# ------------------------------------------------------------------------
+sub print_test_info {
+  foreach $testcase (keys %all_tests) {
+    $args = join(" ", @{$all_tests{$testcase}});
+    &dual_log("$testcase $args");
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub add_test_info($testcase, $info, $override_enable)
+#
+# add new flag $info to the flags of $testcase.  If a similar flag already
+# exists, can either override the setting or give an error (depending
+# on the setting of $override_enable).
+# ------------------------------------------------------------------------
+sub add_test_info {
+  my($testcase, $info, $override_enable) = @_;
+
+  ($first_of_info, @rest) = split (/\s+/, $info);
+
+  $arg_num = -1;
+  foreach $test_arg (@{$all_tests{$testcase}}) {
+    $arg_num++;
+    ($first_of_test_arg, @rest) = split (/\s+/, $test_arg);
+    if ($first_of_info eq $first_of_test_arg) {
+      if ($override_enable) {
+	${$all_tests{$testcase}}[$arg_num] = $info;
+      }
+      else {
+	# &error("$first_of_info already specified.");
+      }
+      return;
+    }
+  }
+  push (@{$all_tests{$testcase}}, $info);
+}
+
+# ------------------------------------------------------------------------
+# sub logic_eval($tag, $setlist)
+#
+# determines whether "$tag" has membership in the sets specified by
+# "$setlist".  Will return "TRUE" if so and "FALSE" if not.  $setlist
+# must be a properly formed set expression (see the documentation) or
+# logic_eval will produce an error.  Note that logic_eval is called
+# recursively if it can break down the $tag into subexpressions.
+#
+# ------------------------------------------------------------------------
+sub logic_eval {
+  $space++;
+  my($tag, $setlist) = @_;
+  if ($setlist =~ /^([^\(]*)\(([^\)]*)\)(.*)$/) {
+    my $first = $1;
+    my $second = $2;
+    my $third = $3;
+    if (&logic_eval($tag, $second) eq "TRUE") {
+      if (&logic_eval($tag, "${first}TRUE$third") eq "TRUE") {
+	$space--;
+	return "TRUE";
+      }
+      else {
+	$space--;
+	return "FALSE";
+      }
+    }
+    else {
+      if (&logic_eval($tag, "${first}FALSE$third") eq "TRUE") {
+	$space--;
+	return "TRUE";
+      }
+      else {
+	$space--;
+	return "FALSE";
+      }
+    }
+  }
+  elsif ($setlist =~ /^([^\|]+)\|(.*)$/) {
+    my $first = $1;
+    my $second = $2;
+    if (&logic_or($tag, $first, $second) eq "TRUE") {
+      $space--;
+      return "TRUE";
+    }
+    else {
+      $space--;
+      return "FALSE";
+    }
+  }
+  elsif ($setlist =~ /^([^\&]+)\&(.*)$/) {
+    my $first = $1;
+    my $second = $2;
+    if (&logic_and($tag, $first, $second) eq "TRUE") {
+      $space--;
+      return "TRUE";
+    }
+    else {
+      $space--;
+      return "FALSE";
+    }
+  }
+  elsif ($setlist =~ /^\!(.*)$/) {
+    my $first = $1;
+    if (&logic_not($tag, $first) eq "TRUE") {
+      $space--;
+      return "TRUE";
+    }
+    else {
+      $space--;
+      return "FALSE";
+    }
+  }
+  elsif ($setlist =~ /\s*TRUE\s*/) {
+    $space--;
+    return "TRUE";
+  }
+  elsif ($setlist =~ /\s*FALSE\s*/) {
+    $space--;
+    return "FALSE";
+  }
+  elsif ($setlist =~ /(\S+)/) {
+    my $first = $1;
+    my @all_tags = split(/\s+/, $tag);
+    $space--;
+    if (&is_in($first, @all_tags)) {
+      return "TRUE";
+    }
+    else {
+      return "FALSE";
+    }
+  }
+  else {
+    &error("Unrecognized setlist: \'$setlist\'\n");
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub logic_or($tag, $a, $b)
+#
+# returns "TRUE" if $tag is an element of $a, OR if $tag is an element
+# of $b, or both.  Otherwise, will return "FALSE". $a and $b should be
+# properly formed set expressions.
+#
+# ------------------------------------------------------------------------
+sub logic_or {
+  my ($tag, $a, $b) = @_;
+  if ((&logic_eval($tag, $a) eq "TRUE") ||
+      (&logic_eval($tag, $b) eq "TRUE")) {
+    return "TRUE";
+  }
+  else {
+    return "FALSE";
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub logic_and($tag, $a, $b)
+#
+# returns "TRUE" if $tag is an element of both $a AND $b.  Otherwise, will
+# return "FALSE".  $a and $b should be properly formed set expressions.
+#
+# ------------------------------------------------------------------------
+sub logic_and {
+  my ($tag, $a, $b) = @_;
+  if ((&logic_eval($tag, $a) eq "TRUE") &&
+      (&logic_eval($tag, $b) eq "TRUE")) {
+    return "TRUE";
+  }
+  else {
+    return "FALSE";
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub logic_not($tag, $a)
+#
+# returns "TRUE" if $tag is NOT an element of $a.  Otherwise, will return
+# "FALSE".  $a should be a properly formed set expression.
+#
+# ------------------------------------------------------------------------
+sub logic_not {
+  my ($tag, $a) = @_;
+  if (&logic_eval($tag, $a) eq "TRUE") {
+    return "FALSE";
+  }
+  else {
+    return "TRUE";
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub get_all_tests
+#
+# return the list of valid test cases
+# ------------------------------------------------------------------------
+sub get_all_tests {
+  my @tests = keys %all_tests;
+  return @tests;
+}
+
+# ------------------------------------------------------------------------
+# sub error($message)
+#
+# print out error message $message.  Then abort.
+# ------------------------------------------------------------------------
+sub error {
+  my($message,$do_usage,@foo) = @_;
+  print "Error: $message\n";
+  if ($do_logging) {
+    &log("Error: $message");
+  }
+  &usage(0) if ($do_usage);
+  exit 1;
+}
+
+# ------------------------------------------------------------------------
+# sub warning($message)
+#
+# print out warning message $message.
+# ------------------------------------------------------------------------
+sub warning {
+  my $message = $_[0];
+  print "Warning: $message\n";
+  if ($do_logging) {
+    &log("Warning: $message");
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub log($message) or sub log($message, $option)
+#
+# Print a message to the log file.
+#
+# the $option, if set to "1", will not print out a newline at the end
+# of the message.  The case of no $option argument is the same as if
+# $option is set to 0.
+# ------------------------------------------------------------------------
+sub log {
+  my $message = $_[0];
+  my $option;
+  if (@_ == 2) {
+    $option = $_[1];
+  }
+  else {
+    $option = 0;
+  }
+  if ($do_logging) {
+    if ($option == 1) {
+      print LOG "$message";
+    }
+    else {
+      print LOG "$message\n";
+    }
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub dual_log($message) or sub dual_log($message, $option)
+#
+# Print a message to the screen and to the log file.
+#
+# the $option, if set to "1", will not print out a newline at the end 
+# of the message.  The case of no $option argument is the same as if 
+# $option is set to 0.
+# ------------------------------------------------------------------------
+sub dual_log {
+  my $message = $_[0];
+  my $option;
+  if (@_ == 2) {
+    $option = $_[1];
+  }
+  else {
+    $option = 0;
+  }
+  if ($do_logging) {
+    if ($option == 1) {
+      print LOG "$message";
+    }
+    else {
+      print LOG "$message\n";
+    }
+  }
+  if ($option == 1) {
+    print "$message";
+  }
+  else {
+    print "$message\n";
+  }
+}
+
+# ------------------------------------------------------------------------
+# sub usage($detail_level)
+#
+# print out usage information.  If $detail_level=1 (-help specified),
+# print out advanced information and exit script.  Otherwise just print out
+# simple usage information.
+# ------------------------------------------------------------------------
+sub usage {
+  my $detail_level = $_[0];  # 0 = simple; 1 = advanced
+  my @foo = split(/\//, $0);
+  my $script_name = pop @foo;
+  print "Usage: $script_name [args...]\n";
+  print "  where \'args\' is either a testcase name, a testsuite name, \n";
+  print "  a script control flag, or an rtl/cosim flag.\n";
+  if ($detail_level == 0) {
+    print "Type $script_name -help for more detailed information.\n";
+    return;
+  }
+  print "\n";
+  print "Script Control flags (see $script_name documentation for details; * means default):\n";
+  print "---------------------------------------------------------------------------\n";
+  print "-help (Print this usage information)\n";
+  print "-h (Print this usage information)\n";
+  print "-rt (Run test(s) in rt mode)\n";
+  print "-rc (Run test(s) in rc mode)\n";
+  print "-nodream (Do not use dream when running tests)\n";
+  print "-dream (Use dream when running tests)*\n";
+  print "-immediate (Use -m option to dream)\n";
+  print "-maxjobs num_jobs (not implemented)\n";
+  print "-ias (run in simulator only)\n";
+  print "-pjsim (run in simulator only)\n";
+  print "-rtl (run in rtl only)\n";
+  print "-cosim (run in simulator and rtl together)*\n";
+  print "-vlog (use verilog XL for rtl simulation)\n";
+  print "-vcs (use VCS for rtl simulation)*\n";
+  print "-poll (poll dream execution to determine completion)\n";
+  print "-exit (exit immediately after submitting jobs)\n";
+  print "-wait (use drmwait to wait for dream job completion)*\n";
+  print "-scf (use suite control files)*\n";
+  print "-noscf (do not use suite control files)\n";
+  print "-config config_file (\'config_file\' contains additional classes)\n";
+  print "-once (run tests once only)\n";
+  print "-twice (run tests once; if fail run again with TPL_DBG)*\n";
+  print "-keepdirs (keep test run directories after test completion)*\n";
+  print "-nokeepdirs (remove test directories; move relevant files to outdir)\n";
+  print "-keepfailures (keep only directories of failing tests)\n";
+  print "-summary (produce a summary of the test results)*\n";
+  print "-nosummary (do not produce a summary of the test results)\n";
+  print "-timeout (specify maximum time a test can run, in hour:minute form)\n";
+  print "-nommcnt (do not count the number of cosim mismatches)\n";
+  print "-noerrcnt (do not count the number of errors)\n";
+  print "-logfilename logfile (make test output go to \'logfile\')\n";
+  print "-build (run make to build class files before executing tests)\n";
+  print "-build_only (run make to build class files, do not execute tests)\n";
+  print "-check_only (check results only, do not execute tests)\n";
+  print "-buildvcs (build vcs before running tests)\n";
+  print "-runme (keep runme files at completion of test)\n";
+  print "-setlist \'set\' (the set of tests to be run)\n";
+  print "-jobc constraint_file (use \'constraint file\' for dream jobs)\n";
+  print "-n (set up tests but don\'t actually run anything)\n";
+  print "-M mailing_list (send mail to \'mailing_list\' when tests finish)\n";
+  print "-outdir dir_name (run in \'dir_name\' instead of \'.\')\n";
+  print "-q (quiet mode)\n";
+  print "-gate (do gate-level simulation instead of rtl simulation)\n";
+  print "-debug0 (some debugging messages)\n";
+  print "-debug1 (more debugging messages)\n";
+  print "-debug2 (temporary debugging messages)\n";
+  print "-dump_before (switch on sst file recording n cycles before failure)\n";
+  print "-dump_after (switch off sst file recording n cycles after failure)\n";
+  print "-vcov (enable vericov coverage generation)\n";
+  print "-merge_monitor_coverage (merge the generated coverage from verilog monitors)\n";
+  print "-no_merge_rtl_stats (do not merge the test statistics generated from the performance monitor)\n";
+  print "-format_string \'string\' (customize the summary report)\n";
+  print "-no_second_sst (do not generate sst on second run)\n";
+  print "-no_rtime_classes (do not load runtime classes for rc tests)\n";
+  print "-dcs dcache_size (in K bytes, default 16)\n";
+  print "-ics icache_size (in K bytes, default 16)\n";
+  print "TPL_DBG (generate signalscan sst file)\n";
+  print "\n";
+  print "RTL/cosim flags (see $script_name documentation for details):\n";
+  print "---------------------------------------------------------------------------\n";
+  while (($flag, $desc) = each %description) {
+    print "$flag ($desc)\n";
+  }
+  exit 0;
+}

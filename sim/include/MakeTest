@@ -1,0 +1,223 @@
+#!/bin/sh -- # This comment tells perl not to loop!
+eval 'exec perl -S $0 ${1+"$@"}'
+if 0;
+
+$usage = <<'EOF';
+Usage: MakeTest <test case> [ <reset_code> <global macros> <local macros> ]
+Output: <test case>.jasm and <test case>.class
+Comment: Do not type suffix ".code" of input file.
+EOF
+
+($#ARGV < 0) && die("$usage");
+$file = $ARGV[0];
+
+# if we're not in a class directory, running this script could have some
+# nasty effects.  Make sure we're in the right directory.
+chop( $pwd = `pwd` );
+if( $pwd !~ /\/class$/ ) {
+  print "pwd = \"$pwd\"\n";  
+  die("Must execute script from a class directory not $pwd");
+}
+
+# default filenames (should be overridden if invoked from Makefile)...
+$global_macros = "macro.inc";
+$local_macros = "test_config.inc";
+$reset_code = "reset.code";
+
+# miscellaneous variable initialization
+$nomerge = 0;
+$nojasm = 0;
+$noconcat = 0;
+$no_global_compile = 0;
+
+# reassign filenames if they were passed in (this should be the normal
+# behavior as invoked by the makefile)
+$global_macros = $ARGV[1] if ($#ARGV > 0);
+$local_macros = $ARGV[2] if ($#ARGV > 1);
+$reset_code = $ARGV[3] if ($#ARGV > 2);
+
+# set up environment...
+`/bin/rm -f $file.tmp $file.tmp2`;
+$global_macros = &setup_environment( $global_macros );
+$local_macros = &setup_environment( $local_macros );
+$reset_code = &setup_environment( $reset_code );
+unlink("$file.code") if( -e "$file.code" );
+# the next statement will will remove stale symbolic links
+unlink("$file.code") if ((!-e "$file.code") && (-l "$file.code"));
+`ln -s ../$file.code .`;
+
+# get compilation instructions.
+@instructions = &get_compilation_instructions( $global_macros );
+@more_inst = &get_compilation_instructions( $local_macros );
+@instructions = &concat( @more_inst, @instructions );
+@more_inst = &get_compilation_instructions( $reset_code );
+@instructions = &concat( @more_inst, @instructions );
+$filecode = "$file.code";
+@more_inst = &get_compilation_instructions( $filecode );
+@instructions = &concat( @more_inst, @instructions );
+
+if( $noconcat != 1) {
+  print "Concatenating $global_macros, $local_macros, and $reset_code\n";
+  `cat $global_macros.tmp $local_macros.tmp $reset_code.tmp > $file.tmp`;
+  die("Concatenation failed") if( $? >> 8 );
+}
+`rm $global_macros.tmp $local_macros.tmp $reset_code.tmp`;
+if( $nomerge != 1) {
+  print "Merging with $filecode\n";
+  open(IN, "$file.tmp") || die "Cannot open file $file.tmp";
+  open(TEST, "$filecode.tmp") || die "Cannot open file $filecode.tmp";
+  open(OUT, ">$file.tmp2") || die "Cannot create $file.tmp2";
+
+  $flag = 0;
+  while (<IN>) {
+    if(/TEST_NAME/) {
+      s/TEST_NAME/$file/;
+    }
+    if(/^-- MakeTest will merge test case here./) {
+      while (<TEST>) {
+	# print OUT unless (/^#/);
+	print OUT;
+      }
+      $flag = 1;
+    }
+   print OUT;
+  }
+  close(TEST);
+  close(IN);
+  close(OUT);
+  die "Fatal: merge point not found: cannot merge in $file.code"
+    if ($flag == 0);
+  `mv -f $file.tmp2 $file.tmp`;
+  `rm -f $filecode.tmp`;
+}
+
+if( $no_global_compile != 1) {
+  print "Executing compilation instructions...\n";
+  while ($inst = pop @instructions) {
+    print "$inst $file\n";
+    `$inst $file.tmp > $file.tmp2`;
+    die "failed to run $inst $file.tmp > $file.tmp2" if ($? >> 8);
+    `/bin/rm -f $file.tmp`;
+    `/bin/mv -f $file.tmp2 $file.tmp`;
+  }
+}
+
+if ($nojasm != 1) {
+  `mv -f $file.tmp $file.jasm`;
+  `/bin/rm -f $file.class`;
+  print "Compiling $file.class from $file.jasm............\n";
+  `java com.sun.picojava.jasm.Main -maya $file.jasm`;
+  die "java compilation failed" if ($? >> 8);
+}
+
+`/bin/rm -f $file.log $file.code $reset_code $global_macros $local_macros`;
+print "\n";
+exit 0;
+
+sub get_compilation_instructions {
+  local($file) = $_[0];
+  local(@instructions, @local_inst, $inst, @injection);
+  @injection = ();
+  print "Determining compilation instructions ($file)...\n";
+  open(FILE, "$file") || die "Cannot open $file";
+  open(TMP, ">$file.tmp") || die "Cannot create $file.tmp";
+  while(<FILE>) {
+    s/\$file/$file.tmp/g;
+    if (/^\.compile_single_2\s*(.*)$/) {
+      unshift(@local_inst, $1);
+    } elsif (/^\.compile_single\s*(.*)$/) {
+      unshift(@local_inst, "$1 $file.tmp");
+    } elsif (/^\.compile_all\w*(.*)$/) {
+      unshift(@instructions, $1);
+    } elsif (/^\.no_merge/) {
+      $nomerge = 1;
+    } elsif (/^\.no_jasm/) {
+      $nojasm = 1;
+    } elsif (/^\.no_concat/) {
+      $noconcat = 1;
+    } elsif (/^\.pull_injection/) {
+      unshift(@local_inst, "pull_injection");
+    } elsif (/^\.push_injection/) {
+      unshift(@local_inst, "push_injection");
+    } elsif (/^\.no_global_compile/) {
+      $no_global_compile = 1;
+    } else {
+      print TMP;
+    }
+  }
+  close FILE;
+  close TMP;
+  if( scalar @local_inst ) {
+    print "Executing local compilation instructions...\n";
+    while( $inst = pop @local_inst ) {
+      if( $inst =~ /pull_injection/ ) {
+	print "pulling injected instructions from $file.tmp\n";
+	open(FILE, "$file.tmp") || die "Cannot open $file.tmp";
+	open(OUT, ">$file.tmp2") || die "Cannot create $file.tmp2";
+	while (<FILE>) {
+	  if (/^\.inject_main\s*\[([^\]]*)$/) {
+	    unshift(@injection, $1);
+	    unless (/\]/) {
+	      while (($_ = <FILE>) !~ /\]/) {
+		unshift(@injection, $_);
+	      }
+	      s/\].*$//;
+	      unshift(@injection, $_);
+	    }
+	  } else {
+	    print OUT;
+	  }
+	}
+	close(FILE);
+	close(OUT);
+      } elsif( $inst =~ /push_injection/ ) {
+	print "pushing injected instructions into $file.tmp\n";
+	open(FILE, "$file.tmp") || die "Cannot open $file.tmp";
+	open(OUT, ">$file.tmp2") || die "Cannot create $file.tmp2";
+	while (<FILE>) {
+	  if( /public static Method main/ ) {
+	    print OUT;
+	    while( ($_ = <FILE>) !~ /^\{/ ) {
+	      print OUT;
+	    }
+	    print OUT;
+	    while( $inj = pop @injection ) {
+	      print OUT "$inj\n";
+	    }
+	  } else {
+	    print OUT;
+	  }
+	}
+	close(OUT);
+	close(FILE);
+      } else {
+	print "$inst\n";
+	`$inst > $file.tmp2`;
+	die "failed to run $inst > $file.tmp2" if ($? >> 8);
+      }
+      `/bin/mv -f $file.tmp2 $file.tmp`;
+    }
+  }
+  @instructions;      # return value
+}
+
+sub setup_environment {
+  local($fn) = $_[0];
+  local($filename);
+  if( $fn =~ /.*\/([^\/]+)$/ ) {
+    $filename = $1;
+    unlink("$filename") if (-e "$filename");
+    # the next statement will will remove stale symbolic links
+    unlink("$filename") if ((!-e "$filename") && (-l "$filename"));
+    `ln -s $fn $filename` unless (-e "$filename");
+    $fn = $filename;
+  }
+  elsif (!-e "$fn") {
+    die "$fn does not exist";
+  }
+  $fn;
+}
+
+sub concat {
+  @_;
+}

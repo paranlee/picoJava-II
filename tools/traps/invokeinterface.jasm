@@ -1,0 +1,515 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ // Trap "invokeinterface" -
+//
+//	Resolve the indexed method reference against the current constant pool
+//	and replaces the invoke instruction with 'invokeinterface_quick'
+//	instruction which will be executed by subsequent method activation.
+//	Unlike other invoke instructions, the class of the target object
+//	is not known until the runtime(although the group of the class may be
+//	defined), and as result, the method block array normally accessible 
+//	from a class structure is not available.  The method resolution, thus,
+//	must rely on the method vector table associated with the target object
+//	which can be accessible using the object reference stored in the stack.
+//	Note that the method vector table must be searched every time even
+//	for the quick version of this trap since the target object may vary
+//	from this invocation to another, with an identical invoke instruction.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	0
+//		+-----------------------+
+//		|          arg1		|	1
+//		+-----------------------+
+//		|          ...		|
+//		+-----------------------+
+//		|          argN		|	N
+//		+-----------------------+
+//		|          PSR		|	N+1
+//		+-----------------------+
+//		|	    PC		|	N+2
+//		+-----------------------+
+//		|          VARS		|	N+3
+//		+-----------------------+
+//		|	  FRAME  	|	N+4
+//		+=======================+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during executing the trap.
+//
+//	 VARS->	|	   PSR		|  <-- local var 0
+//		+-----------------------+   
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|  ptr to method name	|  <-- local var 4(NAME_PTR)
+//		+-----------------------+
+//		|  ptr to method signat.|  <-- local var 5(SIG_PTR)
+//		+-----------------------+
+//		|	Object Ref	|  <-- local var 6(OBJ_REF)
+//		+-----------------------+
+//		|	Method Ptr	|  <-- local var 7(METHOD_PTR)
+//		+-----------------------+
+//		|   	trap tmp0	|  <-- local var 8()
+//		+-----------------------+
+//		|   	trap tmp1	|  <-- local var 9()
+//		+=======================+
+//	OPTOP->	|			|
+//		+-----------------------+   
+//		|	  .....		|   
+
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will complete building
+//	a new method frame(using its frame restoring mechanism) and branches
+//	into the invoked method.  The method will return to the invoker using
+//	the frame saved by this trap routine.
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |<------+
+//		+-----------------------+   	|
+//		|          arg1		|	|
+//		+-----------------------+	|
+//		|          ...		|	|
+//		+-----------------------+	|
+//		|          argN		|	|
+//		+-----------------------+	|
+//		|         local 1	|	|
+//		+-----------------------+	|
+//		|          ...		|	|
+//		+-----------------------+	|
+//		|         local N	|	|
+//		+=======================+	|
+//		|        returnPC	|<--------------+
+//		+-----------------------+	|	|
+//		|        old VARS	|	|	|
+//		+-----------------------+	|	|
+//		|        old FRAME	|	|	|
+//		+-----------------------+	|	|
+//		|        old CONST_P	|	|	|
+//		+-----------------------+	|	|
+//		|      Method Vector	|	|	|
+//		+=======================+	|	|
+//	 VARS->	|	   PSR		|	|	|
+//		+-----------------------+   	|	|
+//	FRAME-> |    PC(method entry)	|	|	|
+//		+-----------------------+	|   	|
+//	 	|	   VARS 	|-------+	|
+//		+-----------------------+		|
+//	 	|	  FRAME		|---------------+
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP for the invoked method will be set to the
+// location where the VARS points to(location of PSR).  The other regs,
+// VARS and FRAME will be set to the value stored in the trap_frame.
+
+// CPP macros for naming local vars in stack cache
+#define		METHOD_PTR	4
+#define		TMP0		5
+#define		SIG_PTR		6
+#define		OBJ_REF		7
+#define		NAME_PTR 	8
+
+#include "struct.h"
+
+public class invokeinterface
+{
+
+    public static Method invokeinterface:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the PC, to extract index1 and index2.
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 16;		// PSR is at 4 words below
+	 iadd;			// pointer to PSR
+	write_vars;	// set the VAR, PC is now local_var 1
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 4(NAME_PTR):ptr to the referenced method name from CP
+	  iconst_0;	// 5(SIG_PTR): ptr to the referenced method sig. from CP
+	   iconst_0;	// 6(OBJ_REF): 
+	    iconst_0;	// 7(METHOD_PTR):
+	     iconst_0;	// 8(TMP0):
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789-----
+	 iload_1;		// load(push) PC(local_var 1)
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index1'
+	 load_ubyte;		// push 'index1'
+	  bipush 8;
+	 ishl;			// index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789-----
+	  iload_1;		// load(push) PC(local_var 1)
+	   iconst_2;		// push 2
+	  iadd;			// pointer to index2
+	  load_ubyte;		// push 'index2'
+	 iadd;			// index1<<8 + index2
+
+// Get the pointers of the referenced method name and signature, and initialize
+// the local variables to prepare the method search in the MV table.
+//------0123456789-----
+          iconst_2;
+         ishl;			// to make a word offset
+          read_const_pool;	// load the CP
+         iadd;			// ptr to the CP[index]
+         load_word;		// 2 index in a word: class and name_type index
+          bipush 16;
+         ishl;			// to remove the class(interface) index
+	  bipush 14;		// 14, not 16, to make a word_aligned index
+	 ishr;			// word_aligned CP index to name_type_index
+//------0123456789-----
+	  read_const_pool;	// load the CP
+	 iadd;
+	 load_word;		// the name_type_index itself
+	  dup;			// need to compare both the name and the type
+	   bipush 16;
+	  ishr;			// this is the CP index to the name_str_pointer
+	   iconst_2;
+	  ishl;			// word-aligned CP index to the name_str_ptr
+	   read_const_pool;	// load the CP
+	  iadd;
+	  load_word;		// the pointer to the decaf name_string
+	 istore NAME_PTR;	// save into local var NAME_PTR
+//------0123456789-----
+	  bipush 16;
+	 ishl;
+	  bipush 14;
+	 ishr;			// to make word-aligned index to the signature
+	  read_const_pool;
+	 iadd;
+	 load_word;
+	istore SIG_PTR;		// save into local var SIG_PTR
+
+// Load 'nargs' to calculate the ptr to 'ObjRef'
+//------0123456789-----
+	 iload_1;		// load(push) PC(local_var 1)
+	  iconst_3;		// push 3
+	 iadd;			// pointer to nargs
+	 load_ubyte;		// push 'nargs'
+	  iconst_2;
+	 ishl;			// TOS is the (num_of_args<<2)
+	  dup;
+	 istore TMP0;
+
+// Load the VARS and do VARS=VARS+(nargs<<2), to access the object reference
+// from the operand stack.  Here, the VARS is temporarily modified to access
+// the object reference, and then restored to regain the local var addressing.
+//------0123456789-----
+	  read_vars;	// load the VARS value
+	    dup2;		// ., num_of_args, oldVARS, num_of_args, oldVARS
+	   iadd;		// add to the (num_of_args << 2)
+	  write_vars;
+	   iload_0;		// this is the Object Refernece
+	   swap;		// ., num_of_args, ObjRef, oldVARS
+	  write_vars;	// restore the original VARS
+	 istore OBJ_REF;	// save the object reference
+	pop;
+//------0123456789-----
+	 iload OBJ_REF;
+	  ifeq NullPointerException;
+	 iload OBJ_REF;
+	  sipush 0xFFFC;
+	  sethi 0xFFFF;
+	 iand;
+	 load_word;		// method vector table base
+	  bipush 8;
+	 isub;			// the class pointer is at 2 words below
+	 load_word;		// class pointer
+	  iload SIG_PTR;
+	   iload NAME_PTR;
+	  jsr FindMethodFromObjectHint;
+	   dup;
+	  ifeq ErrorNoSuchMethod;	// index, method_ptr
+
+// Target method is found from the Method Black table associated with the object
+// Check the ACCESS flag
+//------0123456789-----
+	   dup;
+	  istore METHOD_PTR;
+	   bipush M_ACCESSFLAG;		// ACCESS flag in the method block
+	  iadd;
+	  load_word;
+	   dup;
+	    bipush 8;		// flag STATIC
+	   iand;
+//------0123456789-----
+	  ifne IncompatibleClassChangeError;
+	   dup;
+	    iconst_1;		// flag PUBLIC
+	   iand;
+	  ifeq IllegalAccessError;
+	   sipush 0x400;	// flag ABSTRACT
+	  iand;
+	 ifne AbstractMethodError;
+
+// Update the 4th instruction operand with the method index, which may be
+// utilized by the 'quick' of this invokeinterface later.
+//------0123456789-----
+	  iload_1;		// PC
+	   iconst_4;
+	  iadd;
+	store_byte;		// store method index found by 'FindMethodFr..."
+
+// Build a new method frame for the method being invoked and a new trap frame
+// to return to the method when this trap executes ret_from_trap.
+// Save the current trap frame into the new trap frame location before
+// starting the new method frame creation, as the current trap frame may be
+// overwritten by the new method frame.
+//------0123456789-----
+	 read_vars;	// VARS points to the base of the trap frame
+	  iload METHOD_PTR;
+	   bipush M_NUMOFLOCAL;
+	  iadd;
+	  load_word;	// num of local bytes:., method_index, VARS, num_locals
+	   iload TMP0;	// num of args in bytes
+	  isub;		// locals excluding args
+	 isub;		// base of the new method frame
+	istore TMP0;
+
+// Set the OPTOP to save the METHOD_PTR and TMP0 in the 2 reg word above
+// the new trap frame to be built, to avoid a possible overwriting.
+//------0123456789-----
+	 iload TMP0;
+	  bipush 36;	// size of (method frame + trap frame)
+	 isub;
+	write_optop;
+	 iload METHOD_PTR;	// will be local 9
+	  iload TMP0;		// will be local 10
+
+// Copy the current trap frame
+//------0123456789-----
+	 iload_0;	// copy PSR: local 5
+	  iload_1;	// copy returnPC: local 6
+	   iload_2;	// copy VARS: local 7
+	    iload_3;	// copy FRAME: local 8
+
+// Now change the VARS to finish building new trap frame and method framep.
+// The VARS will point the start of new method FRAME.
+// New trap frame's PSR becomes local 6, PC is local 7 and so on.
+//------0123456789-----
+	     iload TMP0;
+	    write_vars;	// local_0 is now the returnPC of the method frame
+	   istore 8;	// put FRAME into new trap frame
+	  istore 7;	// put VARS
+	 istore 6;	// put returnPC
+	istore 5;	// put PSR
+
+// Build new method frame
+//------0123456789-----
+	 iload 6;	// this trap's returnPC
+	  iconst_5;
+	 iadd;
+	istore_0;
+//------0123456789-----
+	 iload 7;	// this trap's return VARS
+	istore_1;	// becomes the new method frame's VARS
+	 iload 8;	// and this traps's return FRAME
+	istore_2;	// becomes the new method frame's FRAME
+	 read_const_pool;	// invoker's constant pool base
+	istore_3;	// becomes the new method's CP
+	 iload 9;	// saved METHOD PTR
+	istore 4;
+
+// Building a new method frame is done now.  Modify the copied current
+// trap frame to finish building a new trap frame.
+//------0123456789-----
+	 iload 9;	// METHOD PTR
+	  bipush M_ENTRY_PTR;
+	 iadd;
+	 load_word;
+	istore 6;	// the method's entry ptr is now this trap's returnPC
+//------0123456789-----
+	 iload 9;	// METHOD PTR
+	  bipush M_NUMOFLOCAL;
+	 iadd;
+	 load_word;
+	  iload 10;	// ptr to the start of method frame
+	 iadd;		// ptr to the target object of this invoke
+	istore 7;	// becomes the new trap frame's VARS
+//------0123456789-----
+	 iload 10;
+	istore 8;	// new trap frame's FRAME
+
+// Initialize the CONST POOL reg for invoked method
+//------0123456789-----
+	 iload 9;		// method pointer
+	  bipush M_CLASSPTR;	// class ptr in the method block
+	 iadd;
+	 load_word;		// class ptr of the target method
+	  iconst_4;
+	 iadd;
+	 load_word;		// constant pool ptr is the 1st word
+	  bipush 8;
+	 iadd;
+	write_const_pool;	// initialize the CP reg
+
+// Replace the instruction with 'invokeinterface_quick' with the index of
+// the method_block whose name and signature matches to the referenced method.
+//------0123456789-----
+	 sipush 0xDA;	// 0xDA(218) == invokeinterface_quick
+	  iload_0;	// returnPC in the new method frame
+	   iconst_5;	// need to subtract 5 to get the invokeinterfec opcode
+	  isub;
+	store_byte;	// replace it with 'invokeinterface_quick'
+
+         iload_0;    	// returnPC in the new method frame  
+          iconst_5;     // need to subtract 5 to get the invokeinterfec opcode
+         isub;
+         load_byte;     // load back the quick opcode which make sure store_byte
+                        // update in the memory before I$ fetch it
+        pop;            // Pop the value
+// End of the modification
+
+// The i$ line now must be invalidated, and the D$ needs to be flushed out
+Replace_Instruction_Done:
+FlushCache:
+//------0123456789-----
+         bipush 8;             // I$ line size, to increment the address
+	  iload_0;
+	   iconst_5;
+	  isub;
+          cache_flush;          // flush out both I$ and D$
+          cache_flush;          // flush out 2nd line in I$,possibly 2nd D$ line        pop2;
+
+Epilogue:
+// Finally, set the VARS and FRAME reg for the 'ret_from_trap' which will
+// restores the registers from the trap frame and then pops off the trap frame.
+// The VARS must point to where the PSR is(since the OPTOP starts there) and
+// the FRAME will point to the method_entry point location.
+//------0123456789-----
+	 read_vars;	// read the VARS, pointing to the base of frame
+	  bipush 20;	// size of method frame
+	 isub;
+	  dup;
+	 write_vars;	// VARS now points to the base of trap_frame
+	  iconst_4;
+	 isub;
+	write_frame;	// FRAME now points to the method_entry point
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ErrorNoSuchMethod:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Target method not found from the method vector table associated with object 
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP
+          sipush 0xB9;          // vector number for this trap
+          jsr GetTrapCP;
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoSuchMethodError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+ 
+NullPointerException:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The object reference is a NULL pointer
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789----- 
+         read_const_pool;       // save the original CP 
+          sipush 0xB9;          // vector number for this trap 
+          jsr GetTrapCP; 
+         write_const_pool;      // temporaily set the CONST_POOL 
+//------0123456789----- 
+          new class java/lang/NullPointerException; 
+          swap; 
+         write_const_pool;      // restore original, to help 'athrow' 
+          iconst_0; 
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return 
+
+AbstractMethodError:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The target method turns out to be an abstract method, can't execute it
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789----- 
+         read_const_pool;       // save the original CP  
+          sipush 0xB9;          // vector number for this trap  
+          jsr GetTrapCP;  
+         write_const_pool;      // temporaily set the CONST_POOL  
+//------0123456789-----  
+          new class java/lang/AbstractMethodError; 
+          swap;  
+         write_const_pool;      // restore original, to help 'athrow' 
+          iconst_0;  
+         istore 4;      // clear off the word above trap frame for 'athrow' 
+         athrow;         // should never return
+
+IllegalAccessError:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The ACCES flag is not valid for the current access
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789----- 
+         read_const_pool;       // save the original CP   
+          sipush 0xB9;          // vector number for this trap   
+          jsr GetTrapCP;  
+         write_const_pool;      // temporaily set the CONST_POOL  
+//------0123456789-----   
+          new class java/lang/IllegalAccessError; 
+          swap;   
+         write_const_pool;      // restore original, to help 'athrow'  
+          iconst_0;   
+         istore 4;      // clear off the word above trap frame for 'athrow'  
+         athrow;         // should never return
+
+IncompatibleClassChangeError:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The resolved class's method turns out to be incompatible to referenced method
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP    
+          sipush 0xB9;          // vector number for this trap    
+          jsr GetTrapCP;   
+         write_const_pool;      // temporaily set the CONST_POOL   
+//------0123456789-----    
+          new class java/lang/IncompatibleClassChangeError; 
+          swap;    
+         write_const_pool;      // restore original, to help 'athrow'   
+          iconst_0;    
+         istore 4;      // clear off the word above trap frame for 'athrow'  
+         athrow;         // should never return
+
+// picokernel library routines
+#include	"picokernel.s"
+
+    }
+}

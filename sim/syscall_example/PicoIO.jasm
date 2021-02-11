@@ -1,0 +1,228 @@
+#include "pico_io.h"
+
+public class PicoIO {
+
+// Sample class for extending the capabilities of the picoJava-II simulation 
+// env using the syscall feature.
+
+// Print an integer
+public static final Method print:"(I)V"
+stack 2 locals 1
+{
+//------0123456789
+	 iload_0;
+          sipush CONSOLE_DATA_ADDR_1;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x49;  // I
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;        
+	return;
+}
+
+
+
+// Print a character
+public static final Method print:"(C)V"
+stack 2 locals 1
+{
+//------0123456789
+	 iload_0;
+          sipush CONSOLE_DATA_ADDR_1;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x43;  // C
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;        
+	return;
+}
+
+
+
+// Print a boolean
+public static final Method print:"(Z)V"
+stack 2 locals 1
+{
+//------0123456789
+	 iload_0;
+          sipush CONSOLE_DATA_ADDR_1;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x5A;  // Z
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;        
+	return;
+}
+
+
+
+// Print a byte
+public static final Method print:"(B)V"
+stack 2 locals 1
+{
+//------0123456789
+	 iload_0;
+          sipush CONSOLE_DATA_ADDR_1;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x42;  // B
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;        
+	return;
+}
+
+
+
+// Print a short
+public static final Method print:"(S)V"
+stack 2 locals 1
+{
+//------0123456789
+	 iload_0;
+          sipush CONSOLE_DATA_ADDR_1;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x53;  // S
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;
+        return;        
+}
+
+
+
+// Print a float
+public static final Method print:"(F)V"
+stack 2 locals 1
+{
+//
+//------0123456789
+	 iload_0;
+          sipush CONSOLE_DATA_ADDR_1;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x46;  // F
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;
+        return;        
+}
+
+
+
+// Print a long
+public static final Method print:"(J)V"
+stack 3 locals 1
+{
+//------0123456789
+	  lload_0;
+           sipush CONSOLE_DATA_ADDR_1;
+           sethi PICO_IO_ADDR_H;
+         ncstore_word;
+          sipush CONSOLE_DATA_ADDR_2;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x4a;  // J
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;        
+	return;
+}
+
+
+
+// Print a double
+public static final Method print:"(D)V"
+stack 3 locals 1
+{
+//------0123456789
+	  dload_0;
+           sipush CONSOLE_DATA_ADDR_1;
+           sethi PICO_IO_ADDR_H;
+         ncstore_word;
+          sipush CONSOLE_DATA_ADDR_2;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         sipush 0x44;  // D
+          sipush CONSOLE_TYPE_ADDR;
+          sethi PICO_IO_ADDR_H;
+        ncstore_word;
+         bipush CONSOLE_OPERATION;
+          sipush PICO_IO_CALL_ADDR_L;
+          sethi PICO_IO_CALL_ADDR_H;
+        ncstore_byte;        
+	return;
+}
+
+
+
+// flushRegion (address, length);
+// flushes a region of memory out to cache, starting from address to
+// address + length
+private static final Method flushRegion:"(II)V"
+stack 4 locals 4
+{
+    bipush 0;   // space for local var 2;
+    iload_1;
+    bipush 0x4; // 16-byte linesize
+    iushr;
+    bipush 0x2;
+    iadd;
+
+    istore_2;       // no. of cache lines to flush in LV2
+
+    bipush 0x10;    // addr increment for cache flush
+    iload_0;        // start addr of flush, nuke GC bits
+    sipush 0xFFFC;
+    sethi 0x3FFF;
+    iand;
+
+loop:
+    cache_flush;
+    iinc 2, -1;  // decrement no. of cache lines to flush
+    iload_2;
+    ifgt loop;    // if no more cache lines to flush, jump out
+
+    return;
+}
+
+
+} // end class PicoIO
+
+
+
+
+
+

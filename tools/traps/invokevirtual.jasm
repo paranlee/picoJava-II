@@ -1,0 +1,667 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+#define		METHOD_PTR	4
+#define		CLASS_PTR	5
+#define		NAME_PTR	6
+#define		SIG_PTR		7
+#define		OBJREF		8
+#define		ARRAY_HANDLE	9
+
+#include	"struct.h"
+
+//
+// Trap "invokevirtual" -
+//
+//	Resolve a virtual method reference based on an index to the current
+//	constant pool and the associated target object. After method resolution,
+//	replaces the 'invoke_virtual' instruction with a corresponding
+//	'quick' version of 'invokevirtual', followed by an offset which
+//	uniquely identifies the method in the Method Vector Table whose base
+//	address is stored in the target object.
+//	The 'quick' version of this instruction will be determined by the target
+//	object's class and the index of the method being invoked.
+//	If the object reference is an array type, then class 'Object's method
+//	table is going to be used for searching the method and the instruction
+//	will be replaced 'invokevirtualobject_quick'.  If the method index is
+//	greater than 255, it will be 'invokevirtual_quick_w'.  Otherwise,
+//	it will be 'invokevirtual_quick'.
+//
+//	The operand stack contains the following when this trap is entered:
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	0
+//		+-----------------------+
+//		|          arg1		|	1
+//		+-----------------------+
+//		|          ...		|
+//		+-----------------------+
+//		|          argN		|	N
+//		+-----------------------+
+//		|          PSR		|	N+1
+//		+-----------------------+
+//		|	    PC		|	N+2
+//		+-----------------------+
+//		|          VARS		|	N+3
+//		+-----------------------+
+//		|	  FRAME  	|	N+4
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+
+//	And the operand stack has the following during the the trap execution.
+//
+//	 VARS->	|	   PSR		|	N+1
+//		+-----------------------+   
+//		|	    PC		|	N+2
+//		+-----------------------+
+//		|          VARS		|	N+3
+//		+-----------------------+
+//		|	  FRAME  	|	N+4
+//		+=======================+
+//		|      	METHOD_PTR	|  <-- local var 4
+//		+-----------------------+
+//		|       CLASS_PTR	|  <-- local var 5
+//		+-----------------------+
+//		|       NAME_PTR	|  <-- local var 6
+//		+-----------------------+
+//		|        SIG_PTR	|  <-- local var 7
+//		+-----------------------+
+//		|        OBJREF		|  <-- local var 8
+//		+-----------------------+
+//		|      ARRAY_HANDLE	|  <-- local var 9
+//		+-----------------------+
+//		|INDEX(index1<<8+index2)|  <-- local var10 
+//		+-----------------------+   
+//		|	  .....		|   
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will utilize this info
+//	to restore the trapped method frame.
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	0
+//		+-----------------------+   
+//		|          arg1		|	1
+//		+-----------------------+
+//		|          ...		|
+//		+-----------------------+
+//		|          argN		|	N
+//		+-----------------------+
+//	 VARS->	|	   PSR		|	N+1
+//		+-----------------------+   
+//	FRAME-> |	    PC		|	N+2
+//		+-----------------------+   
+//	 	|	   VARS 	|	N+3
+//		+-----------------------+
+//	 	|	  FRAME		|	N+4
+//		+-----------------------+
+//		|	  ....		|   
+//
+//	Note that the actual method invocation will be handled by the 'quick'
+//	version of the invoke instruction which is replaced by this trap.
+
+public class invokevirtual
+{
+
+    public static Method invokevirtual:"()v"
+    {
+Prologue:
+// Set the register VARS to access the PC, to extract index1 and index2.
+//------0123456789------
+	 read_optop;	// push OPTOP
+	  bipush 16;		// PSR is at 4 words below
+	 iadd;			// pointer to PSR
+	write_vars;	// set the VARS, PSR is now local_var 0
+
+// Reserve 6 stack words(local variables) for executing this trap routine
+	 iconst_0;		// trap_tmp 0: local var 4 initialized to 0
+	  iconst_0;		// trap_tmp 1: local var 5 initialized to 0
+	   iconst_0;		// trap_tmp 2: local var 6 initialized to 0
+	    iconst_0;		// trap_tmp 3: local var 7 initialized to 0
+	     iconst_0;		// trap_tmp 4: local var 8 initialized to 0
+	      iconst_0;		// trap_tmp 5: local var 9 initialized to 0
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789------
+	 iload_1;		// load(push) PC(local_var 1)
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index1'
+	 load_ubyte;		// push 'index1'
+	  bipush 8;
+	 ishl;			// index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+	  iload_1;		// load(push) PC(local_var 1)
+	   iconst_2;		// push 2
+	  iadd;			// pointer to index2
+	  load_ubyte;		// push 'index2'
+	 iadd;			// index1<<8 + index2
+				// Now, *local var 10* is the CP index
+
+// Check whether the item has already been resolved by another invoke trap
+// targeted to this static method.  If so, instantly access the address
+// of the method block(in the method_info_table) in the constant pool entry,
+// CONSTANT_method_ref, with the type info stored in the type array associated
+// with the CP[0] entry.
+//------0123456789------
+	 read_const_pool;	// load the CP
+	 load_word;		// CP[0]: ptr to the array of "resolution&type"
+	  iload 10;		// load the CP index
+	 iadd;			// type_byte ptr of indexed field(CP[0][index])
+	 load_ubyte;		// load the type byte for the referenced field
+	  bipush 7;
+	 ishr;			// To check the resolution bit(1 == resolved)
+	ifeq MethodNotResolved;// branch if equal to 0(if == 0, not resolved)
+
+// The method_ref in the CP[] has already been resolved.  Extract the pointer
+// to the method_info_table entry from the CP[index] and jmp access verification
+//------0123456789------
+	 read_const_pool;	// load the CP
+	  iload 10;		// load the CP index
+	   iconst_2;
+	  ishl;			// to make a word offset
+	 iadd;			// ptr to the CP[index]
+	 load_word;
+	  dup;
+	 istore METHOD_PTR;
+//------0123456789------
+	  dup;
+	   bipush M_METHODNAME;
+	  iadd;
+	  load_word;
+	 istore NAME_PTR;
+	  bipush M_SIGNATURE;
+	 iadd;
+	 load_word;
+	istore SIG_PTR;
+	goto MethodBlockFoundFromClass;
+
+MethodNotResolved:
+// access the CP item at the index to check the class first
+// Top of operand stack has the type&resolution byte
+//------0123456789------
+	 read_const_pool;	// load the CP
+	  iload 10;		// load the CP index
+	   iconst_2;
+	  ishl;			// to make a word offset
+	 iadd;			// ptr to the CP[index]
+	 load_word;	// local 8:CPM(2 indicies)- class and name_type index
+	  dup;			// to access the ref's name_type field later
+//------0123456789------
+	   bipush 16;
+	  ishr;		// to get the class index of the method
+	   dup;		// one for resolution status, one for CP access
+			// ..., CPm, c-index, c-index
+// see if the class has been loaded and resolved
+//------0123456789------
+	    read_const_pool;	// load the CP
+	    load_word;		// load the ptr to the "resolution&type array"
+	   iadd;		// type_byte ptr of indexed field(CP[0][index])
+	   load_ubyte;		// load the type byte for the associated class
+				// ..., CPm, c-index, ubyte(the class status)
+	    bipush 7;
+	   ishr;		// To check the resolution bit(1 == resolved)
+	  ifne ClassResolved;	// branch if not equal to 0(if == 1, resolved)
+
+// The class hasn't been resolved(and possibly not loaded yet).
+// Issue a request to Decaf kernel to load and resolve the class.
+ClassUnresolved:
+//------0123456789------
+           dup;			// ..., CPm, c_index, c-index
+            iconst_2;
+           ishl;
+            read_const_pool;
+           iadd;                 // CP[c_index<<2]
+           load_word;            // CP index to the class name string
+            iconst_2;
+           ishl;
+            read_const_pool;
+           iadd;                 // CP[class_name_index<<2]
+           load_word;            // ptr to the class name string
+            bipush 31;           // service request 31: resolve class
+            jsr PicoKernel;
+             dup;
+            ifeq ClassCannotResolved;
+// The class was resolved successfully.  Update the CP[0][class_index] to
+// indicate the resolution status and CP[class_index] to save the class_ptr.
+//------0123456789------
+            swap;                // class_ptr, ptr_to_class_name
+           pop;
+           swap;                 // class_ptr,class_index
+             dup2;               // class_ptr,class_index,class_ptr,class_index
+              iconst_2;
+             ishl;
+              read_const_pool;
+             iadd;               // class_ptr, &(CP[class_index])
+           store_word;           // CP[class_index] <- class_ptr
+           swap;                 // CPm, class_index, class_ptr
+          pop;                   // CPm, class_index
+//------0123456789------
+           dup;                  // class_index, class_index
+            read_const_pool;
+            load_word;
+           iadd;
+            dup;
+            load_ubyte;
+             sipush 0x80;        // to indicate the class has been resolved
+            ior;
+            swap;
+          store_byte;          // CP[0][class_index] |= 0x80;
+          goto ClassResolved;
+        
+//*****************************************************************************
+// The class is either unloaded or cannot be found from the class table
+//*****************************************************************************
+ClassCannotResolved:
+//------0123456789-----
+         read_const_pool;       // save the original CP
+          sipush 0xB6;
+          jsr GetTrapCP;
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoClassDefFoundError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+// Now load the pointer to the class structure built for the method's class.
+// The TOS must have the class index( ..., CPm, c-index).
+ClassResolved:
+//------0123456789------
+	   iconst_2;
+	  ishl;			// Now, obtained the CP index of the class
+	   read_const_pool;	// load the CP
+	  iadd;
+	  load_word;		// load the pointer to the class structure
+				// ..., CPm, class_pointer
+// See if the class is equal to the current class.Compare the 2 CPs to determine
+	   dup;			// ..., CPm, class_pointer, class_pointer
+	  istore CLASS_PTR;
+	  load_word;		// first word is the pointer to the CP
+	   read_const_pool;	// ..., CPm, class'_CP, current_CP
+	 if_icmpeq CurrentClassMethod;	// ..., CPm 
+
+// The method's class is not the current class. Search the class for the method.
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Here, don't have to distinguish the case of (current_class != method's_class)
+// since the class_ptr always points to the class_structure where the referenced
+// method is declared. The class_structure, however, may or may not be identical
+// to the current class_structure.
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+OtherClassMethod:
+// Extract the pointers to the method name and signature string, before
+// searching the static method from the target class.
+CurrentClassMethod:
+//------0123456789------
+	  iload CLASS_PTR;
+	  swap;		// class_ptr, CPm
+	   bipush 16;
+	  ishl;
+	   bipush 14;	// to reset upper 16 bits & make word-index
+	  ishr;		// ..., class_ptr, name_type_index
+	   read_const_pool;	// ..., class_ptr, name_type_index, CP
+	  iadd;		// ..., class_ptr, name_type_index+CP
+	  load_word;	// ..., class_ptr, CP[n_t_index]
+//------0123456789------ 	// 2 index, name index and type index
+	   dup;
+	    bipush 16;
+	   ishr;	// extract the name index(upper 16 bits)first 
+	    iconst_2;	// to make a word-index
+	   ishl;	// ..., class_ptr, CP[n_t_index], name_index
+	    read_const_pool;// ...,  class_ptr, CP[n_t_index], name_index, CP
+	   iadd;
+	   load_word;	// ..., class_ptr, CP[n_t_index], name_ptr
+	    dup;
+	   istore NAME_PTR;
+// Pointer to the referenced method name string(in decaf format) is loaded.
+// Load the pointer to the signature string
+//------0123456789------ 	// 2 index, name index and type index
+	   swap;
+	    bipush 16;
+	   ishl;		// extract the type index(lower 16 bits)
+	    bipush 14;
+	   ishr;
+	    read_const_pool;	// ..., class_ptr, name_ptr, CP
+	   iadd;
+	   load_word;		// ..., class_ptr, name_ptr, sig_ptr
+	    dup;
+	   istore SIG_PTR;
+	   swap;
+// The stack has all 3 arguments required for searching the method.
+//------0123456789------
+	 jsr FindMethodFromClass;
+	  dup;
+	 ifeq ErrorNoSuchMethod;
+	istore METHOD_PTR;
+
+// Update constant pool, CP[0][INDEX] and CP[INDEX], with the method found. 
+// Note that the CP[INDEX] is updated with method specified class and method.
+UpdateConstantPool:
+//------0123456789------
+	 iload METHOD_PTR;
+          read_const_pool;	// load CP
+           iload 10;		// load the CP index of the method reference
+            iconst_2;
+           ishl;
+          iadd;
+        store_word;
+
+// Update the CP[0] resolution status array to indicate it's been resolved.
+//------0123456789------
+         read_const_pool; // load CP
+         load_word;	// CP[0]: ptr to the array of "resolution&type"
+          iload 10;	// load the CP index
+         iadd;		// type_byte ptr of indexed method(CP[0][index])
+          dup;
+          load_ubyte;	// load the type byte for the referenced method
+           sipush 0x80;
+          ior;		// Set the resolution bit(1 == resolved)
+          swap;         // ..., address, value -> ..., value, address
+        store_byte;     // CP[0][index] <- CP[0][index] | 0x80;
+
+// Check access flag with the mb from class table, though may not be identical
+MethodBlockFoundFromClass:
+//------0123456789------
+	 iload METHOD_PTR;
+	  dup;
+	   bipush M_ACCESSFLAG;
+	  iadd;
+	  load_word;// 16-bit ACCESS_FLAG assumed to be at lower halfword
+	   bipush 0x08;		// flag STATIC
+	  iand;
+	 ifne ErrorIncompatibleClassChange;
+
+// Access the method block to obtain the num of args and the index(to the
+// method vector table) of the method being invoked.
+//------0123456789------
+	  dup;
+	   bipush M_NUMOFARGS;	// argsize in the method block
+	  iadd;
+	  load_word;	// index || argument size in bytes
+	   dup;
+	    bipush 16;
+	   ishr;
+	  istore CLASS_PTR;	// index to the method vector table
+	   sipush 0xFFFF;
+	   sethi 0x0;
+	  iand;			// num of args
+//------0123456789------
+	   read_vars;	// save the current VARS
+	   swap;
+	    read_vars;
+	   iadd;	// VARS + arg_size
+	  write_vars;	// temporaily set the VARS to access objref
+	   iload_0;	// this is the 'objref'
+	   swap;
+	  write_vars;	// restore the VARS
+	 istore OBJREF;
+	istore METHOD_PTR;
+
+// Check the objref for 1) NullPointer, 2) Array Ref, 3) Handle Ref
+//------0123456789------
+	 iload OBJREF;
+	  dup;
+	   dup;
+	  ifnull ErrorNullPointer;
+	   iconst_3;
+	  iand;		// to check the 2 LSBs, bit1==array_ref, bit0==handle
+	   dup;
+	  ifeq ObjectRefNormalized;
+	 istore ARRAY_HANDLE;	// save the 2LSBs, non-zero
+	  iconst_2;
+	 ishr;
+	  iconst_2;
+	 ishl;
+	istore OBJREF;	// save the normalized object reference
+
+// Access the object's Method Vector Table to get the actual method block
+ObjectRefNormalized:
+//------0123456789------
+	 iload OBJREF;
+	 load_word;
+         sipush 0xFFF8;        // mask MVT GC bits
+          sethi  0x3FFF;
+         iand;
+	  iload CLASS_PTR;	// MVT index
+	   iconst_2;
+	  ishl;
+	 iadd;
+	 load_word;	// target method block ptr
+	istore METHOD_PTR;
+
+// The referenced method is now resolved.  Access the method_info_tab entry to
+// verify the access permission.  Also check the method's index to see if it is
+// greater than 255 and determine the quick instruction type to be written.
+VerifyAccessFlag:
+//------0123456789------
+	 iload METHOD_PTR;
+	  bipush M_ACCESSFLAG;// location of ACCESS_FLAG in the method entry
+	 iadd;
+	 load_word;// 16-bit ACCESS_FLAG assumed to be at lower halfword
+	  dup;
+	   bipush 0x08;		// flag STATIC
+	  iand;
+	 ifne ErrorIncompatibleClassChange;
+
+InstanceMethod:
+// Check for PRIVATE flag
+//------0123456789------
+	  dup;
+	   bipush 0x02;		// flag PRIVATE
+	  iand;
+	 ifne ErrorIllegalAccess;
+
+// Check for ABSTRACT flag
+//------0123456789------
+	  sipush 0x0400;	// flag ABSTRACT
+	 iand;
+	ifne ErrorAbstractMethod;
+
+// The method is now completely resolved, verified and updated.  Determine
+// the type of 'invokevirtual_quick' by checking the method's index.
+// Use 'invokevirtual_quick_w' if the index is greater than 255.  Also check
+// if the target class of this method invocation is "java.lang.Object".
+// Use 'invokevirtualobject_quick' if so. Otherwise, use 'invokevirtual_quick'.
+DetermineQuickInstruction:
+//------0123456789------
+	 iload CLASS_PTR;	// method index
+	  sipush 255;
+	if_icmpgt BigMethodIndex;
+
+LittleMethodIndex:
+// The index is not greater than 255.  Replace the 2 operand bytes(index)
+// with the method index and the number of argument.
+//------0123456789------
+	 iload CLASS_PTR;	// load the method_index
+	  iload_1;		// the PC
+	   iconst_1;
+	  iadd;
+	store_byte;	// write the method_index onto the 1st operand byte
+
+//------0123456789------
+	 iload METHOD_PTR;
+	  bipush M_NUMOFARGS;
+	 iadd;
+	 load_word;
+	  sipush 0xFFFF;
+	  sethi 0x0;
+	 iand;
+	  iconst_2;
+	 ishr;
+	  iload_1;
+	   iconst_2;
+	  iadd;
+	store_byte;	// write the number of args onto the 2nd operand byte
+
+// replace the instruction
+//------0123456789------
+	 sipush 0xD6;	// 0xD6(214) == invokevirtual_quick
+	 goto ReplaceInstruction;
+
+BigMethodIndex:
+// Only the instruction will be modified for big index case, and the indices
+// operands will not be modified for a big index.
+//------0123456789------
+	 sipush 0xE2;	// 0xE2(226) == invokevirtual_quick_w
+
+ReplaceInstruction:
+//------0123456789------
+	  iload_1;	// the PC
+	store_byte;	// replace 'invokevirtual' with a quick version
+
+         iload_1;      // load the PC: local_var 1
+         load_byte;    // load back the quick opcode which make sure store_byte
+                       // update in the memory before I$ fetch it
+        pop;           // Pop the value
+// End of the modification
+
+// The i$ line now must be invalidated, and the D$ needs to be flushed out
+ReplaceInstructionDone:
+//------0123456789-----
+         bipush 8;      // I$ line size, to increment the address
+          iload_1;      // PC
+          cache_flush;  // flush out both I$ and D$
+          cache_flush;  // flush out I$ 2nd line and possibly 2nd D$ line too
+	pop2;
+
+// All done except going back to the trapping method to resume the execution.
+// A 'frame-saving' area is now built to help the trap-return instruction to
+// restore the trapped method frame.
+// The actual method access operation will be carried out by the replaced
+// quick version of this 'invoke_virtual' instruction.
+//
+Epilogue:
+//------0123456789------
+	 read_vars;// load the current VARS, pointing to the PSR
+	  bipush 4;
+	 isub;		// PC is at 1 word below from the PSR
+	write_frame;// store back into the FRAME, now points to return PC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Such Method ERROR:the method is not found
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorNoSuchMethod:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoSuchMethodError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;        // should never return
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Null Pointer Exception: the Object Reference is a NULL
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorNullPointer:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NullPointerException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;        // should never return
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Incompatible Class ERROR:the method is a static method,not an instance method
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorIncompatibleClassChange:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/IncompatibleClassChangeError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;        // should never return
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Illegal Access ERROR:the method is PRIVATE
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorIllegalAccess:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/IllegalAccessError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;        // should never return
+ 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Abstract Method ERROR:the method is an abstract method
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorAbstractMethod:
+//------0123456789------
+         read_const_pool;       // save the original CP 
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector 
+           iconst_4; 
+          iadd;         // location of this trap's CP value is stored 
+          load_word;    // ptr to the constant pool for this trap 
+         write_const_pool;      // temporaily set the CONST_POOL 
+//------0123456789----- 
+          new class java/lang/AbstractMethodError;
+          swap;  
+         write_const_pool;      // restore original, to help 'athrow' 
+          iconst_0; 
+         istore 4;      // clear off the word above trap frame for 'athrow' 
+         athrow;        // should never return
+#include	"picokernel.s"
+
+    }
+}

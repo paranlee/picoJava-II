@@ -1,0 +1,94 @@
+The following directory contains all the verilog and synthesis 
+files for the different units in the picoJava(TM)-II design. 
+These files can be found in the "rtl" and "syn" directories within 
+different units. 
+
+
+*******************************************************************************
+Synthesis Scripts
+
+The design direcory also contains sample synthesis scripts. These can be found 
+in the "syn" directory within each block. 
+The user will have to create a "db" directory or change the scripts to 
+write the results in appropriate places. The library setup information can 
+be found in the "lib_setup" directory under "design". The user will have to 
+add appropriate paths for their vendor specific libraries, set_dont_use 
+statements to exclude slow cells, and correct wireload models for their design. 
+Users can also find path constraints between different blocks, these 
+need to be modified based on the library information. 
+False paths in different blocks are also provided (within the 
+synthesis scripts) which need to be included for correct timing information. 
+
+The synthesis scripts are structured to compile in the following manner:
+
+ 
+cpu|-------------------iu|-------------------ex
+   |			 |-------------------ucode
+   |		 	 |-------------------rcu
+   |			 |-------------------ifu
+   |			 |-------------------pipe
+   |			 |-------------------trap
+   |			 |-------------------hold_logic
+   |					   
+   |
+   |-------------------icu
+   |
+   |
+   |-------------------dcu
+   |
+   |
+   |-------------------smu
+   |
+   |
+   |-------------------pcsu
+   |
+   |
+   |-------------------fpu
+   |
+   |
+   |-------------------dcu
+
+biu
+
+*******************************************************************************
+
+
+
+
+The top level "rtl" directory contains the verilog code for the topmost 
+block called the "cpu". It also has behavioral descriptions of all the 
+muxes, flops, custom cells and spare gates used and the defines used in the design.
+
+biu
+Contains the verilog code for the Bus Interface Unit
+ 
+dcram
+Contains the verilog code for the Data Cache RAMs
+
+dcu
+Contains the verilog code for the Data Cache Unit
+
+dtag
+Contains the verilog code for the Data Cache Tags
+
+fpu
+Contains the verilog code for the Floating Point Unit
+
+icram
+Contains the verilog code for the Instruction Cache RAMs
+
+icu
+Contains the verilog code for the Instruction Cache Unit
+
+itag
+Contains the verilog code for the Instruction Cache Tags
+
+iu
+Contains the verilog code for the Integer Unit which includes the execution datapath, 
+folding, pipe, register control datapath and microcode units
+
+pcsu
+Contains the verilog code for the Powerdown, Clock and Scan Unit
+
+smu
+Contains the verilog code for the Stack Management Unit

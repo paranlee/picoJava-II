@@ -1,0 +1,257 @@
+<html>
+<head>
+<TITLE>picoJava(TM)-II Project: RTL Options</TITLE>
+</head>
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1><B>RTL Options</B></H1>
+</center>
+<HR SIZE=4 WIDTH="100%">
+
+
+<B><code>boot8</B></code><BR>
+Enables 8-bit boot mode. The default is 32-bit boot mode.
+<P>
+
+<code><B>cosim+&lt;ias&gt;</B></code><BR>
+Runs the test in cosimulation mode, using the argument
+as the instruction accurate simulator.
+<P>
+<code><B>class+file+file...</B></code><BR>
+Loads the class files listed. Also sends commands to 
+IAS to load the same files.
+<P>
+<code><B>define+TPL_DBG</B></code><BR>
+Creates a Signalscan dump of signals in the design.
+<P>
+<code><B>define+IU_DBG</B></code><BR>
+Creates a Signalscan dump of IU signals.
+<P>
+<code><B>define+FPU_DBG</B></code><BR>
+Creates a Signalscan dump of FPU signals.
+<P>
+<code><B>define+PSU_DBG</B></code><BR>
+Creates a Signalscan dump of PCSU signals.
+<P>
+<code><B>define+ICU_DBG</B></code><BR>
+Creates a Signalscan dump of ICU signals.
+<P>
+<code><B>define+DCU_DBG</B></code><BR>
+Creates a Signalscan dump of DCU signals.
+<P>
+<code><B>define+SMU_DBG</B></code><BR>
+Creates a Signalscan dump of SMU signals.
+<P>
+<code><B>define+BIU_DBG</B></code><BR>
+Creates a Signalscan dump of BIU signals.
+<P>
+<code><B>dcu_debug</B></code><BR>
+Enables the DCU debug monitor, which prints out all
+accesses made to the DCU to the log file.
+<P>
+<code><B>fpu_debug</B></code><BR>
+Emits verbose information for FPU debugging in the log file
+<P>
+<code><B>sst_control</B></code><BR>
+Creates a Signalscan dump file for a set of clock-cycle ranges.
+Before using this argument, create a file named
+<code>sst_control</code> in the test directory that contains clock-cycle 
+counts in hexadecimal, one value per line. Each set of two values
+specifies a start clock cycle-count and a stop cycle-count 
+count.
+<P>             
+<code><B>dump_ias_stats</B></code><BR>
+Sends a <code>dumpStats</code> command to IAS at the end of the run.
+<P>
+<code><B>expcount</B></code><BR>
+Flags runtime exception handlers to increment an exception 
+counter and return instead of aborting the test, which is used for 
+exception testing.
+<P>
+<code><B>cacheinvalidate</B></code><BR>
+Flags reset code to explicitly invalidate
+instruction and data caches before enabling them.
+By default, the caches start off with all
+lines invalid.
+<P>
+<code><B>flush</B></code><BR>
+Flags reset code to flush the data caches after the test 
+finishes.
+<P>
+<code><B>dcu_off</B></code><BR>
+Flags reset code to keep the data cache disabled.
+<P>
+<code><B>icu_off</B></code><BR>
+Flags reset code to keep the instruction cache disabled.
+<P>
+<code><B>maxwm</B></code><BR>
+Flags reset code to set dribbler watermark settings to the 
+ highest legal values of 48 and 56.
+<P>
+<code><B>minwm</B></code><BR>
+Flags reset code to set dribbler watermark settings to the 
+lowest legal values of 8 and 16.
+<P>
+<code><B>handle</B></code><BR>
+Flags to trap handlers that object references should use
+handles. This command causes all object references to have the handle
+bit set.
+<P>
+<code><B>max_instr_count</B></code><BR>
+Reads a file <code>max_instr_count</code> 
+in the current directory, which 
+must contain a single hexadecimal number. This number is
+the instruction count after which simulation terminates.
+This option applies to RTL only.
+<P>
+<code><B>max_clk_count</B></code> <BR>
+Reads a file <code>max_clk_count</code>  in the current directory, which
+must contain a single hexadecimal number. This number is
+the clock count after which simulation terminates.
+This option applies to RTL only.
+<P>
+<code><B>ibuf_mon</B></code> <BR>
+Enables the instruction buffer monitor, which prints out 
+various states of the instruction buffer which were hit during 
+the simulation. See Section 15.2 of the <I>picoJava-II Verification Guide</I>.
+<P>
+<code><B>statistics</B></code> <BR>
+Enables statistics monitor, which tracks statistics on
+the number of valid stack cache entries and the number
+of times critical timing paths are hit.
+<P>
+<code><B>smu_check</B></code> <BR>
+Enables SMU monitor.
+<P>
+<code><B>rand_ack1</B></code> <BR>
+<code><B>rand_ack2</B></code> <BR>
+<code><B>s1 - s6</code></B><BR>
+Initializing the memory control to return memory acknowledgments
+at random intervals. <code>rand_ack1</code> randomizes the number of clocks
+to the first acknowledgment. <code>rand_ack2</code> randomizes the number of clocks to
+subsequent acknowledgments. <code>s1-s6</code> specify different seeds to initialize
+the random number generator.
+<P>
+<code><B>smu_hold</B></code><BR>	
+<code><B>hold_seed_2</B></code><BR>	
+<code><B>hold_seed_3</B></code><BR>	
+Injects random SMU hold signals at the full-chip level.
+<code>hold_seed2</code> and <code>hold_seed3</code> use different seeds from the
+default <code>smu_hold</code>. <code>hold_seed2</code> and
+<code>hold_seed3</code> 
+must also have <code>+smu_hold</code> specified.
+<P>
+<code><B>int_cmd</B></code> <BR>
+Generates controlled interrupts in relation
+to the occurrence of the event specified by <code>INT_TRIGGER</code>.
+Generates an interrupt of level <code>INT_LEVEL</code> 0 to 4 cycles 
+after the <code>INT_TRIGGER event</code>.  See file <code>sim/env/int_cmd_file.v</code>.
+<P>
+<code><B>int_cycle_0</B></code><BR>     
+<code><B>int_cycle_1</B></code><BR>    
+<code><B>int_cycle_2</B></code><BR>
+<code><B>int_cycle_3</B></code><BR>
+<code><B>int_cycle_4</B></code><BR>
+Specifies the number of cycles after the <code>INT_TRIGGER</code>
+event (0, 1, 2, 3, or 4) the interrupt is sent to the CPU.
+
+<P>
+<code><B>int_cntl</B></code><BR>
+Creates multiple interrupts simultaneously
+See file <code>sim/env/powerdown_monitor.v</code>.
+<P>
+<code><B>int_random</B></code><BR>
+Enables random interrupts to the CPU. 
+See file <code>sim/env/powerdown_monitor.v</code>.
+<P>
+<code><B>scheduled_interrupts</B></code><BR>
+Reads pairs of hexadecimal numbers from the
+interrupt_table in the current directory, one number
+on each line. The first number in a pair indicates
+the clock cycle in which to signal an interrupt. The
+IRL of the interrupt is the second number in the pair.
+The RTL does not support NMI.
+<P>
+<code><B>no_io_pin_stats</code></B><BR>
+Suppresses printing of I/O pin statistics at the end of simulation.
+<P>
+<code><B>no_ucode_mon</B></code><BR>
+Disable the microcode monitor, which is enabled by default.
+<P>
+<code><B>pj_halt</B></code><BR>
+Forces the <code>pj_halt</code> signal to high for the duration of the test.
+This option overrides single_step option.
+<P>
+<code><B>record</B></code><BR>
+Records the pin assertions and dump them to <code>pico_pin.tape</code> and <code>pico_pout.tape</code>.
+<P>
+<code><B>restart</B></code><BR>
+Initializes cache rams using the files <code>dram0</code>, <code>dram1</code>, <code>dtag0</code>, <code>dtag1</code>, <code>dstat</code>, <code>itag</code> and <code>iram</code> in the current directory. The 
+<code>chk2mem</code>  program can create these files.
+<P>
+<code><B>bmem+&lt;filename&gt;</B></code><BR>
+Loads a <code>.binit</code> format file into memory. Steam
+can only accept the option <code>+bmem+reset.binit</code>.
+<P>
+<code><B>tmem+&lt;filename&gt;</B></code><BR>
+Loads a <code>.init</code> format file into memory. Steam
+can only accept the option <code>+tmem+reset.init</code>.
+<P>
+<code><B>halt_check</B>
+</code>
+<BR>
+Checks that breakpoint halt mode was entered at least once.
+<P>
+<code><B>usage</B></code><BR>
+Output onlline help.
+<P>
+<P>
+<A Name="memory"> 
+<H2>Memory Loading Options to <code>pj2vcs</code> and <code>pj2vlog</code> (RTL only)</H2>
+<P>
+<B>+tmem+&lt;filename&gt;</B>
+<BR>
+Loads up <I>filename</I> into memory in the same format as a <I>class.init</I>
+ file,
+except that it does not require a <code>loadClass</code> command or an associated class file
+for loading the <code>.init</code> file.
+<P>
+<B><code>+bmem+</code><I>filename</I></B>
+<BR>
+Loads up <I>filename</I> into memory in the same format as a <I>class.binit</I> 
+file,
+except that it does not require a <code>loadClass</code> command or an associated class file
+for loading the <code>.binit</code>
+ file.
+<P>
+A command line accepts only one <code>tmem</code> and one <code>bmem</code> option. If both <code>+tmem</code>
+and <code>+bmem</code> are specified, the RTL loads the <code>bmem</code> file first, then the <code>tmem</code> file.
+The memory initializations specified by <code>+tmem</code> and
+<code>+bmem</code> are  performed
+after trap handlers and any classes specified with the +class+<I>classfile</I>
+.... option are loaded into memory.
+<P>
+These options perform actions similar to the IAS 
+<code>memfile</code> and 
+<code>bmemfile</code> commands.
+<P>
+Code for this functionality is in <code>sim/env/sys.v</code>
+.
+<P>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</font>
+</body>
+</html>

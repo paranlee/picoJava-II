@@ -1,0 +1,791 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+// CPP macros for naming local vars in stack cache
+#define         CLASS_PTR	4
+#define         NAME_PTR	5
+#define         SIG_PTR		6
+#define         MB_PTR		7
+#define         TMP_0		8
+#define         TMP_1		9
+#define         TMP_2		10	
+
+#include	"struct.h"
+
+//
+// Trap "invoke_special" -
+//
+//      Resolve the indexed method reference against the current constant pool
+//      and replaces the 'invoke_special' instruction with a corresponding
+//      'quick' version of the instruction.
+//
+//      The 'quick' version of instruction will be determined by the name of
+//      the method and the target class of the method invocation.
+//      If the target class(referenced method's) is a superclass of the current
+//      class and the method is not '<init>', then it will be replaced with
+//	'invokesuper_quick'.  Otherwise, it will be 'invokenonvirtual_quick'.
+//
+//	For 'invokesuper_quick', the 2 byte operands will be modified to the
+//	index of the method in the immediate superclass' Method Vector Table.
+//	Here, the superclass is the immediate superclass of the target class,
+//	as the immediate superclass MV Table contains all of instance methods
+//	of itself and its superclass(es).
+
+//	For 'invokenonvirtual_quick', the 2 byte operand will not be modified,
+//	but the item in the constant pool, CP[INDEX] will be set to the direct
+//	reference to the method block resolved for the method.
+//
+//      The operand stack contains the following when this trap is entered:
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	0
+//		+-----------------------+
+//		|          arg1		|	1
+//		+-----------------------+
+//		|          ...		|
+//		+-----------------------+
+//		|          argN		|	N
+//		+-----------------------+
+//		|          PSR		|	N+1
+//		+-----------------------+
+//		|	    PC		|	N+2
+//		+-----------------------+
+//		|          VARS		|	N+3
+//		+-----------------------+
+//		|	  FRAME  	|	N+4
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during executing the trap.
+//
+//	 VARS->	|	   PSR		|  <-- local var 0
+//		+-----------------------+   
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|   Resolved class_ptr	|  <-- local var 4(CLASS_PTR)
+//		+-----------------------+
+//		|  ptr to method name	|  <-- local var 5(NAME_PTR)
+//		+-----------------------+
+//		|  ptr to method signat.|  <-- local var 6(SIG_PTR)
+//		+-----------------------+
+//		|    Method Block ptr	|  <-- local var 7(MB_PTR)
+//		+-----------------------+
+//		|    temporary var 0	|  <-- local var 8(TMP_0)
+//		+-----------------------+
+//		|    temporary var 1	|  <-- local var 9(TMP_1)
+//		+-----------------------+
+//		|    temporary var 2	|  <-- local var 10(TMP_2)
+//		+=======================+
+//	OPTOP->	|			|
+//		+-----------------------+   
+//		|	  .....		|   
+
+//              |                       |
+//              +-----------------------+
+//              |    Object Reference   |       0
+//              +-----------------------+
+//              |          arg1         |       1
+//              +-----------------------+
+//              |          ...          |
+//              +-----------------------+
+//              |          argN         |       N
+//              +-----------------------+
+//       VARS-> |          PSR          |       N+1
+//              +-----------------------+
+//      FRAME-> |           PC          |       N+2
+//              +-----------------------+
+//              |          VARS         |       N+3
+//              +-----------------------+
+//              |         FRAME         |       N+4
+//              +-----------------------+
+//              |         ....          |
+//
+//      Note that the actual method invocation will be handled by the 'quick'
+//      version of the invoke instruction which is replaced by this trap.
+
+public class invokespecial
+{
+
+    public static Method invokespecial:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the PC, to extract index1 and index2.
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 16;		// PSR is at 4 words below
+	 iadd;			// pointer to PSR
+	write_vars;	// set the VAR, PC is now local_var 1
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 4(CLASS_PTR): ptr to target method's class structure
+	  iconst_0;	// 5(NAME_PTR):ptr to the referenced method name from CP
+	   iconst_0;	// 6(SIG_PTR): ptr to the referenced method sig. from CP
+	    iconst_0;	// 7(MB_PTR): MB ptr, method block matching the method
+	     iconst_0;	// 8(TMP_0): temporary var 0
+	      iconst_0;	// 9(TMP_1): temporary var 1
+	       iconst_0;// 10(TMP_2): temporary var 2
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789-----
+	 iload_1;		// load(push) PC(local_var 1)
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index1'
+	 load_ubyte;		// push 'index1'
+	  bipush 8;
+	 ishl;			// index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789-----
+	  iload_1;		// load(push) PC(local_var 1)
+	   iconst_2;		// push 2
+	  iadd;			// pointer to index2
+	  load_ubyte;		// push 'index2'
+	 iadd;			// index1<<8 + index2
+	istore TMP_0;		// save the INDEX in TMP_0
+
+// Check whether the item has already been resolved by another invoke trap
+// targeted to this exact method.  If so, instantly access the address
+// of the method block(in the method_info_table) in the constant pool entry,
+// CONSTANT_method_ref, with the type info stored in the type array associated
+// with CP[0] entry.
+//------0123456789-----
+         read_const_pool;	// load the CP
+         load_word;		// CP[0]: ptr to the array of "resolution&type"
+          iload TMP_0;		// load the index
+         iadd;			// type_byte ptr of indexed field(CP[0][index])
+         load_ubyte;		// load the type byte for the referenced field
+          bipush 7;
+         ishr;			// To check the resolution bit(1 == resolved)
+        ifeq MethodNotResolved;// branch if equal to 0(if == 0, not resolved)
+ 
+// The method_ref in the CP[] has already been resolved.  Extract the method
+// block pointer from the CP[index], initialize the target class pointer,
+// method name ptr, method signature ptr and then branches to determine
+// the quick instruction type to be replaced with.
+//------0123456789-----
+	 read_const_pool;	// load the CP
+          iload TMP_0;		// load the CP index
+           iconst_2;
+          ishl;			// to make a word offset
+         iadd;			// ptr to the CP[index]
+         load_word;		// the pointer to the method_info_tab entry
+	  dup;
+	 istore MB_PTR;
+	  dup;
+	   bipush M_SIGNATURE;
+	  iadd;
+	  load_word;
+	 istore SIG_PTR;
+	  dup;
+	   bipush M_CLASSPTR;
+	  iadd;
+	  load_word;
+	   iconst_4;	// bypass the obj-header, making C struct
+	  iadd;
+	 istore CLASS_PTR;
+	  bipush M_METHODNAME;
+	 iadd;
+	 load_word;
+	istore NAME_PTR;
+        goto Method_Found;
+ 
+// Check whether the class of the target method has been loaded and resolved.
+// save the target class pointer for later comparison(to determine quick type)
+MethodNotResolved:
+//------0123456789-----
+         read_const_pool;	// load the CP
+          iload TMP_0;		// load the CP index
+           iconst_2;
+          ishl;			// to make a word offset
+         iadd;                  // ptr to the CP[index]
+         load_word;		// 2 index in a word: class and name_type index
+          dup;			// to access the ref's name_type field later
+	 istore NAME_PTR;	// temporaily save into local NAME_PTR(CPm)
+          bipush 16;
+         ishr;			// to get the class index of the method
+          dup;			// one for resolution status, one for CP access
+                                // ..., c-index, c-index
+// see if the class has been loaded and resolved
+//------0123456789-----
+           read_const_pool;	// load the CP
+           load_word;		// load the ptr to the "resolution&type array"
+          iadd;			// type_byte ptr of indexed field(CP[0][index])
+          load_ubyte;		// load the type byte for the associated class
+                                // ..., c-index, ubyte(the class status)
+           bipush 7;
+          ishr;		// To check the resolution bit(1 == resolved)
+         ifne ClassResolved;	// branch if not equal to 0(if == 1, resolved)
+ 
+// The class hasn't been resolved(and possibly not loaded yet).
+// Issue a request to Decaf kernel to load and resolve the class.
+ClassUnresolved:
+//------0123456789------
+	  dup;
+	   iconst_2;
+	  ishl;
+	   read_const_pool;
+	  iadd;			// CP[c_index<<2]
+	  load_word;		// CP index to the class name string
+	   iconst_2;
+	  ishl;
+	   read_const_pool;
+	  iadd;			// CP[class_name_index<<2]
+	  load_word;		// ptr to the class name
+	   bipush 31;		// service request 31: resolve class
+	   jsr PicoKernel;
+	    dup;
+	   ifeq ClassCannotResolved;
+// The class was resolved successfully.  Update the CP[0][class_index] to
+// indicate the resolution status and CP[class_index] to save the class_ptr.
+//------0123456789------
+	   swap;		// class_ptr, ptr_to_class_name
+	  pop;
+	  swap;			// class_ptr, class_index
+	    dup2;		// class_ptr, class_index,class_ptr, class_index
+	     iconst_2;
+	    ishl;
+	     read_const_pool;
+	    iadd;		// class_ptr, &(CP[class_index])
+	  store_word;		// CP[class_index] <- class_ptr
+	  swap;			// class_index, class_ptr
+	 pop;			// class_index
+//------0123456789------
+	  dup;			// class_index, class_index
+	   read_const_pool;
+	   load_word;
+	  iadd;
+	   dup;
+	   load_ubyte;
+	    sipush 0x80;	// to indicate the class has been resolved
+	   ior;
+	   swap;
+	 store_byte;		// CP[0][class_index] |= 0x80;
+	 goto ClassResolved;
+	
+ClassCannotResolved:
+//------0123456789-----
+          bipush 0x72;         // "Class Not Loaded"
+	  sethi 0x0002;
+           sipush 0xFFFC;      // msg box location
+	   sethi 0x0;
+         ncstore_word;
+	 goto ClassCannotResolved;
+// Simulator should HALT the execution here
+
+// Now load the pointer to the class structure built for the method's class.
+// The TOS must have the class index( ..., c-index).
+ClassResolved:
+//------0123456789-----
+          iconst_2;
+         ishl;			// Now, obtained the CP index of the class
+          read_const_pool;	// load the CP
+         iadd;
+         load_word;		// load the pointer to the class structure
+	istore CLASS_PTR;	// save the class pointer
+
+// Get the pointers of the referenced method name and signature, and save them
+// in the local variables to prepare searching the method in the MV table.
+//------0123456789-----
+	 iload NAME_PTR;	// load the saved CP[INDEX]
+          bipush 16;
+         ishl;			// to remove the class index
+	  bipush 14;		// 14, not 16, to make a word_aligned index
+	 ishr;			// word_aligned CP index to name_type_index
+//------0123456789-----
+	  read_const_pool;	// load the CP
+	 iadd;
+	 load_word;		// the name_type_index itself
+	  dup;			// need to compare both the name and signature
+	   bipush 16;
+	  ishr;			// this is the CP index to the name_str_pointer
+	   iconst_2;
+	  ishl;			// word-aligned CP index to the name_str_ptr
+	   read_const_pool;	// load the CP
+	  iadd;
+	  load_word;		// the pointer to the decaf name_string
+	 istore NAME_PTR;	// save into local var NAME_PTR
+//------0123456789-----
+	  bipush 16;
+	 ishl;
+	  bipush 14;
+	 ishr;			// to make word-aligned index to the signature
+	  read_const_pool;
+	 iadd;
+	 load_word;
+	istore SIG_PTR;		// save into local var SIG_PTR
+
+// Search for the method from the target class.  Call the subroutine,
+// 'FindMethodFromClass' with 3 args(class_ptr, sig_ptr and name_ptr).
+// The subroutine returns the MB_ptr(method block ptr) if a method is found,
+// OR zero otherwise.
+//------0123456789-----
+	 iload CLASS_PTR;
+	  iload SIG_PTR;
+	   iload NAME_PTR;
+	 jsr FindMethodFromClass;
+	  dup;
+	 istore MB_PTR;		// MB_PTR = ptr to the Method Block
+	ifeq ErrorNoSuchMethod;
+
+Method_Found:
+// Check NullPointerRef first.
+//------0123456789-----
+	 read_vars;
+	  dup;
+	   iload MB_PTR;	// MB_PTR = ptr to the Method Block
+	    bipush M_NUMOFARGS;
+	   iadd;
+	   load_word;		// number of args for the method
+	    sipush 0xFFFF;
+	    sethi 0x0;
+	   iand;
+	  iadd;			// currentVARS + numOfArgs
+	 write_vars;		// now, the objref is local var 0
+	  iload_0;
+	 ifnull ErrorNullPointer;
+	write_vars;		// restore the vars
+
+// Then verify the access flag
+//------0123456789-----
+	 iload MB_PTR;
+	  bipush M_ACCESSFLAG;
+	 iadd;
+	 load_word;
+	  dup;
+	   bipush 0x08;		// flag STATIC
+	  iand;
+	 ifne ErrorIncompatibleClassChange;
+
+// An instance method.  Check for PRIVATE and ABSTRACT flags.
+//------0123456789------
+          dup;
+           bipush 0x02;         // flag PRIVATE
+          iand;
+	 ifeq CheckAbstract;
+	  iload MB_PTR;
+	   bipush M_CLASSPTR;
+	  iadd;
+	  load_word;		// target method's class ptr
+	   bipush C_CONSTPOOL_4;
+	  iadd;
+	  load_word;		// const pool for the target method
+	   bipush 8;
+	  iadd;
+	   read_const_pool;
+	 if_icmpeq CheckAbstract;
+	pop;
+        goto ErrorIllegalAccess;
+ 
+// Check for ABSTRACT flag
+CheckAbstract:
+//------0123456789------
+          sipush 0x0400;        // flag ABSTRACT
+         iand;
+        ifne ErrorAbstractMethod;
+
+// The referenced method's Method Block is located.  Now check if the method
+// is a superclass method which must be further resolved from the immediate
+// superclass of the current class.  If not, the Method Block just found from
+// searching the Method Block Array, should be used as the target method.
+// First, check if the method is an <init>, and take initial resolution result
+// as the final one if so, and replace with 'invokenonvirtual_quick'.
+//------0123456789-----
+	 sipush 0x0006;		// lenth of '<init>'
+	  bipush 16;
+	 ishl;
+	  sipush 0x150E;	// hash of '<init>'
+	 ior;			// Decaf string key for '<init>'
+	  sipush LOW_BUF_ADDR;
+	  sethi HIGH_BUF_ADDR;	// buffer address for storing '<init>'
+	   dup;
+	  istore TMP_1;
+	store_word;		// MEM[BUF_ADDR] = key of Decaf string, '<init>'
+//------0123456789-----
+	 sipush 0x3C69;
+	  bipush 16;
+	 ishl;
+	  sipush 0x6E69;
+	 ior;			// "<ini"
+	  iload TMP_1;
+	   iconst_4;
+	  iadd;			// BUF_ADDR + 4
+	store_word;		// MEM[BUF_ADDR+4] = "<ini"
+//------0123456789-----
+	 sipush 0x743E;
+	  bipush 16;
+	 ishl;
+	  iload TMP_1;
+	   bipush 8;
+	  iadd;			// BUF_ADDR + 8
+	store_word;		// MEM[BUF_ADDR+8] = "<ini"
+// Check if the method is an '<init>', using subroutine "DecafStrCmp".
+//------0123456789-----
+	 iload NAME_PTR;	// ptr to the referenced name
+	  iload TMP_1;		// ptr to the Decaf string, '<init>'
+	 jsr DecafStrCmp;
+	ifeq NotAnInitMethod;
+
+ProcessInitMethod:
+// Special handling of 'Object.<init>', that the particular <init> may take
+// the final construction process such as object registration.  It then
+// should return to the caller, instead of calling itself again, to complete
+// the call.  Check if the caller is identical to the receiver -> case 'Object'.
+//------0123456789-----
+	 read_vars;	// save the current VARS before modifying
+	  iload_3;		// old FRAME pointing to the caller's frame
+	 write_vars;
+	  iload 4;		// this is the caller's method block pointer
+	  swap;
+	 write_vars;	// restore the original VARS
+
+// Stack has the pointer to caller's method block. Load the current method ptr. 
+//------0123456789-----
+	  iload MB_PTR;
+	if_icmpne ResolvedInvokeNonVirtual; // NOT the case of 'Object.<init>'
+
+// Found that the caller is 'Object' calling 'Object.<init>'.
+// Initially, returns to the next instruction omitting any action.  Later,
+// the new object may have to be registered into object table, by issuing
+// a service request to the kernel.
+//------0123456789-----
+	 iload_1;		// PC pointing to 'invoke_special' byte code
+	  iconst_3;
+	 iadd;
+	istore_1;		// to return to the next instruction
+	goto ExitInvokeSpecial;
+
+// method is not an init. Check for other cases, private method, superclass, etc
+NotAnInitMethod:
+// Check for PRIVATE method first
+//------0123456789-----
+	 iload MB_PTR;
+	  bipush M_ACCESSFLAG;	// ACCESS flag is the 11th word
+	 iadd;
+	 load_word;	// ACCESS flag, lower 16 bits
+	  iconst_2;	// flag PRIVATE
+	 iand;
+	ifne ResolvedInvokeNonVirtual;	// PRIVATE method access -> 'nonvirtual'
+
+// Check for superclass access, whether the referenced target class is one of
+// the current class's superclass or not.
+//------0123456789-----
+	 read_vars;	// save the VARS:change to get current class ptr
+	  iload_3;		// FRAME ptr of the current method
+	 write_vars;	// now, the current method MBP is local var 4
+	  iload 4;		// this is the current method's Method Block ptr
+	  swap;
+	 write_vars;	// restore the original VARS
+	  bipush M_CLASSPTR;	// class_ptr is the 10th word
+	 iadd;
+	 load_word;		// class_ptr of the current method
+	  dup;
+	 istore TMP_2;
+	  bipush C_SUPERCLASS_4;// superclass is the 9th word
+	 iadd;
+	 load_word;		// ptr to current class's superclass, guaranteed
+				// to be loaded and resolved
+	  iconst_4;
+	 iadd;
+	  dup;
+	 istore TMP_1;		// save it
+FindSuperclassLoop:
+//------0123456789-----
+	  iload CLASS_PTR;	// the referenced method's class
+	if_icmpeq FindSuperclassSucceed;
+	 iload TMP_1;
+	  bipush C_SUPERCLASS;	// superclass is the 9th word
+	 iadd;
+	 load_word;		// ptr to superclass of the class just compared
+	  iconst_4;
+	 iadd;
+	  dup;
+	   iload TMP_1;
+	 if_icmpeq FindSuperclassFail;	// stop when its superclass is itself
+	  dup;
+	 istore TMP_1;
+	 goto FindSuperclassLoop;
+	
+FindSuperclassSucceed:
+// The target class is a superclass of the current class.  May need to check
+// the ACC_SUPER flag in the current class for newer version of compiler.
+// Now search the method from Method Vector Table of the immediate superclass,
+// as the index to the MV Tabel will be written into the index operand bytes,
+// replace the instruction with 'invokesuper_quick'.
+//------0123456789-----
+	 iload TMP_2;		// class structure of the current class
+	  bipush C_SUPERCLASS_4;	// superclass is the 9th word
+	 iadd;
+	 load_word;		// immediate superclass of the current class
+	  iconst_4;
+	 iadd;
+	  iload SIG_PTR;
+	   iload NAME_PTR;
+	  jsr FindMethodFromObjectHint;
+	   dup;
+	  ifeq ErrorNoSuchMethodInImmediateSuper;	// MV_Tab index, MB ptr
+
+ResolvedInvokeSuper:
+// The target method is resolved to be 'superclass' method.  Update the index
+// operands with the index to the immediate superclass's method vector table
+// and replace the instruction with 'invokesuper_quick'.  Also update the
+// CP[INDEX] with the method block ptr, to support subsequent method reference
+// which can skip the 1st method search process.
+//------0123456789-----
+//	   iload MB_PTR;	// MB_PTR found from initial search
+//	 if_icmpne ErrorMethodBlockMisMatch;	// must be identical!
+
+	 istore MB_PTR;		// update with the one from MVT, could differ
+	  dup;
+	   bipush 16;
+	  ishr;
+	 ifne ErrorTooBigMethodIndex;
+	  dup;
+	   bipush 8;
+	  ishr;		// the byte to be stored into the 1st index operand
+//------0123456789-----
+	   iload_1;	// PC
+	    iconst_1;
+	   iadd;	// address of the 1st index operand
+	 store_byte;
+	  iload_1;
+	   iconst_2;
+	  iadd;		// address of the 2nd index operand
+	store_byte;
+//------0123456789-----
+	 sipush 0xD8;		// D8: invokesuper_quick
+	  iload_1;		// PC
+	store_byte;		// MEM[PC] = 0xD8;
+	goto FlushCache;
+
+ResolvedInvokeNonVirtual:
+// The target method is resolved to be 'nonvirtual' type.  Update the constant
+// pool with the method pointer and replace the instruction with 'nonvirtual'.
+//------0123456789-----
+	 sipush 0xD7;		// D7: invokenonvirtual_quick
+	  iload_1;		// PC
+	store_byte;		// MEM[PC] = 0xD7;
+
+FlushCache:
+
+         iload_1;      // load the PC: local_var 1
+         load_byte;    // load back the quick opcode which make sure store_byte
+                       // update in the memory before I$ fetch it
+        pop;           // Pop the value
+// End of the modification
+
+//------0123456789-----
+	 bipush 8;		// I$ line size, to increment the address
+	  iload_1;		// PC
+	  cache_flush;		// flush out both I$ and D$
+	  cache_flush;		// flush out 2nd line in I$,possibly 2nd D$ line
+	pop2;
+
+UpdateConstantPool:
+//------0123456789-----
+	 read_const_pool;
+	 load_word;		// CP[0], type and resolution array
+	  iload TMP_0;		// index1<<8 + index2
+	 iadd;
+	  dup;
+	  load_ubyte;
+	   sipush 0x80;
+	  ior;
+	  swap;
+	store_byte;		// update CP[0][INDEX] |= 0x80;
+//------0123456789-----
+	 read_const_pool;
+	  iload TMP_0;		// index1<<8 + index2
+	   iconst_2;
+	  ishl;
+	 iadd;
+	  iload MB_PTR;
+	  swap;
+	store_word;		// CP[INDEX] = MB_PTR;
+
+ExitInvokeSpecial:
+Epilogue:
+// Finally, set the VARS and FRAME for the 'trap_return'.
+// The VARS will point to where the PSR is(the OPTOP starts there) and
+// the FRAME will point to the method_entry point location.
+//------0123456789-----
+         read_vars;// load the current VARS, pointing to the PSR
+          bipush 4;
+         isub;          // PC is at 1 word below from the PSR
+        write_frame;// store back into the FRAME, now points to return PC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ErrorNullPointer:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Null Pointer ERROR:the Object Reference is a NULL
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//	throws 'NullPointerException'
+//------0123456789------
+	write_vars;		// restore the original vars
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NullPointerException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorNoSuchMethod:
+ErrorNoSuchMethodInImmediateSuper:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Such Method ERROR:the method is not existing in the target object's MV
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789------
+         read_const_pool;       // save the original CP 
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector 
+           iconst_4; 
+          iadd;         // location of this trap's CP value is stored 
+          load_word;    // ptr to the constant pool for this trap 
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoSuchMethodError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorIncompatibleClassChange:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Static Method ERROR:the method is a static method!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//	throws 'IncompatibleClassChangeError'
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/IncompatibleClassChangeError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+ 
+ErrorAbstractMethod:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Abstract Method ERROR:the method is an abstract method!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//	throws 'AbstractMethodError'
+//------0123456789------
+         read_const_pool;       // save the original CP 
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector 
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/AbstractMethodError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorIllegalAccess:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Illegal Access ERROR
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//	throws 'IllegalAccessError'
+//------0123456789------
+         read_const_pool;       // save the original CP 
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector 
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/IllegalAccessError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorMethodBlockMisMatch:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Two MB ptrs  do not match, one from target class, the other from superclass
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+	 bipush 0xA2;         // two MB ptrs do not match each other
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+        goto ErrorMethodBlockMisMatch;
+// Simulator should HALT the execution here
+
+ErrorTooBigMethodIndex:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Method index is greater than 2 ** 16, and can't be fit into 2 bytes operands
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+	 bipush 0xA3;         // method index is too big
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+        goto ErrorTooBigMethodIndex;
+// Simulator should HALT the execution here
+
+FindSuperclassFail:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//invokespecial finds a method which isn't <init>, nor a STATIC nor a superclass
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+	 bipush 0xA4;         // ambiguous method, not <init>, STATCI, super
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+        goto FindSuperclassFail;
+// Simulator should HALT the execution here
+
+#include "picokernel.s"
+
+    }
+}

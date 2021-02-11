@@ -1,0 +1,98 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ /* These are generic constraints, the designer should provide more reasonable
+   constraints. 
+ */
+set_input_delay -clock clk 4.00 all_inputs()
+set_max_delay 0.0 -to all_outputs()
+
+/* These are used to break the timing loop of imdr */
+set_disable_timing ex/ex_imdr/imdr_dpath_0/mx2_compl_32_a/inp1*
+set_disable_timing ex/ex_imdr/imdr_dpath_0/mx2i_32_a/inp1*
+set_disable_timing ex/ex_imdr/imdr_dpath_0/mx4_clr_reg_nxt_32_bb/nxt_out*
+
+set_input_delay -clock clk 4.2 {iu_data_vld}
+set_input_delay -clock clk 4.0 {dcu_diag_data_c}
+set_input_delay -clock clk 3.0 {fpu_data_e}
+set_input_delay -clock clk 4.0 {icu_diag_data_c}
+set_input_delay -clock clk 4.0 {dcu_data_c}
+set_input_delay -clock clk 4.0 {smu_sbase}
+set_input_delay -clock clk 4.0 {smu_sbase_we}
+set_input_delay -clock clk 1.5 {pj_boot8_e}
+set_input_delay -clock clk 1.5 {pj_no_fpu_e}
+set_input_delay -clock clk 4.0 {smu_addr}
+set_input_delay -clock clk 2.0 {smu_st}
+set_input_delay -clock clk 2.0 {smu_ld}
+set_input_delay -clock clk 1.5 {icu_data}
+set_input_delay -clock clk 1.5 {icu_drty}
+set_input_delay -clock clk 1.5 {icu_vld_d}
+set_input_delay -clock clk 1.5 {icu_length_d}
+set_input_delay -clock clk 1.5 {smu_data}
+set_input_delay -clock clk 1.5 {smu_rf_addr}
+set_input_delay -clock clk 1.5 {smu_we}
+set_input_delay -clock clk 3.5 {icu_pc_d}
+set_input_delay -clock clk 3.5 {dcu_stall}
+set_input_delay -clock clk 2.5 {icu_hold}
+set_input_delay -clock clk 2.5 {fp_rdy_e}
+set_input_delay -clock clk 3.5 {smu_hold}
+set_input_delay -clock clk 2.5 {pj_resume}
+set_input_delay -clock clk 1.5 {pj_halt}
+set_input_delay -clock clk 1.5 {pj_nmi}
+set_input_delay -clock clk 1.5 {pj_irl}
+set_input_delay -clock clk 1.5 {dcu_err_ack}
+
+set_max_delay 2.0 -to {iu_inst_e}
+set_max_delay 1.5 -to {iu_dcu_flush_e}
+set_max_delay 1.5 -to {iu_icu_flush_e}
+set_max_delay 1.5 -to {iu_zero_e}
+set_max_delay 1.5 -to {iu_d_diag_e}
+set_max_delay 1.5 -to {iu_i_diag_e}
+set_max_delay 3.5 -to {iu_brtaken_e}
+set_max_delay 3.5 -to {iu_addr_e}
+set_max_delay 3.5 -to {iu_br_pc_e}
+set_max_delay 2.5 -to {iu_data_e}
+set_max_delay 1.0 -to {psr}
+set_max_delay 1.5 -to {sc_bottom}
+set_max_delay 2.0 -to {iu_rs1_e}
+set_max_delay 2.0 -to {iu_rs2_e}
+set_max_delay 1.5 -to {ret_optop_update}
+set_max_delay 1.5 -to {iu_powerdown_op_e}
+set_max_delay 3.8 -to {iu_shift_d}
+set_max_delay 1.5 -to {optop_c}
+set_max_delay 1.0 -to {opcode_1_op_r}
+set_max_delay 1.0 -to {valid_op_r}
+set_max_delay 3.2 -to {iu_smu_data}
+set_max_delay 1.0 -to {iu_data_w}
+set_max_delay 1.0 -to {dest_addr_w}
+set_max_delay 2.5 -to {scache_wr_miss_w}
+set_max_delay 3.0 -to {iu_smu_flush}
+set_max_delay 1.5 -to {pj_inst_complete}
+set_max_delay 4.0 -to {hold_fpu}
+set_max_delay 1.5 -to {iu_perf_sgnl}
+set_max_delay 2.0 -to {iu_kill_fpu}
+set_max_delay 2.5 -to {iu_kill_dcu}
+set_max_delay 3.5 -to {pj_brk1_sync}
+set_max_delay 3.5 -to {pj_brk2_sync}
+set_max_delay 1.5 -to {pj_in_halt}

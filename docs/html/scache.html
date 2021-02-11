@@ -1,0 +1,128 @@
+<html>
+<head>
+<TITLE>IAS:Stack Cache Operations</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Stack Cache Operations</H1>
+</center>
+<HR SIZE=4 WIDTH="100%">  
+<BLOCKQUOTE>
+The stack cache is a 64 entry register file which caches the 
+top few entries of the operand stack.
+</BLOCKQUOTE>
+<P>
+<h2>Rules</h2>
+<BLOCKQUOTE>
+These conditions must be true at ALL times about the S-Cache, both in the
+RTL, and in the IAS model:
+<UL>
+<LI>All memory accesses that are generated as offsets from OPTOP, 
+VARS or FRAME are stack accesses.  They must first determine if 
+the needed location exists in the S-Cache. 
+All other memory accesses must go directly through the D-Cache, and
+not the S-Cache. 
+<P>
+The test condition to determine if an address is an S-Cache hit
+is if the address is in the interval (OPTOP-4words, SC_BOTTOM). 
+<P>
+In IAS, all type 'O', 'F', or 'V' accesses must go
+through the S-Cache. Also, all type 'G' accesses are debug accesses,
+which always should go through the S-Cache.</LI>
+<P>
+<LI>Memory accesses generated as offsets from OPTOP must ALWAYS hit the
+S-Cache, except for accesses from microcode, as noted below.  IAS and the
+RTL assume that the S-Cache at all times contains the locations
+corresponding to the 4 top words in the stack, and the 2 empty words
+above Top of Stack.
+<P>
+Accesses to these locations are assumed to directly hit in 
+the S-Cache and do not need a hit or miss detection. 
+OPTOP offsets are always between 4 and -1, inclusive.  
+<P>
+The dribbling mechanism enforces the above restriction in the 
+IAS throught the routine vUpdateSCache which must be called 
+*every* time OPTOP is updated. The *only* way to update 
+OPTOP is through vUpdateGR in global_regs.c.
+<B>Never update OPTOP anywhere else.</B>
+The dribbling mechanism enforces the restriction in the
+the RTL by the Stack Manager Unit holding the pipe whenever 
+this condition is false, until it becomes true. It
+will eventually become true due to the dribbling operation. 
+
+<P>
+In the IAS, the dribble required to satisfy this condition happens
+immediately following the instruction which invalidated this condition. 
+However, in the RTL, this dribble is processed in the background, and can
+lead to possible mismatches in the cache state between the IAS and the
+RTL. This is unavoidable. However, the program visible memory state
+between the RTL and the IAS must always be consistent.
+<P>
+An access which is not guaranteed to hit in the S-Cache, such as an
+offset from VARS, performs a single lookup in parallel and does not
+need an extra cycle in the RTL.
+<P>
+<LI>The correct satisfaction of the above condition can only happen
+when the dribbler is enabled (PSR.DRE = 1). If the dribbler 
+is disabled, the Stack Manager Unit does not hold the pipe, 
+and the requirement of 4-62 entries in the S-Cache is not met, nor is
+the S-Cache underflow or overflow operation 
+handled correctly. Operations therefore could potentially
+operate on wrong data. <P>
+
+<B>The programmer is completely responsible anytime
+the dribbler is switched off.</B> This includes during the reset code, until
+PSR.DRE is switched on. The S-Cache operation is not transparent to
+the program during this time. Therefore the dribbler is not just a performance
+feature which can be switched off. It is required to be on for correct
+program behaviour, unless of course the program understands S-Cache behaviour
+and knows what it is doing.</LI>
+<P>
+<LI>An address of an S-Cache hit is always stored at the entry
+in the S-Cache corresponding to the 6 LSBs of the address.</LI>
+<P>
+<LI>As documented in the spec, the fill_mark should never be set to 0. 
+Doing so causes incorrect program behaviour. If it is set to 0 with the 
+dribbler enabled, IAS will detect this condition and immediately terminate. 
+<P>
+<LI>The word pointed to by SC_BOTTOM is considered present in the S-Cache.
+</UL>
+</BLOCKQUOTE>
+<h2>Usage</H2>
+<BLOCKQUOTE>
+The commands <code>scache</code> <I>on</I> or <I>off</I> and 
+<code>cache</code> <I>on</I> or <I>off</I> control the enabling of
+the S-Cache and D-Cache and I-Cache respectively inside IAS. 
+You can enable or disable them independently of each other.
+The default is <code>scache</code> <I>on</I> and 
+<code>dcache</code> <I>off</I>.
+<P>
+You can completely disable the S-Cache operation in IAS by setting
+<code>scache</code> <I>off</I>. This makes the instructions 
+operate directly on the program stack in memory through the D-Cache,
+if it is enabled.
+</BLOCKQUOTE>
+
+<P>
+<P>
+
+<A HREF="./ias.html">IAS</A></font>
+<HR SIZE=4 WIDTH="100%"> 
+ <FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<P>
+
+
+
+</font>
+</body>
+</html>
+

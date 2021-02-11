@@ -1,0 +1,67 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ set_input_delay -clock clk 4.00 all_inputs()
+set_max_delay 0.00 -to all_outputs()
+set_drive DRIVE_OF_INV1 all_inputs()
+set_load LOAD_10_INV all_outputs()
+set_input_delay -clock clk 2.5 {biu_data}
+set_input_delay -clock clk 1.0 {biu_icu_ack}
+set_input_delay -clock clk 2.1 {icram_dout}
+set_input_delay -clock clk 2.1 {itag_dout}
+set_input_delay -clock clk 2.1 {itag_vld}
+set_input_delay -clock clk 4.0 {iu_addr_e}
+set_input_delay -clock clk 4.0 {iu_br_pc}
+set_input_delay -clock clk 4.0 {iu_brtaken_e}
+set_input_delay -clock clk 2.0 {iu_flush_e}
+set_input_delay -clock clk 2.0 {iu_ic_diag_e}
+set_input_delay -clock clk 1.5 {iu_psr_ice}
+set_input_delay -clock clk 4.0 {iu_shift_d}
+set_input_delay -clock clk 4.0 {misc_din}
+set_input_delay -clock clk 2.6 {ic_hit}
+set_input_delay -clock clk 1.5 {pcsu_powerdown}
+set_input_delay -clock clk 1.5 {iu_psr_bm8}
+set_max_delay 4.0 -to {icu_addr}
+set_max_delay 1.5 -to {icu_biu_addr}
+set_max_delay 4.0 -to {icu_din}
+set_max_delay 0.8 -to {icu_dout_d}
+set_max_delay 1.0 -to {ibuf_oplen}
+set_max_delay 1.0 -to {icu_drty_d}
+set_max_delay 4.0 -to {icu_itag_we}
+set_max_delay 3.0 -to {icu_pc_d}
+set_max_delay 4.0 -to {icu_ram_we}
+set_max_delay 1.5 -to {icu_req}
+set_max_delay 4.0 -to {so}
+set_max_delay 1.5 -to {icu_size}
+set_max_delay 4.0 -to {icu_tag_in}
+set_max_delay 4.0 -to {icu_tag_vld}
+set_max_delay 1.5 -to {icu_type}
+set_max_delay 0.8 -to {icu_vld_d}
+set_max_delay 1.0 -to {misc_dout}
+set_max_delay 2.5 -to {diag_ld_cache_c}
+set_max_delay 2.5 -to {icu_in_powerdown}
+set_max_delay 4.0 -to {icram_powerdown}
+set_max_delay 2.5 -to {icu_hold}
+set_drive DRIVE_OF_INV3 {iu_shift_d}
+set_drive DRIVE_OF_INV2 {iu_brtaken_e}

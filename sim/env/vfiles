@@ -1,0 +1,193 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+// necessary include files
++incdir+picoJava-II/design/rtl
+
+// necessary libraries
+-v picoJava-II/design/rtl/mj_muxes_behv.v
+-v picoJava-II/design/rtl/mj_ffs_behv.v
+-v picoJava-II/design/rtl/custom_cells_behv.v
+
+
+// top level file
++incdir+picoJava-II/sim/env
+
+picoJava-II/sim/env/timescale.v
+picoJava-II/design/rtl/spare.v                  
+picoJava-II/sim/env/sys.v
+picoJava-II/sim/env/display_pico.v
+
+
+// memory controller
+picoJava-II/sim/env/memc.v
+
+// monitors
+picoJava-II/sim/env/monitor.v
+picoJava-II/sim/env/powerdown_monitor.v
+picoJava-II/sim/env/instruction_monitor.v
+picoJava-II/sim/env/activity_monitor.v
+picoJava-II/sim/env/ucode_monitor.v
+picoJava-II/sim/env/trap_monitor.v
+picoJava-II/sim/env/smu_monitor.v
+picoJava-II/sim/env/bus_monitor.v
+picoJava-II/sim/env/ibuf_monitor.v
+picoJava-II/sim/env/fpu_mon.v
+picoJava-II/sim/env/dcu_mon.v
+picoJava-II/sim/env/trace_debug_monitor.v
+picoJava-II/sim/env/statistics_monitor.v
+picoJava-II/sim/env/performance_monitor.v
+picoJava-II/sim/env/io_pin_monitor.v
+picoJava-II/sim/env/fold_mon.v
+picoJava-II/sim/env/picoJavaII_pin_recorder.v
+
+// the real stuff
+
+picoJava-II/design/rtl/cpu.v
+
+picoJava-II/design/iu/ex/rtl/ex_decode.v
+picoJava-II/design/iu/ex/rtl/ex_ctl.v
+picoJava-II/design/iu/ex/rtl/ex_dpath.v
+picoJava-II/design/iu/ex/rtl/ex_regs.v
+picoJava-II/design/iu/ex/rtl/ex.v
+picoJava-II/design/iu/ex/rtl/imdr/imdr.v
+picoJava-II/design/iu/ex/rtl/imdr/imdr_ctrl.v
+picoJava-II/design/iu/ex/rtl/imdr/imdr_dpath.v
+picoJava-II/design/iu/ex/rtl/imdr/lib_imdr.v
+
+picoJava-II/design/iu/ifu/rtl/ex_len_dec.v
+picoJava-II/design/iu/ifu/rtl/fdec.v
+picoJava-II/design/iu/ifu/rtl/fold_dec.v
+picoJava-II/design/iu/ifu/rtl/fold_logic.v
+picoJava-II/design/iu/ifu/rtl/ifu.v
+picoJava-II/design/iu/ifu/rtl/index_adders.v
+picoJava-II/design/iu/ifu/rtl/length_dec.v
+picoJava-II/design/iu/ifu/rtl/main_dec.v
+picoJava-II/design/iu/ifu/rtl/rs1_dec.v
+picoJava-II/design/iu/ifu/rtl/rs2_dec.v
+picoJava-II/design/iu/ifu/rtl/rsd_dec.v
+picoJava-II/design/iu/ifu/rtl/valid_dec.v
+
+picoJava-II/design/iu/pipe/rtl/pipe_cntl.v
+picoJava-II/design/iu/pipe/rtl/pipe.v
+picoJava-II/design/iu/pipe/rtl/pipe_dpath.v
+picoJava-II/design/iu/pipe/rtl/trap.v
+picoJava-II/design/iu/pipe/rtl/hold_logic.v
+
+picoJava-II/design/iu/ucode/rtl/ucode_lib.v
+picoJava-II/design/iu/ucode/rtl/ucode.h
+picoJava-II/design/iu/ucode/rtl/ieu_rom.v
+picoJava-II/design/iu/ucode/rtl/ucode_dec.v
+picoJava-II/design/iu/ucode/rtl/ucode_ind.v
+picoJava-II/design/iu/ucode/rtl/ucode_rom.v
+picoJava-II/design/iu/ucode/rtl/ucode_seq.v
+picoJava-II/design/iu/ucode/rtl/ucode_reg.v
+picoJava-II/design/iu/ucode/rtl/ucode_ctrl.v
+picoJava-II/design/iu/ucode/rtl/ucode_dat.v
+picoJava-II/design/iu/ucode/rtl/ucode_dpath.v
+picoJava-II/design/iu/ucode/rtl/ucode.v
+
+picoJava-II/design/iu/rtl/iu.v
+
+picoJava-II/design/iu/rcu/rtl/rcu.v
+picoJava-II/design/iu/rcu/rtl/rcu_ctl.v
+picoJava-II/design/iu/rcu/rtl/rcu_dpath.v
+
+
+picoJava-II/design/dcu/rtl/wrbuf_cntl.v
+picoJava-II/design/dcu/rtl/dcudp_cntl.v
+picoJava-II/design/dcu/rtl/dcu_dpath.v
+picoJava-II/design/dcu/rtl/dcu.v
+picoJava-II/design/dcu/rtl/dcctl.v
+picoJava-II/design/dcu/rtl/dc_dec.v
+picoJava-II/design/dcu/rtl/miss_cntl.v
+
+picoJava-II/design/dcram/rtl/dcram_shell.v
+picoJava-II/design/dcram/rtl/dcram_misc.v
+picoJava-II/design/dcram/rtl/dcram_top.v
+picoJava-II/design/dcram/rtl/dcram.v
+picoJava-II/design/dtag/rtl/dtag_shell.v
+picoJava-II/design/dtag/rtl/dtag_misc.v
+picoJava-II/design/dtag/rtl/dtag_top.v
+picoJava-II/design/dtag/rtl/dtag.v
+
+// for no D cache
+picoJava-II/design/dcu/rtl/dcu_nocache.v
+picoJava-II/design/dcram/rtl/dcram_dummy.v
+picoJava-II/design/dtag/rtl/dtag_dummy.v
+
+picoJava-II/design/icu/rtl/icu_dpath.v
+picoJava-II/design/icu/rtl/icctl.v
+picoJava-II/design/icu/rtl/ibuffer.v
+picoJava-II/design/icu/rtl/ibuf_ctl.v
+picoJava-II/design/icu/rtl/ic_cntl.v
+picoJava-II/design/icu/rtl/icu.v
+
+picoJava-II/design/itag/rtl/itag_shell.v
+picoJava-II/design/icram/rtl/icram_shell.v
+
+// for no I cache
+picoJava-II/design/icu/rtl/icu_nocache.v
+picoJava-II/design/itag/rtl/itag_dummy.v
+picoJava-II/design/icram/rtl/icram_dummy.v
+
+picoJava-II/design/smu/rtl/smu.v
+picoJava-II/design/smu/rtl/smu_ctl.v
+picoJava-II/design/smu/rtl/smu_dpath.v
+
+picoJava-II/design/biu/rtl/biu_ctl.v
+picoJava-II/design/biu/rtl/biu_dpath.v
+picoJava-II/design/biu/rtl/biu.v
+
+picoJava-II/design/pcsu/rtl/pcsu.v
+
++incdir+picoJava-II/design/fpu/rtl
+picoJava-II/design/fpu/rtl/mult_array.v
+picoJava-II/design/fpu/rtl/exponent_dp.v  
+picoJava-II/design/fpu/rtl/exponent_cntl.v 
+picoJava-II/design/fpu/rtl/exponent.v 
+picoJava-II/design/fpu/rtl/rsadd_dp.v  
+picoJava-II/design/fpu/rtl/rsadd_cntl.v 
+picoJava-II/design/fpu/rtl/rsadd.v 
+picoJava-II/design/fpu/rtl/multmod_dp.v 
+picoJava-II/design/fpu/rtl/multmod_cntl.v 
+picoJava-II/design/fpu/rtl/multmod.v 
+picoJava-II/design/fpu/rtl/f_fpu.v 
+picoJava-II/design/fpu/rtl/fp_roms.v 
+picoJava-II/design/fpu/rtl/mantissa.v 
+picoJava-II/design/fpu/rtl/mantissa_dp.v 
+picoJava-II/design/fpu/rtl/mantissa_cntl.v 
+picoJava-II/design/fpu/rtl/mantissa_cntl_sub.v 
+picoJava-II/design/fpu/rtl/prils.v 
+picoJava-II/design/fpu/rtl/prils_dp.v 
+picoJava-II/design/fpu/rtl/prils_cntl.v 
+picoJava-II/design/fpu/rtl/code_seq.v 
+picoJava-II/design/fpu/rtl/code_seq_cntl.v
+picoJava-II/design/fpu/rtl/code_seq_dp.v 
+picoJava-II/design/fpu/rtl/incmod.v 
+picoJava-II/design/fpu/rtl/nxsign.v 
+
+// for no FPU
+picoJava-II/design/fpu/rtl/f_fpu_dummy.v 

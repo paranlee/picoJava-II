@@ -1,0 +1,176 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+//
+// Trap "lookupswitch" -
+//
+//	Match the key on the top of stack to the keys in the MATCH-OFFSET
+//	table built in the instruction memory.  If a matching entry is found,
+//	branch to the location specified by the associated integer offset.
+//	If no match is found, use the default-offset stored in the instruction
+//	memory.  The branch is taken place by 'ret_from_trap' instruction,
+//	which takes the branch target from the trap frame.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|	   Key		|
+//		+=======================+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//		|	  ....		|
+//		+-----------------------+
+//	 VARS->	|	   Key		|  <-- local var 0
+//		+=======================+
+//	 	|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|     Default-Offset	|  <-- local var 5(DEFAULT)
+//		+=======================+
+//		|    NumberOfKeyPairs	|  <-- local var 6(N_PAIRS)
+//		+=======================+
+//		|      PtrToKeyWord	|  <-- local var 7(KEY_PTR)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap.
+//
+//	 	|	  ....		|
+//		+=======================+
+//	 VARS->	|          Key		|
+//		+-----------------------+
+//	 	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |       PC+Offset	|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of key).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+public class lookupswitch
+{
+    public static Method lookupswitch:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the key
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 20;		// key is at 5 words below
+	 iadd;
+	write_vars;	// set the VAR, Key is now local_var 0
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 5(DEFAULT): default offset to be taken when no match
+	  iconst_0;	// 6(N_PAIRS): number of key-offsets pairs
+	   iconst_0;	// 7(KEY_PTR): inst mem ptr pointing a key-offset entry
+
+// Determine the number of pad-bytes and address of the default-offset
+//------0123456789-----
+	 iload_2;		// load(push) PC(local_var 2)
+	  iconst_2;
+	 ishr;			// to reset the 2 LSBs
+	  iconst_1;
+	 iadd;			// to locate the next word: default-offset
+	  iconst_2;
+	 ishl;			// address of the default-offset
+// Load the default-offset and the number-of-pairs
+//------0123456789-----
+	  dup;
+	  load_word;		// default offset
+	 istore 5;		// save into local var 5
+	  dup;
+	   iconst_4;
+	  iadd;			// address to the number-of-pairs
+	  load_word;
+	 istore 6;		// save into local var 6
+	  bipush 8;
+	 iadd;			// address to the 1st MatchKey-Offset pair
+	istore 7;		// save into local var 7
+
+// Now start searching the MetchKey-Offset entry table
+KeySearchLoop:
+//------0123456789-----
+	 iload 6;		// number of MatchKey-Offset pairs to go
+	ifeq KeySearchFail;
+	 iload 7;		// ptr to the MatchKey-Offset entry
+	 load_word;		// load the key in the entry
+	  iload_0;		// load the key to be compared against
+	if_icmpeq KeyFound;
+
+	iinc 6, -1;		// decrement the number of pairs to go
+	iinc 7, 8;		// to get the next pair of MatchKey-Offset
+	goto KeySearchLoop;
+
+// A matching entry is found in the table
+KeyFound:
+//------0123456789-----
+	iinc 7, 4;		// address to the matched offset
+	 iload 7;
+	 load_word;		// the matched offset
+	istore 5;		// save into the 'default-offset' word
+
+// Key search is done.  Use the offset address stored in 'default-offset',
+// which should contains the matched-target's offset if the search succeeds,
+// or the default offset otherwise, to branch to.
+KeySearchFail:
+Epilogue:
+//------0123456789-----
+	 iload 5;		// the offset of the branch target
+	  iload_2;		// the PC
+	 iadd;			// absolute physical address of the target
+	istore_2;		// store back into the PC word(in trap frame)
+
+	 read_vars;	// read current VARS
+	  bipush 8;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to branch.
+	priv_ret_from_trap;
+    }
+}

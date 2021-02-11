@@ -1,0 +1,28 @@
+This directory contains sample test cases to be run on the 
+picoJava(TM)-II design and a basic environment for running them. 
+
+The 5 sample test cases that have been included are:
+  
+dcu_2_7.code      
+Tests load cache hits.
+
+icu_3_1_1.code 
+Tests Icache control during ICache hits.
+  
+push_pop_1.code
+256 pushes, 256 pops. This test verifies the normal conditions of the stack 
+manager. In filing up the stack cache with 256 entries, the Dribble Manager 
+fills and spills entries according to the settings of the high and low 
+watermarks. 
+
+FADD_000.code
+Tests the FADD operation.    
+
+arithm_int.code
+Verifies the results of iadd, isub, idiv, imul, irem and ineg. This test 
+picks operands arbitrarily and performs one calculation for each intruction.
+
+
+
+Please refer to the top level README.html for information on 
+simulating these tests.

@@ -1,0 +1,159 @@
+JAVA(TM) FILE:
+
+public class hello extends java.lang.Object implements Runnable {
+
+    private static int count = 0;
+    public String myName;
+
+    public hello (String name) {
+        myName = name; 
+    }
+
+    public void run() {
+        int ret;
+        ret = sayHello();
+        incrementCount(ret);
+    }
+
+    protected int sayHello() {
+       System.out.print("hello ");
+       System.out.println(myName);
+       return 1;
+    }
+
+    public static synchronized int[] incrementCount(int ret) {
+       int [] retval;
+       retval = new int[2];
+       retval[0] = count;
+       count = count + ret;
+       retval[1] = count;
+       return retval;
+    }
+
+    public static void main(String argv[]) {
+
+        hello h = new hello(argv[0]);
+
+        try {
+           h.run();
+        }
+        catch (Exception e) {
+           System.out.println("sorry if I didn't say hello :(");
+        }
+        finally {
+          System.out.println("goodbye");
+	}
+
+        return;
+    }
+
+}
+
+
+JAVA(TM) ASSEMBLY FILE:
+
+public class hello
+	implements java/lang/Runnable
+{
+	// Compiled from hello.java
+	// Compiler version 3.45;
+
+private static Field count:"I";
+public Field myName:"Ljava/lang/String;";
+
+public Method <init>:"(Ljava/lang/String;)V"
+	stack 2 locals 2
+{
+		aload_0;
+		invokespecial	Method java/lang/Object.<init>:"()V";
+		aload_0;
+		aload_1;
+		putfield	Field myName:"Ljava/lang/String;";
+		return;
+}
+
+public Method run:"()V"
+	stack 1 locals 2
+{
+		aload_0;
+		invokevirtual	Method sayHello:"()I";
+		istore_1;
+		iload_1;
+		invokestatic	Method incrementCount:"(I)[I";
+		pop;
+		return;
+}
+
+protected Method sayHello:"()I"
+	stack 2 locals 1
+{
+		getstatic	Field java/lang/System.out:"Ljava/io/PrintStream;";
+		ldc	String "hello ";
+		invokevirtual	Method java/io/PrintStream.print:"(Ljava/lang/String;)V";
+		getstatic	Field java/lang/System.out:"Ljava/io/PrintStream;";
+		aload_0;
+		getfield	Field myName:"Ljava/lang/String;";
+		invokevirtual	Method java/io/PrintStream.println:"(Ljava/lang/String;)V";
+		iconst_1;
+		ireturn;
+}
+
+public static synchronized Method incrementCount:"(I)[I"
+	stack 3 locals 2
+{
+		iconst_2;
+		newarray int;
+		astore_1;
+		aload_1;
+		iconst_0;
+		getstatic	Field count:"I";
+		iastore;
+		getstatic	Field count:"I";
+		iload_0;
+		iadd;
+		putstatic	Field count:"I";
+		aload_1;
+		iconst_1;
+		getstatic	Field count:"I";
+		iastore;
+		aload_1;
+		areturn;
+}
+
+public static Method main:"([Ljava/lang/String;)V"
+	stack 4 locals 4
+{
+		new	class hello;
+		dup;
+		aload_0;
+		iconst_0;
+		aaload;
+		invokespecial	Method <init>:"(Ljava/lang/String;)V";
+		astore_1;
+		try t18, t34;
+		aload_1;
+		invokevirtual	Method run:"()V";
+		endtry t18;
+		goto	L30;
+		catch t18 java/lang/Exception;
+		pop;
+		getstatic	Field java/lang/System.out:"Ljava/io/PrintStream;";
+		ldc	String "sorry if I didn't say hello :(";
+		invokevirtual	Method java/io/PrintStream.println:"(Ljava/lang/String;)V";
+		goto	L30;
+		endtry t34;
+	L30:	jsr	L40;
+		return;
+		catch t34 #0;
+		astore_2;
+		jsr	L40;
+		aload_2;
+		athrow;
+	L40:	astore_3;
+		getstatic	Field java/lang/System.out:"Ljava/io/PrintStream;";
+		ldc	String "goodbye";
+		invokevirtual	Method java/io/PrintStream.println:"(Ljava/lang/String;)V";
+		ret	3;
+}
+
+} // end Class hello

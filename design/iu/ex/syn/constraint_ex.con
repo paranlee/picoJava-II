@@ -1,0 +1,211 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ set_input_delay -clock clk 4.00 all_inputs()
+set_max_delay 0.00 -to all_outputs()
+
+/* These are used to break the timing loop of imdr */
+set_disable_timing ex_imdr/imdr_dpath_0/mx2_compl_32_a/inp1*
+set_disable_timing ex_imdr/imdr_dpath_0/mx2i_32_a/inp1*
+set_disable_timing ex_imdr/imdr_dpath_0/mx4_clr_reg_nxt_32_bb/nxt_out*
+
+set_input_delay -clock clk 1.5 {opcode_1_op_r}
+set_input_delay -clock clk 1.0 {opcode_2_op_r}
+set_input_delay -clock clk 1.0 {opcode_3_op_r}
+set_input_delay -clock clk 1.0 {opcode_4_op_r}
+set_input_delay -clock clk 1.0 {opcode_5_op_r}
+set_input_delay -clock clk 1.5 {valid_op_r}
+set_input_delay -clock clk 1.0 {inst_valid}
+set_input_delay -clock clk 4.2 {iu_data_vld}
+set_input_delay -clock clk 4.2 {icu_data_vld}
+set_input_delay -clock clk 1.5 {iu_smiss}
+set_input_delay -clock clk 1.5 {lduse_bypass}
+set_input_delay -clock clk 1.5 {sc_dcache_req}
+set_input_delay -clock clk 4.2 {sc_data_vld}
+set_input_delay -clock clk 1.5 {reissue_c}
+set_input_delay -clock clk 2.5 {kill_inst_e}
+set_input_delay -clock clk 1.0 {iu_trap_r}
+set_input_delay -clock clk 1.0 {first_cyc_r}
+set_input_delay -clock clk 1.0 {second_cyc_r}
+set_input_delay -clock clk 4.2 {hold_imdr}
+set_input_delay -clock clk 2.5 {ucode_done}
+set_input_delay -clock clk 1.0 {ucode_reg_rd}
+set_input_delay -clock clk 1.0 {ucode_reg_wr}
+set_input_delay -clock clk 1.0 {alu_adder_fn}
+set_input_delay -clock clk 1.0 {mem_adder_fn}
+set_input_delay -clock clk 1.0 {ucode_dcu_req}
+set_input_delay -clock clk 1.5 {optop_c}
+set_input_delay -clock clk 1.0 {pc_r}
+set_input_delay -clock clk 1.0 {pc_e}
+set_input_delay -clock clk 1.0 {pc_c}
+set_input_delay -clock clk 1.0 {ru_rs1_e}
+set_input_delay -clock clk 1.0 {ru_rs2_e}
+set_input_delay -clock clk 1.0 {scache_miss_addr_e}
+set_input_delay -clock clk 2.0 {ucode_porta_e}
+set_input_delay -clock clk 2.0 {ucode_portc_e}
+set_input_delay -clock clk 2.0 {iu_alu_a}
+set_input_delay -clock clk 2.0 {iu_alu_b}
+set_input_delay -clock clk 2.0 {u_m_adder_porta_e}
+set_input_delay -clock clk 2.0 {u_m_adder_portb_e}
+set_input_delay -clock clk 1.0 {ucode_reg_data_mux_sel}
+set_input_delay -clock clk 4.0 {dcu_diag_data_c}
+set_input_delay -clock clk 2.5 {fpu_data_e}
+set_input_delay -clock clk 4.0 {fpu_hold}
+set_input_delay -clock clk 4.0 {icu_diag_data_c}
+set_input_delay -clock clk 4.2 {dcu_data_c}
+set_input_delay -clock clk 4.0 {smu_sbase}
+set_input_delay -clock clk 4.0 {smu_sbase_we}
+set_input_delay -clock clk 4.0 {smu_addr}
+set_input_delay -clock clk 2.5 {smu_ld}
+set_input_delay -clock clk 2.5 {smu_st}
+set_input_delay -clock clk 1.0 {pj_boot8_e}
+set_input_delay -clock clk 1.0 {pj_no_fpu_e}
+set_input_delay -clock clk 4.0 {tbase_tt_e}
+set_input_delay -clock clk 4.0 {tbase_tt_we_e}
+
+
+set_input_delay -clock clk 1.0 {fold_c}
+set_input_delay -clock clk 3.7 {iu_trap_c}
+set_input_delay -clock clk 4.2 {hold_ex_ctl_e}
+set_input_delay -clock clk 4.2 {hold_ex_dp_e}
+set_input_delay -clock clk 4.2 {hold_ex_reg_e}
+set_input_delay -clock clk 4.2 {hold_ex_ctl_c}
+set_input_delay -clock clk 4.2 {hold_ex_dp_c}
+set_input_delay -clock clk 4.2 {hold_ex_reg_c}
+set_input_delay -clock clk 4.0 {rs1_mux_sel_din}
+set_input_delay -clock clk 4.0 {forward_c_sel_din}
+set_input_delay -clock clk 1.0 {ucode_active}
+set_input_delay -clock clk 4.5 {rs1_bypass_mux_sel}
+set_input_delay -clock clk 4.5 {rs2_bypass_mux_sel}
+set_input_delay -clock clk 1.5 {optop_e}
+set_input_delay -clock clk 1.0 {ucode_madder_sel2}
+set_input_delay -clock clk 1.0 {ucode_alu_a_sel}
+set_input_delay -clock clk 1.0 {ucode_alu_b_sel}
+set_input_delay -clock clk 1.0 {ucode_porta_sel}
+
+set_max_delay 1.0 -to {iu_rs1_e_0_l}
+set_max_delay 1.0 -to {iu_rs2_e_0_l}
+set_max_delay 3.5 -to {iu_sbase_we}
+set_max_delay 1.2 -to {iu_special_e}
+set_max_delay 0.5 -to {iu_bypass_rs1_e}
+set_max_delay 0.5 -to {iu_bypass_rs2_e}
+set_max_delay 4.2 -to {iu_addr_e_2}
+set_max_delay 4.2 -to {iu_addr_e_31}
+set_max_delay 3.7 -to {iu_data_in}
+set_max_delay 4.0 -to {zero_trap_e}
+set_max_delay 1.5 -to {iu_inst_e[2]}
+set_max_delay 1.5 -to {iu_inst_e[3]}
+set_max_delay 4.0 -to {iu_inst_e[7]}
+set_max_delay 4.0 -to {iu_inst_e[6]}
+set_max_delay 4.0 -to {iu_inst_e[5]}
+set_max_delay 4.0 -to {iu_inst_e[4]}
+set_max_delay 4.0 -to {iu_inst_e[1]}
+set_max_delay 4.0 -to {iu_inst_e[0]}
+set_max_delay 3.0 -to {illegal_op_r}
+set_max_delay 3.0 -to {priv_inst_r}
+set_max_delay 3.0 -to {soft_trap_r}
+set_max_delay 3.0 -to {fpu_op_r}
+set_max_delay 1.0 -to {mis_align_c}
+set_max_delay 3.0 -to {emulated_trap_r}
+set_max_delay 3.0 -to {async_error}
+set_max_delay 1.7 -to {mem_prot_error_c}
+set_max_delay 1.7 -to {oplim_trap_c}
+set_max_delay 1.0 -to {brk12c_halt}
+set_max_delay 1.5 -to {data_brk1_c}
+set_max_delay 1.5 -to {data_brk2_c}
+set_max_delay 2.5 -to {inst_brk1_r}
+set_max_delay 2.5 -to {inst_brk2_r}
+set_max_delay 4.0 -to {lock_count_overflow_e}
+set_max_delay 4.0 -to {lock_enter_miss_e}
+set_max_delay 4.0 -to {lock_exit_miss_e}
+set_max_delay 4.0 -to {lock_release_e}
+set_max_delay 4.0 -to {null_ptr_exception_e}
+set_max_delay 1.0 -to {priv_powerdown_e}
+set_max_delay 1.0 -to {priv_reset_e}
+set_max_delay 1.0 -to {opcode_1_op_c}
+set_max_delay 1.0 -to {wr_optop_e}
+set_max_delay 1.0 -to {ret_optop_update}
+set_max_delay 3.5 -to {iu_brtaken_e}
+set_max_delay 3.6 -to {branch_taken_e}
+set_max_delay 2.0 -to {iu_dcu_flush_e}
+set_max_delay 2.0 -to {iu_icu_flush_e}
+set_max_delay 1.5 -to {iu_zero_e}
+set_max_delay 1.5 -to {iu_d_diag_e}
+set_max_delay 1.5 -to {iu_i_diag_e}
+set_max_delay 1.0 -to {load_c}
+set_max_delay 1.0 -to {icu_diag_ld_c}
+set_max_delay 1.5 -to {zero_trap_e}
+set_max_delay 1.0 -to {alu_out_w}
+set_max_delay 1.0 -to {dcu_data_w}
+set_max_delay 4.0 -to {iu_addr_e}
+set_max_delay 4.0 -to {iu_br_pc_e}
+set_max_delay 3.5 -to {iu_data_e}
+set_max_delay 3.5 -to {wr_optop_data_e}
+set_max_delay 1.5 -to {ucode_reg_data}
+set_max_delay 0.5 -to {vars_out}
+set_max_delay 0.5 -to {psr_out}
+set_max_delay 0.5 -to {sc_bottom_out}
+set_max_delay 3.5 -to {imdr_done_e}
+set_max_delay 4.0 -to {imdr_div0_e}
+set_max_delay 2.5 -to {rs1_bypass_mux_out}
+set_max_delay 2.5 -to {rs2_bypass_mux_out}
+set_max_delay 3.7 -to {adder_out_e}
+set_max_delay 3.7 -to {carry_out_e}
+set_max_delay 3.0 -to {null_objref_e}
+
+set_load LOAD_30_INV all_outputs()
+set_drive DRIVE_OF_INV2 all_inputs()
+ 
+
+set_drive DRIVE_OF_INV5 {hold_ex_ctl_e}
+set_drive DRIVE_OF_INV5 {hold_ex_ctl_c}
+set_drive DRIVE_OF_INV5 {hold_ex_dp_e}
+set_drive DRIVE_OF_INV5 {hold_ex_dp_c}
+set_drive DRIVE_OF_INV5 {hold_ex_reg_e}
+set_drive DRIVE_OF_INV5 {hold_ex_reg_c}
+set_drive DRIVE_OF_INV5 {hold_imdr}
+set_drive DRIVE_OF_INV2 {sc_dcache_req}
+
+set_load LOAD_30_INV  {rs1_bypass_mux_out}
+set_load LOAD_30_INV  {rs2_bypass_mux_out}
+set_load LOAD_10_INV  {iu_data_e}
+set_load LOAD_30_INV  {iu_addr_e}
+
+set_load  LOAD_30_INV  {branch_taken_e}
+set_load  LOAD_30_INV  {iu_i_diag_e}
+set_load  LOAD_30_INV  {iu_inst_e}
+set_load  LOAD_30_INV  {iu_addr_e}
+set_load  LOAD_30_INV  {iu_dcu_flush_e}
+set_load  LOAD_30_INV  {priv_powerdown_e}
+set_load  LOAD_30_INV  {priv_reset_e}
+set_load  LOAD_30_INV  {iu_sbase_we}
+set_load  LOAD_30_INV  {fpu_op_r}
+set_load  LOAD_20_INV  {mis_align_c}
+/* set_load  LOAD_30_INV  {all_load_c} */
+set_load  LOAD_30_INV  {icu_diag_ld_c}
+set_load  LOAD_25_INV  {wr_optop_e}
+set_load  LOAD_30_INV  {ret_optop_update}
+set_load  LOAD_30_INV  {iu_icu_flush_e}
+set_load  LOAD_30_INV  {iu_zero_e}
+set_load  LOAD_30_INV  {iu_d_diag_e}

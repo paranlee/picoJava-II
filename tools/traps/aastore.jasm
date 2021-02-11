@@ -1,0 +1,679 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+#define		NORM_REF	7
+#define		S_CLASS		8
+#define		T_CLASS		9
+#define		T_SIZE		9
+#define		INDEX		10
+#define		T_TYPE		11
+#define		S_TYPE		12
+
+#include	"struct.h"
+
+//
+// Trap "aastore" -
+//
+//	Store the reference type on top of stack into the array(in the 3rd
+//	argument) at the location specified by the index(in the 2nd argument).
+//
+//	Assignment of the reference type into the array is only allowed when:
+//	    If the reference type is an object:
+//		1)
+
+//	    If the reference type is an array:
+//		1)
+
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|     array reference   |
+//		+-----------------------+
+//		|         index		|
+//		+-----------------------+
+//		|     reference type	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//	 	|	   ...		|
+//		+-----------------------+
+//	VARS ->	|     array reference   |  <-- local var 0
+//		+-----------------------+
+//		|         index		|
+//		+-----------------------+
+//		|     reference type	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|      |  <-- local var 7()
+//		+-----------------------+
+//		|      |  <-- local var 8()
+//		+-----------------------+
+//		|     |  <-- local var 9()
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will complete building
+//
+//	 	|			|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|  <-- where the array reference was
+//		+-----------------------+
+//	FRAME-> |         PC+1		|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of PSR).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+public class aastore
+{
+
+    public static Method aastore:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the 3 args(array_ref, index, reference_type)
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 28;	// array_ref is at 7 words below
+	 iadd;
+	write_vars;	// set the VAR, 'array_ref' is now local_var 0
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 7: normalized reference type
+	  iconst_0;	// 8: src class
+	   iconst_0;	// 9: dst class
+	    iconst_0;	//10: index
+	     iconst_0;	//11: target type
+	      iconst_0;	//12: src type
+
+// Check the arguments
+//------0123456789-----
+	 iload_0;	// target array reference
+	  dup;
+	 ifeq NullPointerException;
+	  dup;
+	   iconst_2;	// bit to indicate an array
+	  iand;
+	 ifeq NotAnArrayReferenceError;	// the reference is not an array type
+	  sipush 0xFFFC;
+	 iand;	 // normalized reference, the bit 1 & 0 are cleared
+	istore 7;
+	iinc 7, 4;
+//------0123456789-----
+	 iload_0;
+	 arraylength;
+	istore T_SIZE;
+	 iload_0;
+	  iconst_1;
+	 iand;
+	ifeq GetTypeSizeWord;
+TargetWithHandle:
+//------0123456789-----
+	 iload 7;
+	 load_word;
+	istore 7;
+GetTypeSizeWord:
+//------0123456789-----
+	 iload T_SIZE;
+	  iload_1;	// the index
+	  swap;		// ..., index, size
+	if_icmpge ArrayIndexOutOfBoundsException;
+	 iload_1;	// check for negative index too
+	iflt ArrayIndexOutOfBoundsException;
+	
+// Check the element type of target with src to see if they're compatible
+//------0123456789-----
+	 iload_2;	// src object reference
+	ifnull TypeCheckPassed;	// null can be casted into anything 
+//------0123456789-----
+	 iload 7;	// normalized target array reference
+	  iload T_SIZE;
+	   iconst_1;
+	    iload_0;
+	     bipush 0xFC;
+	    iand;
+	    load_word;	// load MVT
+	     iconst_3;
+	    iand;	// mask off two LSB as size
+	   ishl;
+	  imul;		// size in bytes of array;
+	   iconst_3;
+	  iadd;
+	   sipush 0xfffc;
+	  iand;
+	   bipush 8;
+	  iadd;		// address of type
+	 iadd;
+	 load_word;	// type
+	istore T_TYPE;
+	 iload_2;
+	  iconst_2;
+	 iand;
+	ifeq SrcIsObject;
+
+// First, check if the target array element is another array. If not, the
+// element type must be Object.  Error otherwise.
+// Check if the src's element is another arrray or not.
+SrcIsArray:
+//------0123456789-----
+	 iload T_TYPE;
+	  dup;
+	   bipush 0x5B;
+	 if_icmpeq TargetIsArrayOfArray;
+	  bipush 0x4C;
+	if_icmpne ErrorArrayStoreException;
+
+TargetMustBeArrayOfObject:
+//------0123456789-----
+	 iload T_SIZE;
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload 7;
+	 iadd;
+//------0123456789-----
+	 load_word;	// must be an obj reference to the class Object
+	  dup;
+	   bipush C_SUPERCLASS;
+	  iadd;
+	  load_word;
+	   iconst_4;
+	  iadd;
+	if_icmpne ErrorArrayStoreException;
+	goto TypeCheckPassed;
+
+// Both the target and src are array of arrays.  Check the src first if it
+// is an array of array(then call a subroutine to find out the first non-array
+// element type).  If the src is an array of an object OR a primtive, then
+// check aginst the target array.
+TargetIsArrayOfArray:
+//------0123456789-----
+	pop;
+	 iload_2;
+	  sipush 0xFFFC;
+	 iand;
+	  iconst_4;
+	 iadd;
+	istore S_CLASS;
+//------0123456789-----
+	 iload_2;
+	  iconst_1;
+	 iand;
+	ifeq SrcArrayNoHandle;
+SrcArrayHandle:
+//------0123456789-----
+	 iload S_CLASS;
+	 load_word;
+	istore S_CLASS;
+SrcArrayNoHandle:
+//------0123456789-----
+	 iload S_CLASS;
+	  dup;
+	  load_word;
+	   iconst_1;
+	    iload_2;
+	     bipush 0xFC;
+	    iand;
+	    load_word;	// load MVT
+	     iconst_3;
+	    iand;	// mask off two LSB as size
+	   ishl;
+	  imul;		// size in bytes of array;
+	   iconst_3;
+	  iadd;
+	   sipush 0xfffc;
+	  iand;
+	   bipush 8;
+	  iadd;		// address of type
+	 iadd;
+	 load_word;	// type
+	istore S_TYPE;
+	 iload S_TYPE;
+	  dup;
+	   bipush 0x5B;
+	 if_icmpeq SrcIsArrayOfArray;
+	  dup;
+	   bipush 0x4C;
+	 if_icmpne SrcIsArrayOfPrimitive;
+	pop;
+
+SrcIsArrayOfObjects:
+//------0123456789-----
+	 iload S_CLASS;
+	 load_word;
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload S_CLASS;
+	 iadd;
+	 load_word;	// ptr to the src object's class structure
+	istore S_CLASS;
+// Check if the target is an array of array of the object.
+//------0123456789-----
+	 iload 7;	// normalized target array reference
+	 load_word;	// type_byte || size
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload 7;
+	 iadd;
+	 load_word;	// ptr to the target array's defn string
+//------0123456789-----
+	  dup;		// must be "[[L*****;", where ***** is the class name
+	   bipush 6;
+	  iadd;
+	  load_ubyte;
+	   bipush 0x4C;
+	 if_icmpne ErrorArrayStoreException;
+//------0123456789-----
+	  dup;
+	  load_word;
+	   bipush 16;
+	  ishr;		// size of the defn str
+	   iconst_4;
+	  isub;		// length of the class name
+	  swap;
+//------0123456789-----
+	   bipush 7;
+	  iadd;		// ptr to the class name str
+	  swap;
+	  jsr BuildTmpDecafStr;
+	  swap;
+	 pop;
+	  bipush 31;
+	  jsr PicoKernel;
+//------0123456789-----
+	  swap;
+	 pop;
+	  dup;
+	 ifeq ErrorArrayStoreException;	// target class is not found
+	istore T_CLASS;
+	goto IsTargetArrayOfInterface;
+
+SrcIsArrayOfPrimitive:
+//------0123456789-----
+	  iload 7;
+	  load_word;
+	   iconst_1;
+	  iadd;
+	   iconst_2;
+	  ishl;
+	   iload 7;
+	  iadd;
+	  load_word;	// ptr to the target array's defn string
+//------0123456789-----
+	   bipush 6;
+	  iadd;
+	  load_ubyte;	// primitive type char
+	if_icmpne ErrorArrayStoreException;
+	goto TypeCheckPassed;
+
+// Call a subroutine to detect the element type from either of array defn strs
+SrcIsArrayOfArray:
+//------0123456789-----
+	pop;
+	 iload 7;	// normalized target array reference
+	 load_word;	// type_byte || size
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload 7;
+	 iadd;
+	 load_word;	// ptr to the target array's defn string
+// Build a new type defn string for this array's element which is another array 
+//------0123456789-----
+	  dup;
+	  load_word;
+	   bipush 16;
+	  ishr;
+	   iconst_1;
+	  isub;		// new array defn str size
+//------0123456789-----
+	  swap;
+	   iconst_5;
+	  iadd;
+	  swap;
+	  jsr BuildDecafStr;
+	  swap;
+	 pop;
+
+//------0123456789-----
+	  iload S_CLASS;	// ptr to source array's type || size word
+          load_word;     	// type_byte || size
+           iconst_1;
+          iadd;
+           iconst_2;
+          ishl;
+	   iload S_CLASS;
+	  iadd;
+	  load_word;	// ptr to the source array's defn string
+//------0123456789-----
+	   iconst_0;	// 3rd arg: result code
+	   jsr Scan2ArrayDefnStr;
+IsTgtStillArray:
+//------0123456789-----
+	    dup;
+	     bipush 8;
+	    ishr;
+	     bipush 0x10;
+	   if_icmpeq ErrorArrayStoreException;
+IsTgtObject:
+//------0123456789-----
+	    dup;
+	     bipush 8;
+	    ishr;	// to check bit 8 in 0x01XX
+	     iconst_1;
+	   if_icmpne TgtIsPrimitive;
+	    dup;
+	     sipush 0x0101;	// both tgt and src yield to 2 object classes
+	   if_icmpne IsArray2Obj;
+	  pop;
+	 istore S_CLASS;
+	istore T_CLASS;
+	goto IsTargetArrayOfInterface;
+IsArray2Obj:
+//------0123456789-----
+	    bipush 0x0110;	// src is an array, tgt is an object
+	  if_icmpne ErrorArrayStoreException;
+	 pop;
+// Check if the target object'c class is 'Object'.  Error otherwise.
+
+TgtIsPrimitive:
+//------0123456789-----
+	    dup;
+	     bipush 8;
+	    ishr;	// target's primitive type code
+	    swap;
+	     sipush 0xFF;
+	    iand;	// source's primitive type code
+	  if_icmpne ErrorArrayStoreException;
+	pop2;
+	goto TypeCheckPassed;
+
+SrcIsObject:
+//------0123456789-----
+	 iload T_TYPE;
+	  bipush 0x4C;
+	if_icmpne ErrorArrayStoreException;
+
+CheckClassType:
+//------0123456789-----
+	 iload T_SIZE;	// dst array's size word
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload 7;
+	 iadd;
+	 load_word;
+	istore T_CLASS;	// dst array element's class structure
+//------0123456789-----
+	 iload_2;
+	  sipush 0xFFFC;
+	 iand;
+	 load_word;
+	  bipush 8;
+	 isub;
+	 load_word;
+	istore S_CLASS;	// src's class structure
+
+// Check if the target is an interface.
+IsTargetArrayOfInterface:
+//------0123456789-----
+         iload T_CLASS;
+          bipush C_ACCESSFLAG;
+         iadd;
+         load_word;
+          sipush 0x200;         // ACC_FLAG: interface
+         iand;
+        ifne CheckInterface;
+
+CheckClassLoop:
+//------0123456789-----
+         iload S_CLASS;         // source class' class struct ptr
+          iload T_CLASS;        // target class' class struct ptr
+        if_icmpeq TypeCheckPassed;
+         iload S_CLASS;
+          bipush C_SUPERCLASS;
+         iadd;
+         load_word;
+	  iconst_4;
+	 iadd;		// normalize to bypass the obj ref
+          dup;                  // to check if its superclass is equal to itself
+           iload S_CLASS;
+         if_icmpeq ErrorArrayStoreException;
+        istore S_CLASS;         // update the source class
+        goto CheckClassLoop;
+
+CheckInterface:
+//------0123456789-----
+         iload S_CLASS;
+          bipush C_INTF_CNT;
+         iadd;
+         load_word;
+        istore INDEX;           // number of interfaces implemented by source
+//------0123456789-----
+         iload S_CLASS;
+	  dup;
+	  load_word;		// src class's CP base, local 11
+	  swap;
+           bipush C_INTF_IMPTED;
+          iadd;
+          load_word;             // array ptr: containing interface indices
+         istore S_CLASS;         // save into S_CLASS
+
+// adjust the CP pointer and interface_array pointer for Java format structure
+//------0123456789-----
+	 iinc 13, 8;		// to bypass MVB and CP array size word
+	 iinc S_CLASS, 8;	// to bypass MVB and interface array size words
+
+// local 11: src class CP base 
+CheckInterfaceLoop:
+//------0123456789-----
+         iload INDEX;           // number of interfaces to be checked
+        ifeq ErrorArrayStoreException;   //fail when no interface to be checked
+         iload S_CLASS;
+         load_word;             // a CP index representing an interface
+          dup;
+           iload 13;
+           load_word;           // CP[0]
+          iadd;                 // CP[0][INDEX]
+          load_ubyte;
+           bipush 7;
+          ishr;
+         ifeq InterfaceUnresolved;
+//------0123456789-----
+          iconst_2;
+         ishl;
+          iload 13;
+         iadd;
+         load_word;             // class structure ptr to the interface
+         goto InterfaceResolved;
+InterfaceUnresolved:
+//------0123456789-----
+          iconst_2;
+         ishl;
+          iload 13;
+         iadd;
+         load_word;             // CP index to the interface name
+          iconst_2;
+         ishl;
+//------0123456789-----
+          iload 13;
+         iadd;
+         load_word;             // ptr to the interface name, resolve this
+          bipush 31;            // service request 31: resolve class
+          jsr PicoKernel;
+           dup;
+          ifeq ErrorArrayStoreException;
+          swap;
+         pop;
+InterfaceResolved:
+//------0123456789-----
+          iload T_CLASS;
+        if_icmpeq TypeCheckPassed;
+        iinc INDEX, -1;         // decrement the implemented counter
+        iinc S_CLASS, 4;        // bump up the implemented array index
+        goto CheckInterfaceLoop;
+
+// Now assign the value(reference type) into the array
+TypeCheckPassed:
+//------0123456789-----
+	 iload 7;
+	  iload_1;
+	   iconst_1;	// because the array has 1 extra word
+	  iadd;
+	   iconst_2;	// to make byte index
+	  ishl;
+	 iadd;		// &(array_ref[INDEX])
+	  iload_2;	// reference type
+	  swap;
+	store_word;	// array_ref[INDEX] = reference_type
+
+Epilogue:
+// Move the trap frame to where the input args were stored, since the args
+// must be popped off from the operand stack when it returns.
+//------0123456789-----
+	 iload_3;	// PSR
+	istore_0;
+	 iload 4;	// PC
+	  iconst_1;
+	 iadd;		// to return to the next instruction
+	istore_1;
+	 iload 5;	// VARS
+	istore_2;
+	 iload 6;	// FRAME
+	istore_3;
+
+//------0123456789-----
+	 read_vars;	// read VARS, pointing to return val, ARRAY_REF
+	  iconst_4;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+NullPointerException:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The array reference is NULL
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+	 read_const_pool;	// save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+	  new class java/lang/NullPointerException;
+	  swap;
+	 write_const_pool;	// restore original, to help 'athrow'
+	  iconst_0;
+	 istore 7;
+	 athrow;		// should never return
+
+NotAnArrayReferenceError:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The reference type is not an array(bit 1 must be set for an array reference)
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         bipush 0xC4;         // not an array reference
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        ncstore_word;
+	goto NotAnArrayReferenceError;
+// Simulator should HALT execution here
+
+ArrayIndexOutOfBoundsException:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The index is not within the bounds of the referenced array
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/ArrayIndexOutOfBoundsException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+	  iconst_0;
+         istore 7;
+         athrow;        // should never return
+
+ErrorArrayStoreException:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The type of the reference type is not compatible with the array_ref
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP 
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector 
+           iconst_4; 
+          iadd;         // location of this trap's CP value is stored 
+          load_word;    // ptr to the constant pool for this trap 
+         write_const_pool;      // temporaily set the CONST_POOL 
+//------0123456789----- 
+          new class java/lang/ArrayStoreException;
+          swap;  
+         write_const_pool;      // restore original, to help 'athrow' 
+         iconst_0; 
+	 istore 7;
+         athrow;        // should never return
+
+#include "picokernel.s"
+    }
+}

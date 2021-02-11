@@ -1,0 +1,75 @@
+<html>
+<head>
+<TITLE>IAS: Interrupt Objects</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Interrupt Objects</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+<P>
+<BLOCKQUOTE>
+Interrupts are maintained by a list of <code>interrupt_t</code> objects. Each
+object contains whether the interrupt has been disabled, the time at
+which the next interrupt due to this object will be scheduled, whether
+it is a repeating interrupt and the frequency of repetition.
+<P>
+Instruction counts are the units of time used. Instruction counts 
+are implemented as 32b integers.
+<P>
+An interrupt scheduled at "time" x is taken, or at least evaluated,
+before executing the x+1'th instruction. Therefore an interrupt list
+command after the x'th instruction will show the interrupt at time
+x as enabled, and not yet taken.
+<P>
+Two global variables - next_sched_intr_icount (the time at which the
+earliest interrupt will be scheduled) and next_intr_id keep track of
+when and which interrupt is the next to be scheduled. 
+
+This limits the overhead spent on 
+checking-for-scheduled-interrupt. When the
+<I>icount</I> becomes equal to <I>next_sched_intr_icount</I>,
+<code>intr_dispatch</code>() is called, dispatching 
+an interrupt and setting the <code>pj_irl</code> or <code>pj_nmi</code> 
+pins to the appropriate value.
+<P>
+After dispatching the interrupt, <code>intr_dispatch</code>()
+checks all interrupts scheduled at that <I>icount</I>. 
+<code>intr_dispatch</code> disables all interrupts, 
+unless the next interrupt is a repeating interrupt, in
+which case, it is scheduled.
+<P>
+The global variable <I>icount</I> tracks of the number of instructions
+executed.
+<P>
+Disabling interrupts cannot be enabled.
+Interrupts are disabled by a user command or by a scheduled
+non-repeating interrupt.
+<P>
+
+
+</Table>
+</BLOCKQUOTE>
+
+<P>
+<P>
+<A HREF="./ias.html">IAS</A></font>
+<HR SIZE=4 WIDTH="100%">
+
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+<P>
+
+</body>
+</html>

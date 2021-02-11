@@ -1,0 +1,322 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+// Trap "putfield_quick_w" -
+//
+//	Access the resolved field descriptor stored in the constant pool
+//	and update the object's field contents with the value on the operand
+//	stack.  This is one of the 'quick' instructions emulated by trap.
+//	Depends on the type of the field, it either updates 1 or 2 words
+//	of the field's contents.
+//
+//	The operand stack contains the following when this trap is entered:
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	0
+//		+-----------------------+
+//		|      Filed Value	|	1
+//		+-----------------------+
+//		|     (Filed Value)	|	 (2)
+//		+-----------------------+
+//		|          PSR		|	2(3)
+//		+-----------------------+
+//		|	    PC		|	3(4)
+//		+-----------------------+
+//		|          VARS		|	4(5)
+//		+-----------------------+
+//		|	  FRAME 	|	5(6)
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//
+//	And the operand stack has the following during the trap execution.
+//
+//	 	|			|
+//		+-----------------------+
+//		|    Object Reference   |	0
+//		+-----------------------+
+//		|      Filed Value	|	1
+//		+-----------------------+
+//		|     (Filed Value)	|	 (2)
+//		+-----------------------+
+//	VARS->	|          PSR		|	2(3) <-- local var 0
+//		+-----------------------+
+//		|	    PC		|	3(4) <-- local var 1
+//		+-----------------------+
+//		|          VARS		|	4(5) <-- local var 2
+//		+-----------------------+
+//		|	  FRAME 	|	5(6) <-- local var 3
+//		+=======================+
+//		|      	trap_tmp0	|  <-- local var 4
+//		+-----------------------+
+//		|       trap_tmp1	|  <-- local var 5
+//		+-----------------------+
+//		|    field_block_ptr	|  <-- local var 6
+//		+-----------------------+
+//		|INDEX(index1<<8+index2)|  <-- local var 7
+//		+-----------------------+   
+//		|	  .....		|   
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap since the trap return will utilize this info
+//	to restore the trapped method frame.
+//
+//	 	|			|
+//		+-----------------------+   
+//	 VARS-> |	   PSR		|	0
+//		+-----------------------+   
+//	FRAME->	|	    PC		|	1
+//		+-----------------------+
+//		|          VARS		|	2
+//		+-----------------------+
+//		|	  FRAME 	|	3
+//		+-----------------------+
+//		|	  ....		|   
+//
+
+#define		F_SIGNATURE		8
+
+
+public class putfield_quick_w
+{
+
+    public static Method putfield_quick_w:"()I"
+    {
+Prologue:
+// Set the register VARS to access the PC, to extract index1 and index2.
+//------0123456789------
+	 read_optop;	// push OPTOP
+	  bipush 16;		// PSR is at 5 words below from OPTOP
+	 iadd;			// pointer to the saved PSR
+	write_vars;	// set the VAR, PSR is now local_var 0
+
+// Reserve 3 stack words(local variables) for executing this trap routine
+//------0123456789------
+	 iconst_0;		// trap_tmp 0: local var 4 initialized to 0
+	  iconst_0;		// trap_tmp 1: local var 5 initialized to 0
+	   iconst_0;		// trap_tmp 2: local var 6 initialized to 0
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789------
+	 iload_1;		// load(push) PC
+	  iconst_1;		// push 1
+	 iadd;			// pointer to 'index1'
+	 load_ubyte;		// push 'index1'
+	  bipush 8;
+	 ishl;			// index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+	  iload_1;		// load(push) PC
+	   iconst_2;		// push 2
+	  iadd;			// pointer to index2
+	  load_ubyte;		// push 'index2'
+	 iadd;			// index1<<8 + index2
+				// Now, *local var 7* is the CP index
+
+// Verify that the item has already been resolved.
+//------0123456789------
+	 read_const_pool;	// load the CP
+	 load_word;		// CP[0]: ptr to the array of "resolution&type"
+	  iload 7;		// load the index
+	 iadd;			// type_byte ptr of indexed field(CP[0][index])
+	 load_ubyte;		// load the type byte for the referenced field
+	  bipush 7;
+	 ishr;			// To check the resolution bit(1 == resolved)
+	ifeq FieldNotResolved;	// branch if equal to 0(if == 0, not resolved)
+
+// The field_ref in the CP[] has been resolved.  Extract the pointer
+// to the field_info_table entry from the CP[index] and goto access verification
+//------0123456789------
+	 read_const_pool;	// load the CP
+	  iload 7;		// load the CP index
+	   iconst_2;
+	  ishl;			// to make a word offset
+	 iadd;			// ptr to the CP[index]
+	 load_word;		// the pointer to the field_info_tab entry
+	istore 6;
+
+// Extract the field's offset within the object's field-storage.  Also
+// check the field's siganture to determine the field's size.
+FieldResolved:
+//------0123456789------
+	 iload 6;	// field block ptr
+	 load_word;	// offset stored in the 'object' field
+	  iconst_1;	// the object reference points MV Tab, not the 1st field
+	 iadd;
+	  iconst_2;	// to make word index
+	 ishl;
+
+// Check the field's sigature str to determine the type of the field, which
+// determines the location of the object reference in the stack.
+//------0123456789------
+	  iload 6;
+	   bipush F_SIGNATURE;	// 3rd field is the signature str
+	  iadd;
+	  load_word;	// ptr to the sig. str
+	  load_word;	// key of the sig. str
+	   dup;		// to compare twice
+	    sipush 0x0001;
+	     bipush 16;
+	    ishl;
+	     sipush 0x0044;
+	    ior;	// to produce, "00010044" == "D", type DOUBLE
+          if_icmpne CheckForLong;
+         pop; 
+         goto TwoWordField; 
+
+CheckForLong: 
+//------0123456789------
+	   sipush 0x0001;
+	    bipush 16;
+	   ishl;
+	    sipush 0x004A;
+	   ior;		// to produce, "0001004A" == "J", type LONG
+	 if_icmpne OneWordField;
+
+// Either 'long' or 'double' field type.  There are 2 words to access.
+TwoWordField:
+//------0123456789------
+	  read_vars;	// VARS
+	   bipush 12;		// The objref is at 3 words below
+	  iadd;
+	 write_vars;	// Now, local var 0 is the object reference
+	  iload_0;
+	 ifnonnull TwoWordObjRef;
+	  iconst_0;
+	 istore 7;	// clear off the word right above the trap frame
+	 goto ErrorNullPtrReference;
+TwoWordObjRef:
+//------0123456789------
+	  iload_0;
+	   iconst_2;
+	  ishr;			// clear off 2 LSBs: normalize object reference
+	   iconst_2;
+	  ishl;
+	 iadd;			// address of the field where the value will go
+//------0123456789------
+	  dup;
+	   iload_2;		// MSB of the 2-words value
+	   swap;
+	 store_word;		// put the value into the object field storage
+	  iconst_4;
+	 iadd;			// to put into the 2nd word
+	  iload_1;		// LSB of the 2-words value
+	  swap;
+	store_word;
+// The 2-words value is now stored.  Rebuild the trap frame to return.
+//------0123456789------
+	 iload_3;		// PSR
+	istore_0 ;
+	 iload 4;		// PC
+	  iconst_3;
+	 iadd;			// To return to the next instruction
+	istore_1;
+	 iload 5;		// VAR
+	istore_2;
+	 iload 6;		// FRAME
+	istore_3;
+	goto Epilogue;
+
+// The fileld is 1 word-long.
+OneWordField:
+//------0123456789------
+	  read_vars;	// VARS
+	   bipush 8;		// The object ref is at 2 words below
+	  iadd;
+	 write_vars;	// Now, local var 0 is the object reference
+	  iload_0;
+         ifnonnull OneWordObjRef;
+          iconst_0;
+         istore 6;      // clear off the word right above the trap frame 
+         goto ErrorNullPtrReference; 
+
+OneWordObjRef: 
+//------0123456789------ 
+	  iload_0;
+	   iconst_2;
+	  ishr;			// clear off 2 LSBs: normalize object reference
+	   iconst_2;
+	  ishl;
+	 iadd;			// address of the field where the value to go
+	  iload_1;		// value to be stored
+	  swap;
+	store_word;
+
+// The 1-word value is stored.  Rebuild the trap frame to return.
+//------0123456789------
+	 iload_2;		// PSR
+	istore_0 ;
+	 iload_3;		// PC
+	  iconst_3;
+	 iadd;			// To return to the next instruction
+	istore_1;
+	 iload 4;		// VAR
+	istore_2;
+	 iload 5;		// FRAME
+	istore_3;
+
+Epilogue:
+//------0123456789------
+	 read_vars;// load the VARS
+	  iconst_4;	// returnPC is always 1 word below from PSR
+	 isub;
+	write_frame;// update reg FRAME to point to where the returnPC is.
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The object reference is null
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ErrorNullPtrReference:
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NullPointerException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+         athrow;         // should never return
+
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The field is not resolved, which must be resolved before entering this trap
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+FieldNotResolved:
+//------0123456789------
+	   sipush 0xA5;		// "Field Not Resolved"
+	   sethi 0x0002;
+	    sipush 0xFFFC;	// msg box location
+	    sethi 0x0;
+	  ncstore_word;
+	  goto FieldNotResolved;
+// should HALT here
+    }
+}

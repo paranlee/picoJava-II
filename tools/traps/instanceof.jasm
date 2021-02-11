@@ -1,0 +1,775 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+#define         INDEX		5
+#define         S_CLASS		6
+#define         T_CLASS		7
+#define         S_REF		8
+
+#define		BUGFIX		1
+
+//
+// Trap "instanceof" -
+//
+//	Check the source object's type to determine whether the object can be
+//	casted into the target type specified by the constant pool index.
+//	The target type defn may be a class, an interface or an array
+//	defn string.  When both the src and target types yield to array of
+//	arrays, call a subroutine to scan down the defn strings to determine
+//	their element types. After returning, this trap determine whether the
+//	casting can be done.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+=======================+
+//		|       Object Ref   	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//		|	  ....		|
+//		+=======================+
+//	 VARS->	|      Object Ref    	|  <-- local var 0
+//		+-----------------------+
+//	 	|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|  	  index		|  <-- local var 5(INDEX)
+//		+-----------------------+
+//		|    S(objref class)	|  <-- local var 6(S_CLASS)
+//		+-----------------------+
+//		|    T(target class)	|  <-- local var 7(T_CLASS)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap.
+//
+//	 	|	  ....		|
+//		+=======================+
+//	 	|       Object Ref	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |         PC+3		|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of PSR).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+#include	"struct.h"
+
+public class instanceof
+{
+
+    public static Method instanceof:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the Object Ref.
+//------0123456789-----
+	 read_optop;		// push OPTOP
+	  bipush 20;		// Object Ref is at 5 words below
+	 iadd;
+	write_vars;		// set the VAR, Object Ref is now local_var 0
+
+// Filter the case of null objref, which can't be any class's instance
+//------0123456789-----
+	 iload_0;
+	ifnull InstanceOfFailed;// 'null' object always fail instanceof test
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 5(INDEX): class index to const pool, OR S/T class
+	  iconst_0;	// 6(S_CLASS): class struct ptr of the object ref
+	   iconst_0;	// 7(T_CLASS): class struct ptr of the target
+	    iconst_0;	// 8(S_REF): normalized source reference
+
+// Init S_REF with normalized src reference(clear array | handle bit if exist)
+//------0123456789-----
+	 iload_0;		// source reference
+	  sipush 0xFFFC;
+	 iand;
+	istore S_REF;		// save it into local S_REF
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789------
+         iload_2;               // load(push) PC
+          iconst_1;             // push 1
+         iadd;                  // pointer to 'index1'
+         load_ubyte;            // push 'index1'
+          bipush 8;
+         ishl;                  // index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+          iload_2;              // load(push) PC
+           iconst_2;            // push 2
+          iadd;                 // pointer to index2
+          load_ubyte;           // push 'index2'
+         iadd;                  // index1<<8 + index2
+	istore INDEX;
+
+// Access CP[0][index] to get type and resolution status info of target class,
+// and check if the target class has been resolved
+//------0123456789-----
+	 read_const_pool;       // load the CP
+         load_word;             // CP[0]: ptr to the array of "resolution&type"
+          iload INDEX;          // load the index
+         iadd;                  // type_byte ptr of indexed field(CP[0][index])
+         load_ubyte;            // load the type byte for the referenced field
+          bipush 7;
+         ishr;                  // To check the resolution bit(1 == resolved)
+        ifne TargetClassResolved;
+
+TargetClassNotResolved:
+//------0123456789-----
+         iload INDEX;
+          iconst_2;
+         ishl;                  // to make word_index
+          read_const_pool;
+         iadd;                  // CP[class_index<<2]
+         load_word;             // CP index to the class name string
+//------0123456789-----
+          iconst_2;
+         ishl;
+          read_const_pool;
+         iadd;
+         load_word;             // ptr to the class name string
+	  dup;
+//------0123456789-----
+	   iconst_4;
+	  iadd;
+	  load_ubyte;
+	   bipush 0x5B;
+	 if_icmpeq TargetUnresolvedArray;	// Don't try reolving an array!
+          bipush 31;            // service request 10 == resolve class
+          jsr PicoKernel;
+           dup;
+          ifeq ClassCannotBeResolved;
+	   dup;
+	  istore T_CLASS;	// save into local var
+// class is resolved.  Update the CP[INDEX] and CP[0][INDEX] for the result.
+//------0123456789-----
+           read_const_pool;
+            iload INDEX;
+             iconst_2;
+            ishl;
+           iadd;
+         store_word;            // store the resolved class ptr into CP[INDEX]
+	pop;
+//------0123456789-----
+         read_const_pool;
+         load_word;
+          iload INDEX;         // CP index for the class reference
+         iadd;                 // CP[0][INDEX]
+          dup;
+          load_ubyte;
+           bipush 0x80;
+          ior;
+          swap;                  // type_byte, &(CP[0][INDEX])
+        store_byte;
+
+// Now mark that the target is an ordinary object class
+//------0123456789-----
+	 sipush 0x0100;		// 0x0100: target is a class
+	istore INDEX;
+	goto DetermineSrcClass;
+ 
+// Update the CP with the ptr to array type string
+TargetUnresolvedArray:
+//------0123456789-----
+	  dup;			// ptr to the array defn str
+	 istore T_CLASS;	// save into local var
+          read_const_pool;
+           iload INDEX;
+            iconst_2;
+           ishl;
+          iadd;
+        store_word;        // store the array type str ptr into CP[INDEX]
+//------0123456789-----
+         read_const_pool;
+         load_word;
+          iload INDEX;         // CP index for the class reference
+         iadd;                 // CP[0][INDEX]
+          dup;
+          load_ubyte;
+           sipush 0x80;
+          ior;
+          swap;                  // type_byte, &(CP[0][INDEX])
+        store_byte;
+
+// Now mark that the target is an array
+//------0123456789-----
+	 sipush 0x1000;
+	istore INDEX;
+	goto DetermineSrcClass;
+ 
+// Need to determine whether the target is an ordinary object class or an array
+// Examine the MEM[CP[INDEX] + 4], to see if it is 0x5B('[').  Declare it
+// is an array if so, as the 2nd word of a class struct can't start with 0x5B.
+TargetClassResolved:
+//------0123456789-----
+	 read_const_pool;       // load the CP
+          iload INDEX;          // load the index
+	   iconst_2;
+	  ishl;
+         iadd;
+         load_word;             // either class struct ptr OR array type ptr
+	istore T_CLASS;
+
+//------0123456789-----
+	 iload T_CLASS;
+	  iconst_4;
+	 iadd;
+	 load_ubyte;
+	  bipush 0x5B;		// 0x5B == '['
+	if_icmpeq TargetArrayClass;
+
+TargetObjectClass:
+//------0123456789-----
+	 sipush 0x0100;
+	istore INDEX;
+	goto DetermineSrcClass;
+
+TargetArrayClass:
+//------0123456789-----
+	 sipush 0x1000;
+	istore INDEX;
+
+// The target class type is determined.  Determine the source class type.
+// Call Scan2ArrayDefnStr if the src is an array of arrays and the target is
+// an array.  Otherwise, determine the type relation here and check that out.
+DetermineSrcClass:
+//------0123456789-----
+	 iload_0;		// the object reference
+	  iconst_2;		// bit1 == array type indicator
+	 iand;
+	ifeq SourceObjectClass;
+//------0123456789-----
+	iinc S_REF, 4;	// for non-handle object, points to 1st instance var
+	 iload_0;
+	  iconst_1;
+	 iand;
+	ifeq SourceIsArray;
+	 iload S_REF;
+	 load_word;
+	istore S_REF;
+
+SourceIsArray:
+IsTgtAnArray:
+//------0123456789-----
+	 iload INDEX;
+	  sipush 0x0100;
+	if_icmpeq FromArrayToObject;	// straight check casting now
+
+// Both the target and source are array types.  Determine the type comb-code.
+BothSrcTgtAreArrays:
+//------0123456789-----
+
+#ifdef BUGFIX
+       
+	 iload_0;
+	  sipush 0xFFFC;
+	  sethi  0x3FFF;
+	 iand;
+//------0123456789------  ....,ArrayRef
+	 load_word;
+	  bipush 0x3;
+	 iand;
+	  iconst_1;
+	 ishl;
+//------0123456789------  ....,(MVT_lower_2bits << 1) element size
+	  iload S_REF;
+	  load_word;
+	 imul;
+//------0123456789------  ....,Total number of bytes
+	  iconst_3;
+	 iadd;
+	  sipush 0xFFFC;
+	  sethi  0xFFFF;
+	 iand;
+//------0123456789------  ..,Total number of bytes rounded up to word boundary
+	  bipush 0x8;
+	 iadd;			// skip classptr field
+	  iload S_REF;
+	 iadd;
+	 load_word;
+//------0123456789------  ...,type of array components
+        
+#else BUGFIX
+	 iload S_REF;
+	 load_word;		// array type and size word
+	  bipush 24;
+	 ishr;
+//------0123456789------  ...,type of array components
+#endif BUGFIX
+	  bipush 0x5B;		// '['
+	if_icmpne SrcArrayOfOthers;
+
+// The src is an array of arrays, and the target is another array type. Call
+// 'Scan2ArrayDefnStr' to detect the 1st element type from either array defn.
+SrcArrayOfArrays:
+//------0123456789-----
+	 iload T_CLASS;
+	  iload S_CLASS;
+	   iconst_0;		// type-combination code to be returned
+	   jsr Scan2ArrayDefnStr;
+	  istore INDEX;
+	 istore S_CLASS;
+	istore T_CLASS;
+	goto InstanceOfStart;
+
+// The src is an array of non-array types, either objects or primitives.
+// First, examine the target's element type to redefine the type-comb code.
+// Then check the source's element type.
+SrcArrayOfOthers:
+//------0123456789-----
+	 iload T_CLASS;		// ptr to the target array defn str
+	  iconst_5;
+	 iadd;
+	 load_ubyte;
+	  dup;
+IsTgtArrayOfObject:
+//------0123456789-----
+	   bipush 0x4C;
+	 if_icmpne IsTgtArrayOfArrays;
+	pop;
+	 sipush 0x0100;		// 0100: target is a class of object
+	istore INDEX;
+	goto SrcArrayOfOtherGetSrcType;
+
+IsTgtArrayOfArrays:
+//------0123456789-----
+	  dup;
+	   bipush 0x5B;
+	 if_icmpne TgtIsArrayOfPrimitive;
+	pop;
+	 sipush 0x1000;		// 0100: target is an array
+	istore INDEX;
+	goto SrcArrayOfOtherGetSrcType;
+
+TgtIsArrayOfPrimitive:
+//------0123456789-----
+	  bipush 8;
+	 ishl;			// XX00: 'XX' is the target's type byte
+	istore INDEX;
+
+SrcArrayOfOtherGetSrcType:
+//------0123456789-----
+
+#ifdef BUGFIX
+       
+	 iload_0;
+	  sipush 0xFFFC;
+	  sethi  0x3FFF;
+	 iand;
+//------0123456789------  ....,ArrayRef
+	 load_word;
+	  bipush 0x3;
+	 iand;
+	  iconst_1;
+	 ishl;
+//------0123456789------  ....,(MVT_lower_2bits << 1) element size
+	  iload S_REF;
+	  load_word;
+	 imul;
+//------0123456789------  ....,Total number of bytes
+	  iconst_3;
+	 iadd;
+	  sipush 0xFFFC;
+	  sethi  0xFFFF;
+	 iand;
+//------0123456789------  ..,Total number of bytes rounded up to word boundary
+	  bipush 0x8;
+	 iadd;			// skip classptr field
+	  iload S_REF;
+	 iadd;
+	 load_word;
+//------0123456789------  ...,type of array components
+        
+#else BUGFIX
+	 iload S_REF;
+	 load_word;		// array type and size word
+	  bipush 24;
+	 ishr;
+//------0123456789------  ...,type of array components
+#endif BUGFIX
+
+IsSrcArrayOfObject:
+//------0123456789-----
+	  dup;
+	   bipush 0x4C;		// 'L'
+	 if_icmpne SrcIsArrayOfPrimitive;
+
+SrcIsArrayOfObject:
+//------0123456789-----
+	pop;
+	 iload INDEX;
+	  iconst_1;
+	 ior;
+	istore INDEX;		// update the type combination code
+//------0123456789-----
+	 iload S_REF;		// src array reference
+	 load_word;		// the type byte and size word
+#ifdef BUGFIX
+          iconst_2;
+	 ishl;
+#else BUGFIX
+	  bipush 8;
+	 ishl;
+	  bipush 6;		// to make it byte offset
+	 ishr;
+#endif BUGFIX
+	  iconst_4;		// there is 1 extra word(type||size)
+	 iadd;
+	  iload S_REF;
+	 iadd;			// ptr to the class struct OR array defn str
+	 load_word;
+	istore S_CLASS;		// S_CLASS is ptr to class or array defn str
+	goto InstanceOfStart;
+
+SrcIsArrayOfPrimitive:
+//------0123456789-----
+	  iload INDEX;
+	 ior;
+	istore INDEX;
+	goto InstanceOfStart;
+
+// Src is a class of the referenced object.  Update the type-comb code.
+SourceObjectClass:
+//------0123456789-----
+	 iload INDEX;
+	  iconst_1;
+	 ior;
+	istore INDEX;
+//------0123456789-----
+	 iload S_REF;		// object reference
+	  sipush 0xFFFC;
+	 iand;
+	 load_word;		// the method vector base
+	  bipush 8;		// the class ptr is at 2 words below
+	 isub;
+	 load_word;		// class structure pointer
+	istore S_CLASS;
+
+InstanceOfStart:
+//------0123456789-----
+	 iload INDEX;
+	  sipush 0x0101;
+	if_icmpeq FromObjectToObject;
+	 iload INDEX;
+	  sipush 0x0110;
+	if_icmpeq FromArrayToObject;
+	 iload INDEX;
+	  sipush 0x1001;
+	if_icmpeq FromObjectToArray;
+	goto FromPrimitiveToPrimitive;
+
+// 3 valid cases granting a legal cast: both same classes, target is a super
+// class of the source, or the source class implements target(an interface).
+FromObjectToObject:
+//------0123456789-----
+         iload T_CLASS;
+          bipush C_ACCESSFLAG;
+         iadd;
+         load_word;
+          sipush 0x200;         // ACC_FLAG: interface
+         iand;
+        ifne CheckInterface;
+
+CheckClassLoop:
+//------0123456789-----
+         iload S_CLASS;		// source class' class struct ptr
+          iload T_CLASS;	// target class' class struct ptr
+        if_icmpeq InstanceOfPassed;
+         iload S_CLASS;
+          bipush C_SUPERCLASS;
+         iadd;
+         load_word;
+	  iconst_4;
+	 iadd;
+          dup;                  // check if its superclass is equal to itself
+           iload S_CLASS;
+         if_icmpeq InstanceOfFailed;
+        istore S_CLASS;		// update the source class
+        goto CheckClassLoop;
+
+// Check if the source class implements the target.  Check if the target is
+// an interface first.  Then check every interfaces that the source implements.
+CheckInterface:
+//------0123456789-----
+	 iload S_CLASS;		// source class' class struct ptr1
+	  bipush C_INTF_CNT;
+	 iadd;
+	 load_word;
+	istore INDEX;		// number of interfaces implemented by source
+//------0123456789-----
+	 iload S_CLASS;
+	  dup;
+	  load_word;
+	   bipush 8;
+	  iadd;
+	 istore S_REF;		// src class CP base address
+	  bipush C_INTF_IMPTED;
+	 iadd;
+	 load_word;		// array ptr: containing interface indices
+	  bipush 8;
+	 iadd;
+	istore S_CLASS;		// save into S_CLASS
+
+CheckInterfaceLoop:
+//------0123456789-----
+	 iload INDEX;		// number of interfaces to be checked
+	ifeq InstanceOfFailed;	// fail if there is no more interfaces to check
+	 iload S_CLASS;
+	 load_word;		// CP index of the interface
+	  dup;
+	   iload S_REF;
+	   load_word;		// CP[0]
+	  iadd;			// CP[0][INDEX]
+	  load_ubyte;
+	   bipush 7;
+	  ishr;
+	 ifeq InterfaceUnresolved;
+//------0123456789-----
+	  iconst_2;
+	 ishl;
+	  iload S_REF;
+	 iadd;
+	 load_word;		// class structure ptr to the interface
+	 goto InterfaceResolved;
+InterfaceUnresolved:
+//------0123456789-----
+	  iconst_2;
+	 ishl;
+	  iload S_REF;
+	 iadd;
+	 load_word;		// CP index to the interface name
+	  iconst_2;
+	 ishl;
+//------0123456789-----
+	  iload S_REF;
+	 iadd;
+	 load_word;		// ptr to the interface name, resolve this
+	  bipush 31;		// service request 31: resolve class
+	  jsr PicoKernel;
+	   dup;
+	  ifeq InstanceOfFailed;
+	  swap;
+	 pop;
+InterfaceResolved:
+//------0123456789-----
+	  iload T_CLASS;
+	if_icmpeq InstanceOfPassed;
+	iinc INDEX, -1;		// decrement the implemented counter
+	iinc S_CLASS, 4;	// bump up the implemented array index
+	goto CheckInterfaceLoop;
+
+// Casting from an array to an object is only allowed when the object type is
+// the class 'Object'.  The class 'Object' can be checked with its superclass. 
+FromArrayToObject:
+//------0123456789-----
+	 iload T_CLASS;
+	  bipush C_SUPERCLASS;
+	 iadd;
+	 load_word;
+	  iconst_4;
+	 iadd;
+	  iload T_CLASS;
+	if_icmpeq InstanceOfPassed;
+
+// Now check if the target class is the 'Cloaneable' interface, in which
+// a casting is granted.
+
+//------0123456789-----
+	 sipush TMP_BUF_BASE_L;
+	 sethi TMP_BUF_BASE_H;
+	  dup;
+	 istore INDEX;
+	  sipush 0x7661;
+	  sethi 0x6A61;
+	  swap;
+	store_word;
+//------0123456789-----
+	iinc INDEX, 4;
+	 iload INDEX;
+	  sipush 0x616E;
+	  sethi 0x2F6C;
+	  swap;
+	store_word;
+//------0123456789-----
+	iinc INDEX, 4;
+	 iload INDEX;
+	  sipush 0x436C;
+	  sethi 0x672F;
+	  swap;
+	store_word;
+//------0123456789-----
+	iinc INDEX, 4;
+	 iload INDEX;
+	  sipush 0x6561;
+	  sethi 0x6F6E;
+	  swap;
+	store_word;
+//------0123456789-----
+	iinc INDEX, 4;
+	 iload INDEX;
+	  sipush 0x6500;
+	  sethi 0x626C;
+	  swap;
+	store_word;
+
+//------0123456789-----
+	 sipush TMP_BUF_BASE_L;
+	 sethi TMP_BUF_BASE_H;
+	  bipush 19;
+	  jsr BuildDecafStr;
+	  swap;
+	 pop;
+	  bipush 31;
+	  jsr PicoKernel;
+	 ifne InstanceOfPassed;
+	pop;
+	goto InstanceOfFailed;
+
+// Casting from an object into an array is not allowed.
+FromObjectToArray:
+//------0123456789-----
+	goto InstanceOfFailed;
+
+// Both type bytes must match.  The conversion rule may allow other casting.
+FromPrimitiveToPrimitive:
+//------0123456789-----
+	 iload INDEX;
+	  bipush 8;
+	 ishr;		// target's primitive type byte
+	  iload INDEX;
+	   bipush 0xFF;	// source's primitive type byte
+	  iand;
+	if_icmpeq InstanceOfPassed;
+	goto InstanceOfFailed;
+
+// Specified instanceof test passed. Return to the next instruction to continue.
+InstanceOfPassed:
+//------0123456789-----
+         iconst_1;
+        istore_0;       // replace the objref with 1
+        goto Epilogue;
+
+// The specified instanceof is not valid. Return 0 and resume next instruction
+InstanceOfFailed:
+//------0123456789-----
+         iconst_0;
+        istore_0;       // replace the objref with 0
+
+Epilogue:
+//------0123456789-----
+	 sipush 0xE1;	// 'instanceof_quick'
+	  iload_2;
+	store_byte;
+
+         iload_2;      // load the PC: local_var 2
+         load_byte;    // load back the quick opcode which make sure store_byte
+                       // update in the memory before I$ fetch it
+        pop;           // Pop the value
+// End of the modification
+
+	 bipush 8;
+	  iload_2;
+	  cache_flush;
+	  cache_flush;
+//------0123456789-----
+	 iload_2;	// returnPC
+	  iconst_3;
+	 iadd;
+	istore_2;	// Update PC to return to the next instruction
+	 read_vars;	// read current VARS, pointing to object ref
+	  iconst_4;
+	 isub;		// Update VARS to keep objref after return
+	write_vars;	// VARS now points to the saved PSR
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ClassCannotBeResolved:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The class doesn't exist and can't be resolved.  Raise NoClassDefFoundError
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789------
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NoClassDefFoundError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore INDEX;  // clear off the word above trap frame for 'athrow'
+        athrow;         // should never return
+ 
+ErrorRuntime:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// A RunTimeError occurs.  Raise RuntimeException.
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         read_const_pool;       // save the original CP
+          priv_read_trapbase;   // TRAPBASE reg, pointing to current vector
+           iconst_4;
+          iadd;         // location of this trap's CP value is stored
+          load_word;    // ptr to the constant pool for this trap
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/RuntimeException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore INDEX;  // clear off the word above trap frame for 'athrow'
+        athrow;         // should never return
+
+#include	"picokernel.s"
+    }
+}

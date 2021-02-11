@@ -1,0 +1,125 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ /*********************************************************************/
+/* Setup the default search path for finding files.
+/*********************************************************************/
+
+
+/* Please include the appropriate paths for the libraries used in synthesis
+   in the following
+*/
+
+
+search_path={ \
+	. \
+
+};
+
+
+link_library={ \
+	"*" \
+	mj_ffs.db \
+        mj_muxes.db \
+        custom_cells.db \
+};
+
+
+target_library={ \
+
+};
+
+symbol_library={ \
+
+};
+
+synthetic_library={ };
+
+/*********************************************************************/
+
+/* Set Synopsys global variables */
+TARLIB = 
+
+uniquify_naming_style = "%s_%d"
+
+compile_fix_multiple_port_nets = true;                                  
+
+verilogout_no_tri = true
+
+lsiout_upcase =  "false"
+
+/* hdlin_turbo_sequential = false */ 
+
+/*********************************************************************/
+/* Calculate various drives and loads
+/*********************************************************************/
+ 
+
+/* Please replace *** with inverters of appropriate drive 
+   strengths, eg, strength of IN3 > INV2 > INV1 
+*/
+
+
+DRIVE_OF_INV1 = drive_of(TARLIB + "/***/Z")
+DRIVE_OF_INV2 = drive_of(TARLIB + "/***/Z")
+DRIVE_OF_INV3 = drive_of(TARLIB + "/***/Z")
+DRIVE_OF_INV4 = drive_of(TARLIB + "/***/Z")
+DRIVE_OF_INV5 = drive_of(TARLIB + "/***/Z")
+DRIVE_OF_INV6 = drive_of(TARLIB + "/***/Z")
+DRIVE_OF_FLOP1 = drive_of(TARLIB + "/****/Q")
+DRIVE_OF_NAND1 = drive_of(TARLIB + "/****/Z")
+
+LOAD_1_INV = 1 * load_of(TARLIB + "/***/A")
+LOAD_2_INV = 2 * load_of(TARLIB + "/***/A")
+LOAD_3_INV = 3 * load_of(TARLIB + "/***/A")
+LOAD_4_INV = 4 * load_of(TARLIB + "/***/A")
+LOAD_5_INV = 5 * load_of(TARLIB + "/***/A")
+LOAD_6_INV = 6 * load_of(TARLIB + "/***/A")
+LOAD_7_INV = 7 * load_of(TARLIB + "/***/A")
+LOAD_8_INV = 8 * load_of(TARLIB + "/***/A")
+LOAD_9_INV = 9 * load_of(TARLIB + "/***/A")
+LOAD_10_INV = 10 * load_of(TARLIB + "/***/A")
+LOAD_15_INV = 15 * load_of(TARLIB + "/***/A")
+LOAD_20_INV = 20 * load_of(TARLIB + "/***/A")
+LOAD_25_INV = 25 * load_of(TARLIB + "/***/A")
+LOAD_30_INV = 30 * load_of(TARLIB + "/***/A")
+LOAD_35_INV = 35 * load_of(TARLIB + "/***/A")
+LOAD_40_INV = 40 * load_of(TARLIB + "/***/A")
+LOAD_45_INV = 45 * load_of(TARLIB + "/***/A")
+LOAD_50_INV = 50 * load_of(TARLIB + "/***/A")
+
+/* Please use appropriate wireload models here */
+
+
+/* Set the different values */
+
+PERIOD = 5.0
+FALLING_EDGE = 2.5
+DRIVE_STRENGTH_CLK = 0.0
+SET_INPUT_DELAY_CLK = 0.0
+CLK_GROUP = 500.0
+PIN_GROUP = 800.0
+MAX_TRANSITION = 0.50 
+PATHS_END = 200
+PATHS_FULL = 1000

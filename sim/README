@@ -1,0 +1,37 @@
+Directory	Description
+
+config		Contains the Makefile and the steam.plusargs file for the 
+		different options used during steam execution
+
+env		Contains the different monitors and test bench for the core. 
+		It also has "vfiles" - list of files to be included in the 
+		compilation of the core. 
+		
+******************************************************************************
+SPECIAL NOTE WHEN THE SIMULATIONS ARE RUN WITHOUT THE FPU:
+
+When the "fpu" module is NOT being used in the simulations the users have to
+make sure that the following guidelines are adhered to - 
+
+The steps to configure the core without the floating-point unit (FPU) are:
+
+         1.Edit $PICOJAVAHOME/$PROJECT/design/rtl/defines.h 
+            to comment out the line:
+                  `define FPU_MODULE fpu 
+         2.Uncomment the following lines:
+                  `define FPU_MODULE fpu_dummy 
+                  `define NO_FPU 
+ 
+Also, if the fpu is NOT used in the design, the user will have to have 
+their own floating point emulation trap routines to emulate the behavior of 
+the fpu block. 
+******************************************************************************
+
+include		Contains the script and necessary files to make testcases
+
+test		Contains pico_vts and sample_tests directory which contain 
+		the entire verification test suite for picoJava-II, the 
+		suite.control file and 5 sample test cases. 		
+ 
+syscall_example	Contains an example to try out the system call 
+		functionality in the picoJava-II environment

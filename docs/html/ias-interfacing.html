@@ -1,0 +1,175 @@
+<html>
+<head>
+<TITLE>IAS: Interfacing to IAS</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Interfacing to IAS</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+<P>
+<UL>
+<LI> <A HREF="#1">  Overview</A>
+<LI> <A HREF="#2">  Simulation Library Functions</A>
+</UL>
+<A NAME="1"> <H2>Overview</H2></A>
+There are several ways in which the picoJava-II simulation backend
+is currently used. The backend currently runs only on big-endian, 32b
+words SPARC machines.
+The backend is available as:
+<UL>
+<LI>Integrated with the default frontend based on Tcl.  This is the
+standard IAS. </LI>
+<LI>As an independent set of libraries which a given front-end can
+be linked to. These libraries are linked with the gdb frontend
+to provide <code>pico-gdb</code>.</LI>
+</UL>
+<P>
+These libraries work in  multiple configurations.
+You may or may not wish to use the loader built into the backend.
+<code>pico-gdb</code> does not use this loader. It supplies its own ELF loader and 
+user interface. 
+<P>
+The following is a standard list of functions provided by 
+the simulation library. The default memory configuration is 16MB. 
+You can define other memory sizes by setting the 
+environment variable PICOJAVA_MEMORY_SIZE.
+<P>
+
+Most of these functions have been derived from the gdb interface. Some
+of them do nothing, but are required for compatibility.
+<P>
+<A NAME="2"><h2>Simulation Library Functions</h2></A>
+<TABLE BORDER="1">
+<TH>Library Function</TH>
+<TH>Description</TH>
+<TR>
+<TD><FONT FACE="courier">void sim_open (char *args);</FONT></TD>
+<TD><FONT FACE="arial, helvetica">Initialize the simulator. This function shd be called when starting
+the program. the args argument is currently unused.</FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier">void sim_close (int quitting);</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> Terminate the simulator. Should be called when the program is about to exit.
+   IAS ignores the quitting argument.
+ </FONT></TD>
+</TR>
+<TD><FONT FACE="courier">int sim_load (char *prog, int from_tty);</FONT></TD>
+<TD><FONT FACE="arial, helvetica">Load a program (in some format) into program memory.
+   This function currently does nothing.
+   The loading needs to happen externally through sim_write calls (see below)
+ </FONT></TD>
+</TR>
+<TD><FONT FACE="courier">void sim_create_inferior (SIM_ADDR start_address,
+				  char **argv, char **env);</FONT></TD>
+<TD><FONT FACE="arial, helvetica">Initialize all registers to their power-on values.
+   Sets PC to start_address.
+ </FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier">void sim_kill (void);</FONT></TD>
+<TD><FONT FACE="arial, helvetica">This function does nothing. </FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier">int sim_read (SIM_ADDR mem, unsigned char *buf, int length);</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> Read length bytes from the simulated program's memory and store in buf.
+   Result is number of bytes read, or zero if error.
+   No alignment restrictions on mem.
+ </FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier">int sim_write (SIM_ADDR mem, unsigned char *buf, int length);</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> Store LENGTH bytes from BUF in the simulated program's memory.
+   Result is number of bytes write, or zero if error. 
+   No alignment restrictions on mem.
+ </FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier">void sim_fetch_register (int regno, unsigned char *buf);</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> Fetch register regno and store the raw value in buf.
+no alignment restrictions on buf.
+4 bytes representing the contents of the register are filled into
+the 4 consecutive bytes from *buf (big-endian, MSB first)
+<BR>
+Register numbers are defined as:
+0: PC, 1: VARS, 2: FRAME, 3: OPTOP, 4: OPLIN, 5: CONST_POOL, 
+6: PSR, 7: TRAPBASE, 8: USERRANGE1, 9: VERSIONID, 10: HCR,
+11: SCBOTTOM, 12..15: GLOBAL0..3, 16: USERRANGE2, 17/18: LOCKADDR0/1
+19/20: LOCKCOUNT0/1, 21: GC_CONFIG, 22: BRK12C, 23/24: BRK1A/2A
+ </FONT></TD>
+<TR>
+<TD><FONT FACE="courier">void sim_store_register (int regno, unsigned char *buf);</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> Store register regno from buf.<BR>
+   no alignment restrictions on buf. 4 bytes are read from *buf<BR>
+   onwards (big-endian) and the word formed is written to regno.<BR>
+   regno's are the same as for sim_fetch_register, but writes to<BR>
+   regs. 9, 10, 11 are not allowed, such writes will be silently dropped.
+ </FONT></TD>
+<TR>
+<TD><FONT FACE="courier">void sim_info (int verbose);<BR>
+<BR>
+enum sim_stop { sim_exited, sim_stopped, sim_signalled };</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> Prints, out version information from the simulator.<BR>
+   Berbose is non-zero for the wordy version.<BR>
+   Currently verbose doesn't do anything.<BR>
+ </FONT></TD>
+<TR>
+
+<TD><FONT FACE="courier">void sim_stop_reason (enum sim_stop *reason, int *sigrc);</FONT></TD>
+<TD> <FONT FACE="arial, helvetica">Fetch why the program stopped.<BR>
+   if breakpoint was hit, *reason = sim_stopped, *sigrc = SIGTRAP<BR>
+   if SIGINT was received, *reason = sim_stopped, *sigrc = SIGINT<BR>
+   if program ended, *reason = sim_exited, *sigrc = exit code of program<BR>
+ </FONT></TD>
+<TR>
+<TD><FONT FACE="courier">void sim_resume (int step, int signal);</FONT></TD>
+<TD><FONT FACE="arial, helvetica"> if step == 0, execute one instruction and return.<BR>
+   if step == 1, Run the program from the current PC till a breakpoint is <BR>
+                 hit, or till it ends or control c is hit<BR>
+<BR>
+   During execution of this function, the simulator captures the SIGINT signal 
+   and restores the original handler when returning. The status of SIGINT is 
+   only checked between instructions so the the simulator is in a consistent 
+   state when it returns due to a SIGINT.
+<BR>
+<BR>
+   The signal parameter is ignored.
+ </FONT></TD>
+<TR>
+<TD><FONT FACE="courier">void sim_do_command (char *cmd);</FONT></TD>
+<TD><FONT FACE="arial, helvetica">This function is a catch-all pass through for other commands that the simulator 
+   might support. The supported commands supported are:<BR>
+   cmd = <code>itrace</code> <I>trace_level</I>, <BR> where <trace_level> is an integer in [0..9]<BR>
+          Prints out debug information as the program runs.<BR>
+          Successively higher levels print out more debug information.<BR>
+   cmd = <code>dumpDcache</Code> <I>set</I> <BR>
+         Prints out contents of set no. <I>set</I> in the D-cache<BR>
+   cmd = <code>dumpIcache</code> <I>set</I> <BR>
+         Prints out contents of set no. <I>set</I> in the D-cache<BR>
+   cmd = <code>configure</code> <I>icache|dcache|fpu</I> ... <BR>
+         Configures the core for cache sizes or fpu present or absent<BR>
+</FONT></TD>
+</TR>
+</TABLE>
+<hr>
+
+<A HREF="./ias.html">IAS</A></font>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+
+</body>
+</html>

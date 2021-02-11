@@ -1,0 +1,592 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+//
+// Trap "lrem" -
+//
+//      Implements the JVM instruction 'lrem', i.e., divide
+//	    two 'long' numbers, returning the remainder as a 'long'.
+//
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|     value1.word1	|
+//		+-----------------------+
+//		|     value1.word2	|
+//		+-----------------------+
+//		|     value2.word1	|
+//		+-----------------------+
+//		|     value2.word2	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap
+//
+//	 	|			|
+//		+-----------------------+
+//		|     result.word1	|
+//		+-----------------------+
+//		|     result.word2	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |    PC(method entry)	|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP for the invoked method will be set to the
+// location where the VARS points to(location of PSR).  The other regs,
+// VARS and FRAME will be restored with the value from the trap_frame.
+
+public class lrem
+{
+
+    public static Method lrem:"()v"
+    {
+Prologue:
+
+			// set up the stack frame
+
+    read_optop;		// push OPTOP
+    bipush 32;		// input1 is at 8 words below
+    iadd;		// pointer to input1
+    write_vars;		// set the VARS, PC is now local_var 5
+
+    read_const_pool;	// save CONST_POOL for later restoring
+
+    priv_read_trapbase;	// set correct CONST_POOL for this trap
+    iconst_4;
+    iadd;
+    load_word;
+    write_const_pool;
+
+    lload_2;		// check for divide-by-zero
+    lconst_0;
+    lcmp;
+    ifne	no_exception;	//if (value2 == 0L)
+
+    new class java/lang/ArithmeticException;
+    swap;
+    write_const_pool;      // restore original, to help 'athrow'
+    iconst_0;
+    swap;
+    athrow;         // should never return
+
+no_exception:
+
+// begin conversion for MCST code
+    read_vars;
+
+    lload_0;		// push value1 and value2 onto the stack
+    lload_2;
+
+    read_optop;
+    bipush 16;
+    iadd;
+    write_vars;
+
+    lconst_0; lconst_0; lconst_0; lconst_0;
+    lconst_0; lconst_0; lconst_0; // and more, to a total of 18 ints
+
+
+
+
+
+
+
+
+
+
+
+
+//class  lrem_jdk
+//	extends java/lang/Object
+//{
+//	// Compiled from lrem.java
+
+//
+//
+//public static Method main:"(JJ)J"
+//	stack 7 locals 16
+//{
+
+		 iconst_0;
+		istore	8;
+		 iconst_0;
+		istore	9;
+		 bipush	15;
+		istore	10;
+		 iconst_0;
+		istore	11;
+//------01234567890--
+//
+//
+//	STEP 1. 
+//
+//		Reduce OP1 & OP2 to POSITIVE value	
+//		and calculate SIGN of result
+//
+//
+//------01234567890--
+		  lload_0;
+		    lconst_0;
+		 lcmp;
+		ifge	L41;
+		  lload_0;
+		  lneg;
+		lstore_0;
+		iinc	11, 1;
+	L41:	
+		  lload_2;
+		    lconst_0;
+		 lcmp;
+		ifge	L50;
+		  lload_2;
+		  lneg;
+		lstore_2;
+	L50:	
+//------01234567890--
+//
+//	STEP 2.
+//
+//		Calculate size of OP1 and OP2 in SHORT
+//
+//
+//------01234567890--
+		  lload_2;
+		    dup2;
+		     bipush	32;
+		    lushr;
+		      lconst_0;
+		   lcmp;
+		  ifeq	L73;
+		   bipush	48;
+		  lushr;
+		  iinc	9, 48;
+	L73:	
+		    dup2;
+		     bipush	16;
+		    lushr;
+		      lconst_0;
+		   lcmp;
+		  ifeq	L93;
+		   bipush	32;
+		  lushr;
+		  iinc	9, 32;
+	L93:	
+		    lconst_0;
+		 lcmp;
+		ifeq	L103;
+		iinc	9, 16;
+	L103:	
+		  lload_0;
+		    dup2;
+		     bipush	32;
+		    lushr;
+		      lconst_0;
+		   lcmp;
+		  ifeq	L126;
+		   bipush	48;
+		  lushr;
+		  iinc	8, 48;
+	L126:	
+		    dup2;
+		     bipush	16;
+		    lushr;
+		      lconst_0;
+		   lcmp;
+		  ifeq	L146;
+		   bipush	32;
+		  lushr;
+		  iinc	8, 32;
+	L146:	
+		    lconst_0;
+		 lcmp;
+		ifeq	L156;
+		iinc	8, 16;
+	L156:	
+//------01234567890--
+//
+//	STEP 3.
+//
+//		Return 0L if size OP1 less OP2
+//      Return (int)OP1 / (int)OP2 if  size OP1 and OP2 less or equal 32
+//
+//
+//------01234567890--
+		 iload	8;
+		  iload	9;
+		if_icmplt	L171;
+		  lload_0;
+		  lneg;
+		    lload_2;
+		    lneg;
+		 lcmp;
+		ifle	L181;
+	L171:
+		goto RETURN;
+	L181:	
+		 iload	9;
+		  bipush	32;
+		if_icmpgt	L222;
+		 iload	8;
+		  bipush	32;
+		if_icmpgt	L222;
+		  lload_0;
+		 l2i;
+		ifle	L222;
+		  lload_2;
+		 l2i;
+		ifle	L222;
+		  lload_0;
+		 l2i;
+		   lload_2;
+		  l2i;
+		 irem;
+		  i2l;
+		lstore_0;
+		goto RETURN;
+	L222:	
+//------01234567890--
+//
+//	STEP 4.
+//
+//		Normalization of OP2
+//		and calculate OP2[0..15] OP2[16..31] OP2[32..63]
+//		for next uses in long multiplay (q * OP2)
+//		REMAINDER <- OP1
+//
+//------01234567890--
+		  lload_2;
+		   iload	9;
+		    bipush	16;
+		   isub;
+		  lshr;
+		 l2i;
+		  dup;
+		   bipush	8;
+		  ishr;
+		 ifeq	L250;
+		  bipush	8;
+		 ishr;
+		 iinc	10, 248;
+	L250:	
+		  dup;
+		   iconst_4;
+		  ishr;
+		 ifeq	L266;
+		  iconst_4;
+		 ishr;
+		 iinc	10, 252;
+	L266:	
+		  dup;
+		   iconst_2;
+		  ishr;
+		 ifeq	L282;
+		  iconst_2;
+		 ishr;
+		 iinc	10, 254;
+	L282:	
+		  iconst_1;
+		 ishr;
+		ifeq	L292;
+		iinc	10, 255;
+	L292:	
+		  lload_2;
+		   iload	10;
+		  lshl;
+		   iload	9;
+		    bipush	16;
+		   isub;
+		  lushr;
+		 l2i;
+		istore	5;
+		  lload_2;
+		   bipush	32;
+		  lshr;
+		 l2i;
+		istore	14;
+		  lload_2;
+		   bipush	32;
+		  lshl;
+		   bipush	48;
+		  lushr;
+		 l2i;
+		istore	13;
+		  lload_2;
+		   bipush	48;
+		  lshl;
+		   bipush	48;
+		  lushr;
+		 l2i;
+		istore	12;
+		 iload	8;
+		istore	7;
+		goto	L497;
+	L339:	
+//------01234567890--
+//
+//	STEP 5.
+//	
+//		Calculate aproximately value of 
+//		one symbol of QUOTIENT by divisions
+//		RMAINDER[high:32] to OP2[high:16]
+//
+//
+//------01234567890--
+		 iload	7;
+		  bipush	16;
+		if_icmple	L362;
+		  lload_0;
+		   iload	7;
+		    bipush	16;
+		   isub;
+		    iload	10;
+		   isub;
+		  lushr;
+		 l2i;
+		istore	6;
+		goto	L369;
+	L362:	
+		  lload_0;
+		 l2i;
+		  iload	10;
+		 ishl;
+		istore	6;
+	L369:	
+		 iload	5;
+		  iload	6;
+		   bipush	16;
+		  ishr;
+		if_icmpne	L386;
+		 iconst_m1;
+		  bipush	16;
+		 iushr;
+		istore	4;
+		goto	L428;
+	L386:	
+		 iload	6;
+		  dup;
+		 iflt	L401;
+		  iload	5;
+		 idiv;
+		istore	4;
+		goto	L428;
+	L401:	
+		  iconst_1;
+		 iushr;
+		  iload	5;
+		 idiv;
+		  iconst_1;
+		 ishl;
+		istore	4;
+		 iload	6;
+		  iload	4;
+		   iload	5;
+		  imul;
+		 isub;
+		  iload	5;
+		if_icmplt	L428;
+		iinc	4, 1;
+	L428:	
+//------01234567890--
+// 
+//	STEP 6.
+//
+//		Calculate new RMAINDER
+//
+//	
+//------01234567890--
+		 iload	9;
+		  bipush	16;
+		if_icmpne	L481;
+		 iload	7;
+		  bipush	48;
+		if_icmplt	L460;
+		  lload_0;
+		    lload_2;
+		   l2i;
+		    iload	4;
+		   imul;
+		    i2l;
+		     iload	7;
+		      bipush	16;
+		     isub;
+		    lshl;
+		  lsub;
+		  goto	L488;
+	L460:	
+		  lload_0;
+		    lload_2;
+		   l2i;
+		    iload	4;
+		   imul;
+		    i2l;
+		     bipush	32;
+		    lshl;
+		     bipush	48;
+		      iload	7;
+		     isub;
+		    lushr;
+		  lsub;
+		  goto	L488;
+	L481:	
+		  lload_0;
+
+		   iload	4;
+		    iload	12;
+		   imul;
+		    iload	4;
+		     iload	14;
+		    imul;
+
+		     iload	4;
+		      iload	13;
+		     imul;
+		      i2l;
+		       bipush	32;
+		      lshl;
+		       bipush	16;
+		      lushr;
+		    ladd;
+		     iload	7;
+		      iload	9;
+		     isub;
+		    lshl;
+		  lsub;
+		  goto	L488;
+	L475:	
+//------01234567890--
+//
+//	STEP 7.
+//		Calculate Precision value of one simbol of QUOTIENT
+//		by add OP2 to REMAINDER and decrease QUOTIENT
+// This loop repeating less or equal 2 time	
+//
+//
+//------01234567890--
+		  iinc	4, 255;
+		    lload_2;
+		     iload	7;
+		      iload	9;
+		     isub;
+		    lshl;
+		  ladd;
+	L488:	
+		    dup2;
+		      lconst_0;
+		   lcmp;
+		  iflt	L475;
+		lstore_0;
+		iinc	7, 240;
+	L497:	
+//------01234567890--
+//
+//	STEP 8.
+//
+//		Repeat for calculate next simbol of QUOTIENT
+//
+//this loop repat not more than 4 time
+//
+//
+//------01234567890--
+		 iload	7;
+		  iload	9;
+		if_icmpge	L339;
+	RETURN:
+//------01234567890--
+//
+//	STEP 9.
+//
+//		Modification SIGN of REMAINDER end return value
+//
+//
+//------01234567890--
+		  lload_0;
+		   iload	11;
+		  ifeq	L512;
+		  lneg;
+	L512:	
+//}
+//
+//} // end Class lrem
+
+    read_vars;
+    iconst_4;
+    iadd;
+    write_vars;
+    iload_0;
+    write_vars;
+    lstore_0;		// store the return value where "value1" used to be
+
+    pop2; pop2; pop2; pop2;
+    pop2; pop2; pop2; pop2;
+    pop2; pop;          // strip the stack down to where it began
+
+// conversion from MCST code finished
+
+    write_const_pool;	// restore CONST_POOL from saved copy
+
+			// fix up the stack for the return
+    iload 4;
+    istore_2;		// PSR moves from local-4 to local-2;
+    iload 5;
+    iconst_1;
+    iadd;
+    istore_3;		// PC reads from local-5, adds 1, goes to local-3;
+    iload 6;
+    istore 4;		// VARS moves from local-6 to local-4;
+    iload 7;
+    istore 5;		// FRAME moves from local-7 to local-5;
+
+
+    read_vars;		// update VARS and FRAME
+    dup;
+    bipush 8;
+    isub;
+    write_vars;
+    bipush 12;
+    isub;
+    write_frame;
+
+			// now that the frame is correctly re-arranged,
+    priv_ret_from_trap;	// return from the trap
+}
+
+} // end Class lrem

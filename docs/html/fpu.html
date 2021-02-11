@@ -1,0 +1,121 @@
+<html>
+<head>
+<TITLE>IAS: FPU Modeling</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+FPU Modeling</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+
+<H2>FPU Implementation Specific Issues for IAS</h2>
+<BLOCKQUOTE>
+The structure of a IEEE-754 Single Precision and Double Precision
+Floating Point value is:
+(bit 0 = lsb)<br>
+<TABLE BORDER="1">
+<TH>Single Precision</TH><TH>Double Precision</TH>
+<TR>
+<TD><FONT FACE="courier">bit 31: sign</font></TD><TD><FONT FACE="arial, helvetica">bit 63: sign</font></TD></TR>
+<TR>
+<TD><FONT FACE="courier">bit 30-23: exponent</font></TD><TD><FONT FACE="arial, helvetica">bit 62-52: exponent</font></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier">bit 22-0: mantissa</font></TD><TD><FONT FACE="arial, helvetica">bit 51-0: mantissa</font></TD>
+</TR>
+</table>
+<br>
+Though picoJava-II implements IEEE-754 arithmetic, there are a few cases
+where the exact behavior is allowed by the standard to be implementation 
+dependent. Even if the underlying architecture upon which IAS is
+running is IEEE compliant, IAS cannot rely entirely upon it 
+to generate Floating Point results which match, bit for bit, to
+the picoJava-II FPU. It is improtant to  match the
+RTL bit patterns exactly in IAS, since cosimulation does a bitwise compare 
+between IAS and RTL state.
+<P>
+IAS contains special code to handle those special cases which are 
+not defined precisely by the IEEE spec.
+<P>
+
+The special cases are defined here.
+<P>
+Any case not documented here is handled by the native Floating Point
+mechanism of the underlying architecture and is assumed to be IEEE compliant.
+
+<TABLE BORDER="1">
+<TR>
+<TD><FONT FACE="courier"><code>f2i/l</code>, <code>d2i/l</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">On a NaN input these instructions generate a result of 0.</FONT></TD>
+</TR>
+<TR>
+<TD><FONT FACE="courier"><code>f2d</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">On a NaN input, the output is a NaN with the following structure:<BR>
+&nbsp; &nbsp; &nbsp; &nbsp; sign bit: 0<BR>
+&nbsp; &nbsp; &nbsp; &nbsp; exponent: 0x7ff<BR>
+&nbsp; &nbsp; &nbsp; &nbsp; mantissa: The 23 bits of the input
+mantissa are jammed into<BR> 
+&nbsp; &nbsp; &nbsp; &nbsp; the 23 msb's of the result mantissa.<BR> 
+&nbsp; &nbsp; &nbsp; &nbsp; The rest of the mantissa bits are zeroed.
+</FONT></TD>
+<TR>
+
+<TD><FONT FACE="courier"><code>d2f</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">On a NaN input, the output is always an INaN (*)</FONT></TD>
+</TR>
+<TR>
+
+<TD><FONT FACE="courier"><code>fadd</code>, <code>dadd</code>, <code>fmul</code>, 
+<code>dmul</code>, <code>fdiv</code>, <code>ddiv</code>,
+<code>fsub</code>, <code>dsub</code>, <code>frem</code>, <code>drem</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">On an operation like A op B, <BR>
+if A is a NaN, A is copied exactly to the result,<BR>
+      &nbsp; &nbsp;  except for the sign bit, which is reset.<BR>
+else if B is a NaN, B is copied exactly to the result,<BR>
+      &nbsp; &nbsp;  except for the sign bit, which is reset.<BR>
+else if the operation results in a NaN value, the resultant<BR>
+    &nbsp; &nbsp;  value is an INaN.<BR>
+else let the underlying architecture compute the value. <BR>
+    &nbsp; &nbsp; For <code>frem</code>  or <code>drem</code>
+	 the value is to be calculated by <BR>
+	 &nbsp; &nbsp; the C library function <code>fmod</code>, as <BR>
+	 &nbsp; &nbsp; documented in the Java Virtual Machine Specification.</FONT></TD>
+<TR>
+
+<TD><FONT FACE="courier"><code>fneg</code>, <code>dneg</code></FONT></TD> 
+<TD><FONT FACE="arial, helvetica">The sign bit is simply inverted, irrespective of the FP
+value.</FONT></TD>
+<TR>
+<TD><FONT FACE="courier"><code>fcmp</code>*, <code>dcmp</code>*</FONT></TD>
+<TD><FONT FACE="arial, helvetica">Do not need any special handling.</FONT></TD>
+</TR>
+</TABLE>
+<B>Note:</B>
+(*) INaN: for Single Precision, this is the pattern 0x7fff000<BR>
+          for Double Precision, this is the pattern 0x7fffe000 00000000<BR>
+</BLOCKQUOTE>
+<P>
+<P>
+
+<A HREF="./ias.html">IAS</A></font>
+
+<HR SIZE=4 WIDTH="100%">
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+
+</font>
+</body>
+</html>
+

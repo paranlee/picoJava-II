@@ -1,0 +1,176 @@
+<html>
+<head>
+<TITLE>IAS: Interrupts</TITLE>
+</head>
+<body bgcolor="white">
+<FONT FACE="arial, helvetica">
+
+<center>
+<H1><B>IAS:<br>
+Interrupts</B></H1>
+</center>
+<HR SIZE=4 WIDTH="100%"><BR>  
+
+<BLOCKQUOTE>
+<P>
+You use the interrupt mechanism in IAS to schedule interrupts
+a given number of instructions in the future, optionally repeating
+after a fixed interval. All time intervals mentioned in this document 
+are in terms of the number of instructions that are executed, since 
+that is the smallest quantum of execution in IAS. The action of 
+taking an emulation-trap is counted as one instruction. Whether you use 
+interrupts or not, the performance impact due to this mechanism is nominal. 
+</BLOCKQUOTE>
+<H2>
+<B>Behavior</B>
+</H2>
+<BLOCKQUOTE>
+<P>
+IAS maintains all interrupts in a queue. When the time for the 
+earliest enabled interrupt arrives, IAS behaves exactly as if the 
+<font face="courier"><code>pj_irl/pj_nmi</code></font> pins to the picoJava core had been set to a
+specific value, that is, it resolves the interrupt level through the 
+<font face="courier"><code>PSR</code></font> control bits and so on. Interrupt request levels can 
+vary from 1 to 15 on the <font face="courier"><code>pj_irl</code></font> pins (0 => no interrupt);
+as a special case, the <font face="courier"><code>intr</code></font> commands treat an <font face="courier"><code>IRL</code></font>
+specification of 0 as being equivalent to scheduling an <font face="courier"><code>NMI</code></font>
+or asserting the <font face="courier"><code>pj_nmi</code></font> pin.
+
+<P>
+If you schedule multiple interrupts at the same time, the one with the
+highest priority overrides the others, which are effectively
+lost. 
+
+<P>
+<B>Note</B> - A scheduled interrupt instantly puts the 
+<font face="courier"><code>pj_irl</code></font> pins to the specified <font face="courier"><code>IRL</code></font> value: Once 
+set, the <font face="courier"><code>pj_irl</code></font> pin remains at that value until the next 
+change. The only other mechanism of changing the <font face="courier"><code>pj_irl</code></font> pin
+that is seen by the simulator is a write to the <font face="courier"><code>interrupt_ack</code></font> 
+address, which sets the state of <font face="courier"><code>pj_irl</code></font> and <font face="courier"><code>pj_nml</code></font> back to zero.
+
+<P>
+Once you have scheduled a nonrepeating interrupt, it is disabled.
+You can also explicitly disable a scheduled interrupt.
+However, you can disable interrupts only, <em>not</em> delete them. This is 
+a known and accepted limitation and will not be fixed.
+
+<P>
+Currently, the maximum number of interrupts you can schedule is 1,000.
+</BLOCKQUOTE>
+<H2>
+<B>Commands</B>
+</H2>
+<BLOCKQUOTE>
+<P>
+Following are commands for interrupts:
+
+<P>
+<TABLE BORDER="1">
+ 
+<TR>
+<TD><font face="courier">
+<code>intr list</code></FONT>
+</TD></FONT>
+<TD><FONT FACE="arial, helvetica">
+Lists all interrupts that are currently scheduled.
+</TD></FONT>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>intr <var>IRL</var> <var>number</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Schedules an interrupt <var>number</var> of instructions from now
+with <var>IRL</var>.
+</TD></FONT>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>intr repeat</code> <var>IRL</var> <var>number</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Schedules a repeating interrupt every <var>number</var> of instructions 
+with <var>IRL</var>.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>intr disable <var>number</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Cancels a scheduled interrupt.</FONT>
+</TD>
+</TR>
+</Table>
+
+<P><FONT FACE="arial, helvetica">
+For example:
+
+<P><font face="courier">
+<code>% intr 2031 2</code></font><BR>
+(Schedule an <font face="courier"><code>irl</code></font>-2 interrupt after 2,031 instructions.) 
+
+<P>
+<font face="courier"><code>% intr repeat 1000 5</code></font><BR>
+(Schedule a periodic 1,000-instruction interrupt.)
+
+<P>
+<font face="courier"><code>% intr 2031 1</code></font><BR>
+(Schedule an <font face="courier"><code>irl</code></font>-1 interrupt after 2,031 instructions.)
+
+<P> 
+<font face="courier"><code>% intr 3000 0</code></font><BR>
+(Schedule an <font face="courier"><code>NMI</code></font> after 3,000 instructions.)
+
+<P> 
+<font face="courier"><code>% intr list</code></font><BR>
+<p>
+IAS outputs: 
+<PRE>
+Intr#  Enabled    Next Intr at    IRL     Repeating   Repeat-frequency
+0        Yes           2061        2          No
+1        Yes           1030        5          Yes          1000
+2        Yes           2061        1          No
+3        Yes           3030       NMI        No
+Current instruction count is 30
+Next interrupt event (#1) is scheduled at instruction count 1030
+</PRE>
+
+<P>
+<font face="courier"><code>% intr disable 2</code></font><BR>
+<font face="courier"><code>% intr list</code></font><BR>
+<p>
+IAS outputs: 
+<PRE>
+Intr#  Enabled    Next Intr at    IRL     Repeating   Repeat-frequency
+0        Yes           2061        2          No
+1        Yes           1030        5          Yes          1000
+2        No
+3        Yes           3030       NMI         No
+Current instruction count is 30
+Next interrupt event (#1) is scheduled at instruction count 1030
+</PRE>
+</BLOCKQUOTE>
+<P>
+<P>
+<A HREF="./ias.html">IAS</A></font><BR>                           
+<HR SIZE=4 WIDTH="100%">
+  
+
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+<P>
+
+
+</BODY>
+</HTML>

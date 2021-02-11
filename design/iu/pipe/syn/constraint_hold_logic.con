@@ -1,0 +1,80 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ /* These are constraint files from the designer */
+set_drive DRIVE_OF_INV2 all_inputs()
+set_load LOAD_50_INV all_outputs()
+
+set_input_delay -clock clk 2.5 all_inputs();
+set_input_delay -clock clk 3.51 {dcu_stall}
+set_input_delay -clock clk 2.5 {icu_hold}
+set_input_delay -clock clk 3.0 {imdr_done_e}
+set_input_delay -clock clk 2.5 {fp_rdy_e}
+set_input_delay -clock clk 1.3 {first_cyc_r}
+set_input_delay -clock clk 3.6 {smu_hold}
+set_input_delay -clock clk 1.3 {first_vld_c}
+set_input_delay -clock clk 3.45 {u_done_l}
+set_input_delay -clock clk 2.6 {lduse_hold}
+set_input_delay -clock clk 2.6 {scache_miss}
+set_input_delay -clock clk 1.5 {powerdown_op_e}
+set_input_delay -clock clk 1.5 {kill_powerdown}
+set_input_delay -clock clk 1.5 {pj_halt}
+set_input_delay -clock clk 1.4 {pj_in_halt}
+
+
+set_max_delay 4.0 -to {hold_ifu_d}
+set_max_delay 4.7 -to {hold_ifu_r}
+set_max_delay 4.7 -to {hold_ifu_e}
+set_max_delay 4.7 -to {hold_ifu_c}
+
+set_max_delay 4.3 -to {hold_pipe_r}
+set_max_delay 4.3 -to {hold_pipe_e}
+set_max_delay 4.3 -to {hold_pipe_c}
+
+set_max_delay 4.7 -to {hold_rcu_e}
+set_max_delay 4.7 -to {hold_rcu_c}
+set_max_delay 4.7 -to {hold_rcu_ucode}
+
+
+set_max_delay 4.8 -to {hold_trap_r}
+set_max_delay 4.8 -to {hold_trap_e}
+set_max_delay 4.8 -to {hold_trap_c}
+
+set_max_delay 4.5 -to {hold_ex_ctl_e}
+set_max_delay 4.5 -to {hold_ex_ctl_c}
+
+set_max_delay 4.8 -to {hold_ex_dp_e}
+set_max_delay 4.8 -to {hold_ex_dp_c}
+
+set_max_delay 4.3 -to {hold_ex_regs_c}
+set_max_delay 4.3 -to {hold_ex_regs_e}
+
+set_max_delay 4.5 -to {hold_pipe_c_int}
+
+set_max_delay 4.3 -to {hold_ucode}
+set_max_delay 4.3 -to {hold_fpu}
+set_max_delay 4.8 -to {hold_ex_fpu}
+set_max_delay 4.8 -to {hold_imdr}
+
+set_max_delay 2.0 -to {perf_sgnl}

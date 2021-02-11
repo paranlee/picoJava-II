@@ -1,0 +1,40 @@
+#!/import/datools/local/perl5/5.x-sparc/bin/perl
+
+$| = 1;
+
+$this_build = "";
+$this_build = $ENV{"DSV_RELEASE_ID"};
+
+if ($this_build ne "") { 
+print "updating build_info.h with release id $this_build\n";
+} else { print "DSV_RELEASE_ID is not set, no change done\n"; exit; }
+
+$this_date = `date`;
+chop $this_date;
+
+print "updating build_info.h\n";
+open (INFO, "build_info.h") || die "cannot open build_info.h";
+open (OUT, "> tmp_build_info.h") || die "cannot open tmp_build_info.h";
+
+while (<INFO>) 
+{ if (/ias_version/) {
+	  print OUT "char *ias_version = \"$this_build\";\n"
+  }
+  elsif (/build_date/) {
+	  print OUT "char *build_date = \"$this_date\";\n"
+	  }
+  else {
+	  print OUT;
+  }
+}
+
+close (INFO);
+close (OUT);
+
+system "/bin/rm -f build_info.h";
+
+print "getting build_info.h\n";
+system "rm -f build_info.h";
+
+system "/bin/cp -f tmp_build_info.h build_info.h";
+system "rm -f tmp_build_info.h";

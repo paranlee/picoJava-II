@@ -1,0 +1,1083 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+#define		INDEX		4
+#define		ARRAY_REF	4
+#define	   	NUM_DIMEN	5
+#define		CLASS_PTR	6
+#define		CP_SAVE		6
+#define		TMP		6
+
+//
+// Trap "multianewarray_quick" -
+//
+//	Allocate the size amount of object references, initialize the array 
+//	descriptors(number of array references, and the method_vector_base_addr
+//	of the class, Object ) and return the pointer to the method_vector_base
+//	address as the reference of object-array.
+
+//	Two possibly different number of dimesion involve this array creation.
+//	The 'declared-dimension' represents the type definition of the multi-
+//	dimensional array(i.e. "int[] [] [] [] mArray;"), while 'referenced-
+//	dimension' defines the actual number of dimensions to be created for
+//	a particular instance of the array type.  The 'declared-dimension'
+//	appears implicitly in the array's type string in the constant pool,
+//	and the 'referenced-dimension' is specified in the instruction memory
+//	as the 3rd operand byte of the instruction.
+
+//	The bit 1 of array reference will be set to 1 to indicate that it is
+//	an array reference.(bit 0 represents it is a handle or non-handle ref.)
+//
+//	Note that the CP[INDEX] item will be updated with the num of dimension
+//	and the primitive type code after resolution, which will be utilized
+//	to speed up subsequent multi-dimensional array creation.
+
+//	The operand stack contains the following when this trap is entered:
+//	 	|	   ...		|
+//		+-----------------------+
+//		|        count 1	|
+//		+-----------------------+
+//		|	   ...		|
+//		+-----------------------+
+//		|        count N	|
+//		+-----------------------+
+//		|          PSR		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+//	And the stack is utilized as following during the trap execution.
+//		|			|
+//		+-----------------------+
+//	 VARS'->|        count 1	|  <-- local var 0'
+//		+-----------------------+
+//		|	   ...		|
+//		+-----------------------+
+//		|        count N	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|  <-- local var 0
+//		+-----------------------+   
+//		|	    PC		|
+//		+-----------------------+
+//		|          VARS		|
+//		+-----------------------+
+//		|	  FRAME  	|
+//		+=======================+
+//		|       CP Index	|  <-- local var N+4(INDEX)
+//		+-----------------------+
+//		|     Array Pointer	|  <-- local var N+5(ARRAY_PTR)
+//		+-----------------------+
+//		|     Class Pointer 	|  <-- local var N+6(CLASS_PTR)
+//		+=======================+
+//	OPTOP->	|			|
+//
+//	Finally, the stack and register should be as below just prior to
+//	return from this trap, to restore the old frame with all of the
+//	arguments removed.
+//
+//	 	|			|
+//		+-----------------------+
+//	 	|    Array Reference	|
+//		+-----------------------+
+//	 VARS->	|	   PSR		|
+//		+-----------------------+
+//	FRAME-> |         PC+4		|
+//		+-----------------------+
+//	 	|	   VARS 	|
+//		+-----------------------+
+//	 	|	  FRAME		|
+//		+-----------------------+
+//		|	  ....		|   
+//
+// After trap_return, the OPTOP will be restored to the location where
+// the VARS points to(location of PSR).  The other regs, VARS and FRAME
+// will be restored with the value from the trap_frame.
+
+public class multianewarray_quick
+{
+
+public static Method multianewarray_quick:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the PC first
+//------0123456789-----
+	 read_optop;		// push OPTOP
+	  bipush 16;		// PSR is at 4 words below
+	 iadd;			// pointer to the PSR
+	write_vars;		// set the VAR, PSR is now local_var 0
+
+// Allocate and initialize local variables for executing this trap routine
+//------0123456789-----
+	 iconst_0;	// 4(INDEX): CP index, item storing the class info
+			// 4(ARRAY_REF): reference of the 1st allocated array
+	  iconst_0;	// 5(NUM_DIMEN): referenced num of dimension
+
+	   iconst_0;	// 6(CLASS_PTR): base class of the array type
+			// 6(CP_SAVE): save the original CP to restore
+
+// Load 'index1' and do 'index1<<8'
+//------0123456789------
+         iload_1;               // load(push) PC
+          iconst_1;             // push 1
+         iadd;                  // pointer to 'index1'
+         load_ubyte;            // push 'index1'
+          bipush 8;
+         ishl;                  // index1<<8
+
+// Load 'index2' and add to 'index1<<8'
+//------0123456789------
+          iload_1;              // load(push) PC
+           iconst_2;            // push 2
+          iadd;                 // pointer to index2
+          load_ubyte;           // push 'index2'
+         iadd;                  // index1<<8 + index2
+        istore INDEX;		// Now, *local var 4* is the CP index
+
+// Access the number of dimension from the 3rd operand byte of the instruction
+//------0123456789-----
+         iload_1;               // load(push) PC
+          iconst_3;             // push 3
+         iadd;                  // pointer to 'number of dimensions'
+         load_ubyte;
+        istore NUM_DIMEN;	// Now, *local var 5*:num of refernced-dimension
+
+// Now check if the class has already been resolved.  Access the multidimension
+// array defn string and put into CP[index] if not resolved.
+//------0123456789-----
+         read_const_pool;	// load the CP
+         load_word;		// load the ptr to the "resolution&type array"
+	  iload INDEX;
+         iadd;			// type_byte ptr of indexed field(CP[0][index])
+         load_ubyte;		// load the type byte for the associated class
+				// ..., c-index, ubyte(the class status)
+          bipush 7;
+         ishr;			// To check the resolution bit(1 == resolved)
+        ifeq ClassUnresolved;	// branch if not equal to 0(if == 1, resolved)
+//------0123456789------
+         read_const_pool;
+          iload INDEX;
+           iconst_2;
+          ishl;
+         iadd;			// CP[c_index<<2]
+         load_word;		// class name string ptr, local 7
+//	istore 7;
+	goto ClassResolved;
+
+// Extract the number of dimension and element type from the array type string
+ClassUnresolved:
+//------0123456789------
+         read_const_pool;
+          iload INDEX;
+           iconst_2;
+          ishl;
+         iadd;			// CP[c_index<<2]
+         load_word;		// CP index to the class name string
+//------0123456789------
+          iconst_2;
+         ishl;
+          read_const_pool;
+         iadd;			// CP[class_name_index<<2]
+         load_word;		// ptr to the class name, local var 7
+
+// Update the constant pool to store the resolved array type
+//------0123456789------
+         read_const_pool;	// load the CP
+         load_word;		// load the ptr to the "resolution&type array"
+	  iload INDEX;
+         iadd;			// type_byte ptr of indexed field(CP[0][index])
+	  dup;
+          load_ubyte;		// load the type byte for the associated class
+           sipush 0x80;
+	  ior;
+	  swap;
+	store_byte;		// update the type&resolution byte
+//------0123456789------
+         read_const_pool;
+          iload INDEX;
+           iconst_2;
+          ishl;
+         iadd;			// CP[c_index<<2]
+	  iload 7;	// class name string ptr
+	  swap;
+	store_word;
+
+// Scan the array type string to extract the element type character
+ClassResolved:
+//------0123456789------
+	 iload 7;
+	 load_word;
+	  bipush 16;
+	 ishr;		// string size, local 8
+	  iload 7;
+	   iconst_4;
+	  iadd; 	// string pointer, local 9
+	   iconst_0;
+	  istore TMP;
+ScanLoop:
+//------0123456789------
+	   iload 9;
+	   load_ubyte;		// bring an ASCII character
+	    bipush 0x5B;	// '['
+	  if_icmpne DecodeElementType;
+	  iinc 8, -1;		// decrement string size
+	   iload 8;
+	  ifeq ErrorNoElementTypeChar;
+	  iinc TMP, 1;		// increment dimension(declared) counter	
+	  iinc 9, 1;		// to look at the next character
+	  goto ScanLoop;
+
+// The type character is found.  TMP has the declared dimension count, and
+// the local var 9 points to the type character.
+DecodeElementType:
+//------0123456789------
+	  swap;
+	 pop;			// remove local var 9
+	 load_ubyte;		// load the element type character
+IsByte:
+//------0123456789------
+	  dup;
+	   bipush 0x42;		// 'B' : byte array
+	 if_icmpne IsBoolean;
+	  bipush 8;
+	  goto ElementTypeFound;
+IsBoolean:
+//------0123456789------
+	  dup;
+	   bipush 0x5A;		// 'Z' : boolean array
+	 if_icmpne IsChar;
+	  bipush 4;
+	  goto ElementTypeFound;
+IsChar:
+//------0123456789------
+	  dup;
+	   bipush 0x43;		// 'C' : char array
+	 if_icmpne IsShort;
+	  bipush 5;
+	  goto ElementTypeFound;
+IsShort:
+//------0123456789------
+	  dup;
+	   bipush 0x53;		// 'S' : short array
+	 if_icmpne IsFloat;
+	  bipush 9;
+	  goto ElementTypeFound;
+IsFloat:
+//------0123456789------
+	  dup;
+	   bipush 0x46;		// 'F' : float array
+	 if_icmpne IsInt;
+	  bipush 6;
+	  goto ElementTypeFound;
+IsInt:
+//------0123456789------
+	  dup;
+	   bipush 0x49;		// 'I' : int array
+	 if_icmpne IsDouble;
+	  bipush 10;
+	  goto ElementTypeFound;
+IsDouble:
+//------0123456789------
+	  dup;
+	   bipush 0x44;		// 'D' : double array
+	 if_icmpne IsLong;
+	  bipush 7;
+	  goto ElementTypeFound;
+IsLong:
+//------0123456789------
+	  dup;
+	   bipush 0x4A;		// 'J' : long array
+	 if_icmpne IsObject;
+	  bipush 11;
+	  goto ElementTypeFound;
+IsObject:
+//------0123456789------
+	  dup;
+	   bipush 0x4C;		// 'L' : Object array
+	 if_icmpne InvalidElementType;
+	  bipush 1;
+	  goto ElementTypeFound;
+
+// Found an invalid primitive type, issue an error message and abort it.
+//------0123456789------
+InvalidElementType:
+	goto ErrorInvalidPrimitiveType;
+
+ElementTypeFound:
+//------0123456789------
+	  swap;
+	 pop;
+	  iload TMP;	// type-defined dimension count extracted
+	   bipush 16;
+	  ishl;		// put the num of dimen into upper 16 bits
+	 ior;		// bitwise OR with the primitive type code
+	istore TMP;
+
+// Check if only 1 dimension is requested.  Also check if the requested
+// dimension count(in the instruction operand) is less than the array defn
+// str's dimension size.  Create 1 dimension array for both cases. Otherwise,
+// access the size of each dimension and build an array to store the sizes.
+// Temporaily adjust the VARS to access the dimension size in the stack.
+CreateDimenArray:
+//------0123456789------
+	 iload TMP;
+	  bipush 16;
+	 ishr;			// num of type-declared dimension
+	  iload NUM_DIMEN;	// load the num of requested dimensions
+	   dup;
+	    iconst_1;
+	  if_icmpeq OneDimensionArray;
+	if_icmpeq DimensionCount;
+
+// The 2 dimension sizes differ. More check before creating 1-dimensional array
+//------0123456789------
+	 iload TMP;
+	  bipush 16;
+	 ishr;			// dimension size encoded in the array defn str
+	  iload NUM_DIMEN;	// requested dimension in the operand
+	if_icmplt ErrorUnequalDimension;	// shouldn't happen
+	goto OneDimensionArray;
+
+DimensionCount:
+//------0123456789------
+	 iload NUM_DIMEN;	// load the num of requested dimensions
+	 newarray 10;	// create NUM_DIMEN size, int array: local var 8
+	  iconst_0;		// 'dArray' index counter: local var 9
+
+DimensionCntLoop:
+//------0123456789------
+	   read_vars;		// local var 10
+	    dup;		// to restore the VARS later
+	     iload NUM_DIMEN;
+	      iload 9;		// array index
+	     isub;
+	      iconst_2;
+	     ishl;		// byte offset
+	    iadd;		// current_VARS + offset_to_a_count
+	   write_vars;		// temporaily update the VARS
+// check the size value
+//------0123456789------
+	    iload_0;		// this is the size of this dimension
+	     dup;
+	    iflt ErrorNegativeArraySize;
+	    swap;		// dimension_cnt, oldVARS
+	   write_vars;		// to restore the old VARS
+
+// Now size of a dimension is loaded, and the VARS is restored back.
+// Put the dimension size into the dArray.
+//------0123456789------
+	    iload 8;		// 'dArray'
+	    swap;		// 'dArray', dimension_size
+	     iload 9;		// 'dArray', dimension_size, index
+	     swap;		// 'dArray', index, dimension_size
+	  iastore;		// store the dimension_size into the dArray
+	  iinc 9, 1;		// increment the array index
+	   iload 9;
+	    iload NUM_DIMEN;
+	  if_icmplt DimensionCntLoop; // exit when index is equal to NUM_DIMEN
+	 pop;			// pop off the index counter
+
+// Now set the CONST_POOL register to invoke 'anewarray' trap and Java method.
+// Move the primitive type(and the decalred-dimension) to NUM_DIMEN first.
+//------0123456789-----
+	 iload TMP;
+	istore NUM_DIMEN;	// move the primitive type to NUM_DIMEN
+         read_const_pool;       // save the current CP first
+	istore CP_SAVE;	// save original CP, to restore before return
+//------0123456789-----
+	 sipush 0xDF;	// vector number for 'multianewarray_quick'
+	 jsr GetTrapCP;
+        write_const_pool;      // temporaily set the CONST_POOL
+	goto GoMultiAllocate;
+
+// Create 1-dimensional array
+OneDimensionArray:
+//------0123456789------
+	 read_vars;
+	  dup;		// to restore the VARS later
+	   iload NUM_DIMEN;
+	    iconst_2;
+	   ishl;
+	  iadd;
+	 write_vars;	// temporaily update the VARS
+	  iload_0;	// size of the 1st dimension
+	  swap;
+	 write_vars;	// restore VARS
+// Allocate either an array of arrays OR an arrary of objects
+//------0123456789------
+	  iload TMP;
+	   sipush 0xFFFF;
+	   sethi 0x0;
+	  iand;
+// Put the array's element type code into the NUM_DIMEN
+//------0123456789------
+           iload NUM_DIMEN;
+            bipush 16;
+           ishl;
+          ior;
+         istore NUM_DIMEN;
+
+// Save the current CP, and update the CP with this trap's
+//------0123456789------
+          read_const_pool;
+	 istore CP_SAVE;
+	  sipush 0xDF;	// vector number for 'multianewarray_quick'
+	  jsr GetTrapCP;
+         write_const_pool;      // temporaily set the CONST_POOL
+
+CreateSingleDimenArray:
+//------0123456789------
+	  dup;		// array size for updating the type string
+	  anewarray class [[;
+	 istore ARRAY_REF;
+
+// Patch up the array type string pointer
+//------0123456789------
+	  iload ARRAY_REF;
+	   iconst_1;
+	  iand;
+	 ifeq SingleDimenArrayWithoutHandle;
+	  iload ARRAY_REF;
+	   sipush 0xFFFC;
+	  iand;
+	   iconst_4;
+	  iadd;
+	  load_word;
+	  goto SingleDimenPatchTypeStrPtr;
+
+SingleDimenArrayWithoutHandle:
+//------0123456789------
+	  iload ARRAY_REF;
+	   sipush 0xFFFC;
+	  iand;
+	   iconst_4;
+	  iadd;
+
+SingleDimenPatchTypeStrPtr:
+//------0123456789------
+	  swap;		// array_ref, array_size
+	   iconst_1;
+	  iadd;
+	   iconst_2;
+	  ishl;
+	 iadd;
+	  iload 7;
+	  swap;
+	store_word;
+	goto ArrayAllocationDone;
+
+// Allocate the 1st array of arrays
+GoMultiAllocate:
+//------0123456789------
+	 iload 8;	// 'dArray'
+	  iconst_0;
+	 iaload;	// access the 1st element of the dimension array
+	 anewarray class [[;
+	istore ARRAY_REF;// save the array ref.  ..., old_CP, array_ref
+
+// Patch up the array type string pointer
+//------0123456789------
+	 iload ARRAY_REF;
+	  iconst_1;
+	 iand;
+	ifeq ArrayWithoutHandle;
+	 iload ARRAY_REF;
+	  sipush 0xFFFC;
+	 iand;
+	  iconst_4;
+	 iadd;
+	 load_word;
+	 goto PatchTypeStrPtr;
+
+ArrayWithoutHandle:
+//------0123456789------
+	 iload ARRAY_REF;
+	  sipush 0xFFFC;
+	 iand;
+	  iconst_4;
+	 iadd;
+
+PatchTypeStrPtr:
+//------0123456789------
+	  iload 8;
+	   iconst_0;
+	  iaload;
+	   iconst_1;
+	  iadd;
+	   iconst_2;
+	  ishl;
+	 iadd;
+	  iload 7;
+	  swap;
+	store_word;
+
+// Call multi-dimension array creation method, recursively implemented in Java
+//------0123456789------
+	 iload ARRAY_REF;
+	  iload 8;	// 'dArray'
+	   iload NUM_DIMEN;
+	    dup;
+	     bipush 16;
+	    ishr;	// actual number of dimension
+	    swap;
+	     bipush 16;
+	    ishl;
+	     bipush 16;
+	    ishr;	// primitive type code
+	     iconst_0;
+	     swap;
+ invokestatic Method multianewarray_quick.createMDArray:"([Ljava/lang/Object;[IIII)V";
+
+// The multi-dimensional array is now created.  Store the array reference
+// into the 1st dimension_cnt location and move the trap_frame right below
+// that location to prepare return.
+ArrayAllocationDone:
+//------0123456789-----
+	 iload ARRAY_REF;// load the reference of the 1st array of arrays
+	  read_vars;
+	   dup;
+	    iload NUM_DIMEN;
+	     bipush 16;
+	    ishr;	// get rid of the primitive type code
+	     iconst_2;
+	    ishl;
+	   iadd;	// array_ref, oldVARS, newVARS
+	    dup;
+	   istore 7;	// new VARS(pointing to 1st dimen cnt) save into local 7
+	  write_vars;
+	  swap;		// oldVARS, array_ref
+	 istore_0;	// store the array_ref into the 1st dimension_cnt loc.
+	write_vars;	// restore the old VARS
+ 
+// Move the current trap frame to the dimension_cnt args area
+MoveTrapFrame:
+//------0123456789-----
+	 read_vars;
+	istore INDEX;	// save it
+	 iconst_0;	// trap_word counter
+	istore NUM_DIMEN;
+	iinc 7, -4;	// to start from the word next to return value, arrayref
+
+MoveTrapFrameLoop:
+//------0123456789-----
+	 iload INDEX;	// original old VARS, pointing to the PSR
+	  iload NUM_DIMEN;	// counter
+	   iconst_2;
+	  ishl;		// byte offset
+	    dup2;	// oldVARS, offset, oldVARS, offset
+	   isub;	// oldVARS, offset, oldVARS' 
+	   swap;	// oldVARS, oldVARS', offset
+	    iload 7; 	// oldVARS, oldVARS', offset, newVARS
+	    swap;
+//------0123456789-----
+	   isub; 	// oldVARS, oldVARS', newVARS'
+	   swap;	// oldVARS, newVARS', oldVARS'
+	  write_vars;	// to access one of the 4 trap word
+	   iload_0;	// load one of the 4 trap_frame word
+			// oldVARS, newVARS', aTrapWord
+	   swap;	// oldVARS, aTrapWord, newVARS'
+	  write_vars;	// Update to address a new location for the trap_word
+	 istore_0;	// move the trap_word
+	write_vars;	// restore the original old VARS
+
+//------0123456789-----
+	iinc NUM_DIMEN, 1;
+	 iload NUM_DIMEN;
+	  iconst_4;
+	if_icmplt MoveTrapFrameLoop;
+Epilogue:
+// Finally, set the VARS and FRAME for the 'trap_return'.
+// The VARS will point to where the PSR is(the OPTOP starts there) and
+// the FRAME will point to returnPC location.
+//------0123456789-----
+	 iload CP_SAVE;	// load the original CP to restore before return
+        write_const_pool;// restore the original CP
+
+	 iload 7;	// newVARS, pointing to where PSR is now moved
+	  dup;
+	 write_vars;	// VARS now points to base of moved trap_frame
+	  iconst_4;
+	 isub;
+	write_frame;	// FRAME now points to the returnPC
+
+// Update the PC to return to the next instruction
+//------0123456789-----
+	 iload_1;
+	  iconst_4;	// 'multianewarray_quick' instruction is 4 bytes long
+	 iadd;
+	istore_1;
+
+// Now execute trap_return to restore PSR, FRAME, VARS and PC to go back.
+	priv_ret_from_trap;
+
+ErrorNegativeArraySize:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The array size is less than 0
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+	 pop;			// oldVARS
+	write_vars;		// to restore the old VARS
+         read_const_pool;       // save the original CP
+	  sipush 0xDF;		// vector number for this trap
+	  jsr GetTrapCP;
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/NegativeArraySizeException;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+
+ErrorVirtualMachine:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Fatal Runtime Error
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         pop;                   // oldVARS
+        write_vars;             // to restore the old VARS
+         read_const_pool;       // save the original CP
+          sipush 0xDF;          // vector number for this trap
+          jsr GetTrapCP;
+         write_const_pool;      // temporaily set the CONST_POOL
+//------0123456789-----
+          new class java/lang/VirtualMachineError;
+          swap;
+         write_const_pool;      // restore original, to help 'athrow'
+          iconst_0;
+         istore 4;      // clear off the word above trap frame for 'athrow'
+         athrow;         // should never return
+ 
+ErrorUnequalDimension:
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The 2 dimensional counts are different, while they're must equal.
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0xC5;  // "Error: Dimension Counts Do Not Match"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        store_word;
+	goto ErrorUnequalDimension;
+// Simulator should HALT execution here
+
+ErrorInvalidPrimitiveType:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// The primitive type defn in the array type string is not valid
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0xC1;  // "Error: Invalid Primitive Type In Array Creation"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        store_word;
+	goto ErrorInvalidPrimitiveType;
+// Simulator should HALT execution here
+
+ErrorNoElementTypeChar:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// An element type char in the array type string is missing
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0xC6;  // "Error: No Element Type Char in The Array Defn"
+         sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+          sethi 0x0;
+        store_word;
+        goto ErrorNoElementTypeChar;
+// Simulator should HALT execution here
+
+ErrorNoMemory:
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// No Memory ERROR: memory allocator returned no memory avail.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//------0123456789-----
+         sipush 0x8A;         // "Error:Memory Not Available"
+	 sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+	  sethi 0x0;
+        store_word;
+	goto ErrorNoMemory;
+// Simulator should HALT execution here
+
+#include "picokernel.s"
+}
+
+static Method buildArrayDefnStr:"([Ljava/lang/Object;I)I"
+// make sure allowing some stack space subroutine, BuildDecafStr.
+	stack 10 locals 3
+{
+//------0123456789-----
+	 iload_0;		// parent array
+	  iconst_1;
+	 iand;
+	ifeq NoHandle;
+	 iload_0;
+	  sipush 0xFFFC;
+	 iand;			// mask off array and handle bits
+	  iconst_4;
+	 iadd;
+	 load_word;		// ptr to the actual storeage
+	istore_0;
+	goto GetDefnStrSize;
+NoHandle:
+//------0123456789-----
+	iinc 0, 2;
+GetDefnStrSize:
+	 iload_0;
+	 load_word;		// array type and size word
+	  sipush 0xFFFF;
+	  sethi 0x00FF;
+	 iand;			// size of the parent array
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload_0;
+	 iadd;			// ptr to the array defn str ptr
+	 load_word;		// ptr to the parent array's defn str, local 2
+	istore_2;
+//------0123456789-----
+	 iload_2;
+	 load_word;
+	  bipush 16;
+	 ishr;			// parent array defn str size
+	  iload_1;		// substring start index within the defn str
+	 isub;			// substring size
+	 iinc 2, 4;
+	  iload_2;
+	   iload_1;		// substring starting position
+	  iadd;
+	  swap;
+	  jsr BuildDecafStr;
+//------0123456789-----
+	  swap;
+	 pop;
+	ireturn;
+#include "picokernel.s"
+}
+
+// Find the reference of the class object specified by the array defn string
+
+static Method findClassObject:"([Ljava/lang/Object;)I"
+	stack 10 locals 3
+// make sure allowing some stack space subroutine, BuildDecafStr.
+{
+//------0123456789-----
+	 iload_0;		// parent array
+	  iconst_1;
+	 iand;
+	ifeq NoHandle;
+	 iload_0;
+	  sipush 0xFFFC;
+	 iand;			// mask off array and handle bits
+	  iconst_4;
+	 iadd;
+	 load_word;		// ptr to the actual storeage
+	istore_0;
+	goto GetDefnStrSize;
+NoHandle:
+//------0123456789-----
+	iinc 0, 2;
+GetDefnStrSize:
+	 iload_0;
+	 load_word;		// array type and size word
+	  sipush 0xFFFF;
+	  sethi 0x00FF;
+	 iand;			// size of the parent array
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload_0;
+	 iadd;			// ptr to the array defn str ptr
+	 load_word;		// ptr to the parent array's defn str, local 1
+	istore_1;
+//------0123456789-----
+	 iload_1;
+	 load_word;
+	  bipush 16;
+	 ishr;			// parent array defn str size
+	  iconst_4;		// "[[L*******;"
+	 isub;			// substring(class name) size
+	 iinc 1, 7;		// next_word_offset(4) + 3("[[L")
+	  iload_1;
+	  swap;
+	  jsr BuildTmpDecafStr;
+//------0123456789-----
+	  swap;
+	 pop;
+	  bipush 31;
+	  jsr PicoKernel;	// Resolve Class
+	  swap;
+	 pop;
+	ireturn;
+#include "picokernel.s"
+}
+
+// Patch the type str pointer of the passed array ref with the passed integer,
+// which is either a ptr to the actual type str OR reference to a class object.
+static Method patchArrayType:"(Ljava/lang/Object;I)V"
+	stack 10 locals 3
+{
+//------0123456789-----
+	 iload_0;		// parent array
+	  iconst_1;
+	 iand;
+	ifeq NoHandle;
+	 iload_0;
+	  sipush 0xFFFC;
+	 iand;			// mask off array and handle bits
+	  iconst_4;
+	 iadd;
+	 load_word;		// ptr to the actual storeage
+	istore_0;
+	goto GetDefnStrSize;
+NoHandle:
+//------0123456789-----
+	iinc 0, 2;
+GetDefnStrSize:
+	 iload_0;
+	 load_word;		// array type and size word
+	  sipush 0xFFFF;
+	  sethi 0x00FF;
+	 iand;			// size of the parent array
+	  iconst_1;
+	 iadd;
+	  iconst_2;
+	 ishl;
+	  iload_0;
+	 iadd;			// ptr to the array defn str ptr
+	  iload_1;		// actual ptr to be stored
+	  swap;
+	store_word;
+	return;
+}
+
+
+// Insertion of a Java method, 'createMDArray()', compiled and disassembled
+// from 'multianewarray.java'.  Java-level method is called from the trap
+// handler to create multi-dimensional array using recursion.
+
+// ***************************************************************************
+// After disassembly and insertion into this jasm file, following MOD required:
+//      1. The 1st anewarray call must be made with '[['.(for correct type code)
+//	2. Comment out the checkcast instruction, which is unnecessary
+// ***************************************************************************
+
+//public class multianewarray {
+	// Compiled from multianewarray.java
+	// Compiler version 3.45;
+
+static Method createMDArray:"([Ljava/lang/Object;[IIII)V"
+	stack 5 locals 8
+{
+		iconst_0;
+		istore	6;
+		iload_3;
+		iconst_2;
+		iadd;
+		iload_2;
+		if_icmpge	L75;
+		aload_0;
+		iconst_1;
+	invokestatic	Method buildArrayDefnStr:"([Ljava/lang/Object;I)I";
+		istore	6;
+		iconst_0;
+		istore	5;
+		goto	L66;
+	L23:	aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		anewarray	[[;
+		astore	7;
+		aload	7;
+		iload	6;
+	invokestatic	Method patchArrayType:"(Ljava/lang/Object;I)V";
+		aload_0;
+		iload	5;
+		aload	7;
+		aastore;
+		aload_0;
+		iload	5;
+		aaload;
+//		checkcast	class [Ljava/lang/Object;;
+		aload_1;
+		iload_2;
+		iload_3;
+		iconst_1;
+		iadd;
+		iload	4;
+	invokestatic	Method createMDArray:"([Ljava/lang/Object;[IIII)V";
+		iinc	5, 1;
+	L66:	iload	5;
+		aload_1;
+		iload_3;
+		iaload;
+		if_icmplt	L23;
+		return;
+	L75:	iload	4;
+		iconst_1;
+		if_icmpne	L87;
+		aload_0;
+	invokestatic	Method findClassObject:"([Ljava/lang/Object;)I";
+		istore	6;
+	L87:	iconst_0;
+		istore	5;
+		goto	L293;
+	L93:	iload	4;
+		tableswitch{ //1 to 11
+		1: L152;
+		2: L290;
+		3: L290;
+		4: L178;
+		5: L206;
+		6: L234;
+		7: L262;
+		8: L192;
+		9: L220;
+		10: L248;
+		11: L276;
+		default: L290 };
+	L152:	aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		anewarray	class java/lang/Object;
+		astore	7;
+		aload	7;
+		iload	6;
+	invokestatic	Method patchArrayType:"(Ljava/lang/Object;I)V";
+		aload_0;
+		iload	5;
+		aload	7;
+		aastore;
+		goto	L290;
+	L178:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray boolean;
+		aastore;
+		goto	L290;
+	L192:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray byte;
+		aastore;
+		goto	L290;
+	L206:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray char;
+		aastore;
+		goto	L290;
+	L220:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray short;
+		aastore;
+		goto	L290;
+	L234:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray float;
+		aastore;
+		goto	L290;
+	L248:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray int;
+		aastore;
+		goto	L290;
+	L262:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray double;
+		aastore;
+		goto	L290;
+	L276:	aload_0;
+		iload	5;
+		aload_1;
+		iload_3;
+		iconst_1;
+		iadd;
+		iaload;
+		newarray long;
+		aastore;
+		goto	L290;
+	L290:	iinc	5, 1;
+	L293:	iload	5;
+		aload_1;
+		iload_3;
+		iaload;
+		if_icmplt	L93;
+		return;
+}
+
+public Method <init>:"()V"
+	stack 1 locals 1
+{
+		aload_0;
+		invokespecial	Method java/lang/Object.<init>:"()V";
+		return;
+}
+
+} // end Class multianewarray_quick

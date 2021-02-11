@@ -1,0 +1,71 @@
+<html> <head> <TITLE>Setting up Your Environment</TITLE> </head>
+<body bgcolor="white">
+
+
+<FONT FACE="arial, helvetica">
+<center>
+<H1>Setting up Your Environment</H1> </center>
+
+<HR SIZE=4 WIDTH="100%">
+
+
+<P>
+To use the picoJava-II source distribution, you need to set the following 
+environment variables first:
+(if your shell is csh, type the following commands, if you are using sh
+type: variable=value; export variable)
+<blockquote>
+setenv PICOJAVAHOME <I>directory where you untar the distribution</I><br>
+setenv PROJECT picoJava-II<BR>
+setenv DSVHOME $PICOJAVAHOME/$PROJECT/tools<BR>
+setenv CLASSPATH ${DSVHOME}:${DSVHOME}/class:. <BR>
+setenv PATH $DSVHOME/bin:$PATH<br>
+</blockquote>
+
+<P>
+If you plan on building the instruction-accurate simulator or the RTL model, you need to set the following
+variables:
+<blockquote>
+setenv CC_NAME <I>the name of your C compiler, eg. cc or gcc</I><br>
+setenv CC_FLAGS <I>the optimization flags for the C compiler, eg. -O</I><br>
+</blockquote>
+</p>
+
+<P>
+If you plan on running RTL simulations using Cadence Verilog-XL, you must set the following
+variables:
+</p>
+<blockquote>
+setenv VERITOOLS_PATH <I>path to the veritools directory</I><BR>
+setenv VLOG_PATH <I>path to Verilog directory, eg. $VERITOOLS_PATH/verilog</I><BR>
+setenv VLOG_NAME pj2vlog <BR>
+setenv VFILES_PATH $PICOJAVAHOME/$PROJECT/sim/env/vfiles<BR>
+</blockquote>
+<P>
+If you plan on running RTL simulations using Synopsys VCS, you need to make sure 'vcs' is on your path and you must set the following variable:
+</p>
+<blockquote>
+setenv VCS_NAME pj2vcs<BR>
+</blockquote>
+<P>
+If you plan on using the <a href=steam.html>steam</a> script to run tests,
+you must set the following variable:
+</p>
+<blockquote>
+setenv STEAM_PLUSARGS $PICOJAVAHOME/$PROJECT/sim/config<BR>
+</blockquote>
+</OL>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</body>
+</html>

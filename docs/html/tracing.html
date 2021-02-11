@@ -1,0 +1,76 @@
+<html>
+<head>
+<TITLE>IAS: Tracing</TITLE>
+</head>
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1><B>IAS:<br>Program Tracing</B></H1>
+</center>
+<HR SIZE=4 WIDTH="100%"><BR>
+<BLOCKQUOTE>
+By using the IAS tracing functionality, you can generate program traces for 
+performance analysis and for debugging by creating a hook into every 
+instruction execution and every memory read or write. For example, to 
+help track down a complicated state of events that spans several 
+instructions, you can code in hooks specific to that situation and 
+incorporate them into IAS.
+
+Because the hooks are dynamically linked, you need not recompile IAS.  All 
+you have to provide is the code for some or all of of the four functions--init, finalize, memory read or write, and instruction execution.  
+
+<p>
+As reference, see the template and sample implementation in:
+
+<blockquote>
+<font face="courier"><code>tools/dsv/iam/src/libtrace.c</code></font>
+</blockquote>
+
+You can modify this template to put in your own checks or <font face="courier">printf</font>s, for example, then compile with the following command:
+
+<blockquote>
+<font face="courier"><code>cc -G -o sample_libtrace.so.1 sample_libtrace.c</code></font>
+</blockquote>
+
+If you are using <font face="courier"><code>gcc</code></font>, compile with this command:
+
+<blockquote>
+<font face="courier"><code>gcc -fpic -shared -o sample_libtrace.so.1 sample_libtrace.c</code></font><br>
+</blockquote>
+
+and set the environment variable, as follows:
+
+<blockquote>
+<font face="courier"><code>setenv PJSIM_TRACE_LIB sample_libtrace.so.1</code></font>
+</blockquote>
+ 
+<p>
+IAS looks for <font face="courier"><code>PJSIM_TRACE_LIB</code></font>; if it is set, it loads the 
+functions from the libraries that you specified.  The sample implementation
+is self-explanatory. 
+
+<p>
+<b>Note</b> - For a memory write, IAS calls the trace function before 
+completing the write.
+</BLOCKQUOTE>
+<P>
+<P>
+<A HREF="./ias.html">IAS</A></font>
+<HR SIZE=4 WIDTH="100%"><BR>
+
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+<P>
+
+</font>
+</body>
+</html>

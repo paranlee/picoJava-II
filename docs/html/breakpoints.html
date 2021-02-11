@@ -1,0 +1,159 @@
+<html>
+<head>
+<TITLE>IAS: Breakpoints</TITLE>
+</head>
+<body bgcolor="white">
+<FONT FACE="arial, helvetica">
+
+<center>
+<H1><B>IAS:<br>Breakpoints</B></H1>
+</center>
+<HR SIZE=4 WIDTH="100%"><BR>  
+<BLOCKQUOTE>
+<P>
+Breakpoints in IAS are modeled (somewhat) on breakpoints in <font face="courier"><code>gdb</code></font>.
+Each breakpoint can be either a code breakpoint or a data read or write
+breakpoint. A breakpoint can be in either a disabled state or enabled
+state and has an ignore count. When a match is generated on an enabled
+breakpoint, IAS triggers a breakpoint is triggered if its ignore count 
+is zero. If the ignore count is non-zero, IAS decrements the count 
+and execution continues.
+
+<P>
+Once a breakpoint has been set, you can only disable it, but cannot 
+delete it.  This is a known and accepted limitation, and will not be fixed. 
+Breakpoints are set on absolute addresses; IAS does not provide symbolic 
+breakpoints.
+
+<P>
+Currently, the maximum number of breakpoints you can set in a session is 1,000.
+</BLOCKQUOTE>
+<H2>
+<B>Behavior</B>
+</H2>
+<BLOCKQUOTE>
+<P>
+All breakpoints are set at a byte boundary. Code breakpoints are triggered
+only if an instruction about to be executed starts at the set address; 
+A code breakpoint that is set in the middle of an instruction causes unexpected
+behavior. Data breakpoints are triggered by all accesses that "cover" the 
+breakpoint address: for example, a 32-bit write to the address 0x1000 triggers a 
+breakpoint set at address 0x1002. 
+
+<P>
+For code breakpoints, IAS returns control to you just before it executes 
+the instruction that triggers the breakpoint. Data breakpoints are like 
+watchpoints in that control is returned to you at the end of the instruction that 
+touches the breakpoint address.  
+
+<P>
+IAS ignores code breakpoints during execution of the first instruction 
+of a fresh run, steps, or the <font face="courier"><code>continue</code></font> command that you issue. This behavior 
+is to facilitate continuation of program execution after a code breakpoint has 
+been triggered without having to explicitly disable the breakpoint to 
+avoid triggering it immediately.
+</BLOCKQUOTE>
+<H2>
+<B>Commands</B>
+</H2>
+<BLOCKQUOTE>
+<P>
+Following are the commands for breakpoints using the Tcl interface. 
+When a breakpoint is set, it is enabled by default and has an ignore 
+count of zero. 
+
+<P>
+<TABLE BORDER="1">
+<BORDER>
+
+<TR>
+<TD>
+<font face="courier"><code>brk list</code></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Lists the breakpoints that are currently set.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>brk exec</code> <var>address</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Sets a code breakpoint.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>brk read</code> <var>address</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Sets a data read breakpoint.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>brk write</code> <var>address</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Sets a data write breakpoint.</FONT>
+</TD>
+</TD>
+</TR>
+
+<TR>
+<TD valign="top"><font face="courier">
+<code>brk access</code> <var>addr</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Sets two separate breakpoints, a read breakpoint and a write breakpoint, at 
+the same address.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD valign="top"><font face="courier">
+<code>brk ignore</code> <var> brkptnumber count</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Sets the number of times a hit on this breakpoint (when enabled) is ignored 
+before it causes the simulator to stop.  The default ignore count is zero.
+Once the breakpoint is triggered, the ignore count remains at zero and does not reset to the original ignore count.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>brk enable</code> <var>brkptnumber</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Enables a breakpoint.</FONT>
+</TD>
+</TR>
+
+<TR>
+<TD><font face="courier">
+<code>brk disable </code><var>brkptnumber</var></FONT>
+</TD>
+<TD><FONT FACE="arial, helvetica">
+Disables a breakpoint.</FONT>
+</TD>
+</TR>
+</Table>
+</BLOCKQUOTE>
+
+<A HREF="./ias.html">IAS</A></font>
+
+<HR SIZE=4 WIDTH="100%">
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</BODY>
+</HTML>

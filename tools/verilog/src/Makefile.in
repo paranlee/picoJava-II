@@ -1,0 +1,43 @@
+# ****************************************************************
+# ***
+# ***    Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+# ***    Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+# ***    The contents of this file are subject to the current
+# ***    version of the Sun Community Source License, picoJava-II
+# ***    Core ("the License").  You may not use this file except
+# ***    in compliance with the License.  You may obtain a copy
+# ***    of the License by searching for "Sun Community Source
+# ***    License" on the World Wide Web at http://www.sun.com.
+# ***    See the License for the rights, obligations, and
+# ***    limitations governing use of the contents of this file.
+# ***
+# ***    Sun, Sun Microsystems, the Sun logo, and all Sun-based
+# ***    trademarks and logos, Java, picoJava, and all Java-based
+# ***    trademarks and logos are trademarks or registered trademarks
+# ***    of Sun Microsystems, Inc. in the United States and other
+# ***    countries.
+# *****************************************************************
+
+
+
+
+EXPORT_INCLUDES = 
+
+INCLUDE_DIR = -I$(VLOG_PATH)/include
+
+BIN1 = pj2vlog
+BIN1_SRC = pj_user.c
+           
+BIN1_LIB = -lloader -ltamv -lz
+
+# for Verilog 2.3.3, 2.3.17, 2.5 and similiar
+EXTRA_LIB = $(VLOG_PATH)/lib/vlog.o $(VLOG_PATH)/lib/omnitasks.o -L$(VLOG_PATH)/lib -lvoids -lm -lsocket -lnsl -ldl
+
+# for Verilog 2.6.16 and similiar
+#EXTRA_LIB = $(VLOG_PATH)/src/vpi_user.c $(VLOG_PATH)/lib/vlog.o $(VLOG_PATH)/lib/omnitasks.o -R$(VERITOOLS_PATH)/lib -L$(VERITOOLS_PATH)/lib -lcdsCommon_sh -L$(VLOG_PATH)/lib -lvoids -lm -lsocket -lnsl -ldl -lintl
+
+# for Verilog 2.7 and similiar
+#EXTRA_LIB = $(VLOG_PATH)/src/vpi_user.c $(VLOG_PATH)/lib/vlog.o $(VLOG_PATH)/lib/omnitasks.o -R$(VERITOOLS_PATH)/lib -L$(VERITOOLS_PATH)/lib -lvirtuos_sh -lcdsCommon_sh -R$(VLOG_PATH)/lib -L$(VLOG_PATH)/lib -lvoids -ldlc -lsocket -lnsl -lm -ldl -lintl -lelf
+
+# for Signalscan and Vericov, you probably need something like this:
+#EXTRA_LIB = $(SIGNALSCAN_PATH)/record-xl.a $(VLOG_PATH)/lib/vlog.o $(VLOG_PATH)/lib/omnitasks.o -L$(VLOG_PATH)/lib $(VERICOV_PATH)/pli/vcovpli.o $(VERICOV_PATH)/lib/libtcl.a -lvoids -lm -lsocket -lnsl -ldl -lXt -lX11 -elf

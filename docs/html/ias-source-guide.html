@@ -1,0 +1,356 @@
+<html>
+<head>
+<TITLE>IAS: Source Guide</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Source Guide</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+<P>
+
+<b>Note:</B> All paths are relative to <code>tools/dsv/</code>.
+
+<UL>
+<LI> <A HREF="#1">  Build Methodology</A>
+<LI> <A HREF="#2">  Include File Mechanism</A>
+<LI> <A HREF="#3">  Source File Description</A>
+</UL>
+<P>
+<A NAME="1">
+<H2>Build Methodology</H2></A>
+<BLOCKQUOTE>
+The source is split across several directories, all of which share the same 
+Makefile and are linked from <code>config/Makefile</code>. Each
+directory,
+however, has it's own copy of <code>Makefile.in</code> 
+included by the makefile. 
+<P>
+The <code>Makefile.in</code>
+specifies the source files in the directory, the exported includes,
+the libraries and the binaries to be built from that directory.
+<P>
+To build the source, type "make" in the following directories:
+
+<Table Border=1>
+<th> Directory</TH> <th>Action Taken by <code>Makefile.in</code></th></tr>
+<TR>
+<TD><FONT FACE="courier">
+<code>dsv/src</code> </FONT></TD>
+<TD><FONT FACE="arial, helvetica">Exports a couple of basic header files</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier">
+<code>cache/src</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Builds <code>libcache.a</code>. Cache module.</FONT></TD></tr>
+<TR>
+<TD><FONT FACE="courier"><code>ldr/src</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Builds <code>libloader.a</CODE>. Loader module.</FONT></TD></tR>
+<TR>
+<TD><FONT FACE="courier">
+<CODE>iam/src</Code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Builds <code>libiam.a</code> and <code>chk2mem</code>, a utility used 
+for restarting RTL from IAS checkpoints.</FONT></TD></TR>
+<TR>
+<TD><FONT FACE="courier">
+<code>sim/src</code></FONT></TD>
+<TD><FONT FACE="arial, helvetica">Builds the IAS binary including the Tcl frontend.</FONT></TD></TR>
+</Table>
+<P>
+<B>Note:</B> The <code>libloader.a</code> is also linked to the
+verilog to provide the main memory and the loader code. During <code>cosim</code>, there are two separate 
+instances of the same <code>libloader.a</code>; one linked to RTL, the
+other to IAS, with their own versions of common memory.
+<P>
+</BLOCKQUOTE>
+<A NAME="2">
+<H2>Include File Mechanism</h2></A>
+<BLOCKQUOTE>
+Each source directory contains a <code>.depend</code> file
+which <code>makedepend</code> automatically generates. This 
+file is included by the Makefile during the build process.
+<P>
+When each module is built, the exported include files that are specified in
+<code>Makefile.in</code>
+are put into the directory include (under tools/dsv) so that the rest of the 
+modules can see the include files. In reality, the include/<file>.h file is 
+simply a link to the location of the real include file inside whichever
+directory exports it. This ensures that .h files used are always the latest
+copies, and does not require a separate command to export includes. It
+also enables you to specify a single argument to -I (the include
+directory) on the <code>cc</code> command line.
+<P>
+<B>Note:</B> Multiple modules should not have include files with the
+same name, since this will cause confusion. 
+<P>
+No source code or definitions should be in .h files. The .h files
+should contain only prototypes, extern declarations and macros. 
+<P>
+All header files should be protected against double inclusion by defining
+a dummy macro __<FILENAME>_H_
+</BLOCKQUOTE>
+<P>
+<A NAME="3">
+<H2>Source File Description</H2></A>
+<BLOCKQUOTE>
+This section is a brief overview of what is in each IAS source file:
+<P>
+<h3>dsv module</H3>
+
+<B><font face="courier">dsv/src/checkpoint_types.h</font></b><BR>
+Types and macros used by checkpoint functions in every module
+<P>
+<B><font face="courier">dsv/src/dsv.h</font></b><BR>
+Only defines <code>DSV_SUCCESS AND DSV_FAIL</code>. 
+This is used inconsistently throughout the code.
+<P>
+
+<h3>Cache module</h3>
+
+<B><font face="courier">cache/src/cache.c cache/src/cache.h</font></b><BR>
+Source for all functions to implement the I-Cache and D-Cache.
+<P>
+<B><font face="courier">cache/src/lutil.h cache/src/util.c</font></b><BR>
+Utility functions used by cache module.
+<P>
+<h3>iam module</h3>
+
+<B><font face="courier">iam/src/array_ops.c iam/src/array_ops.h</font></b><BR>
+Array instructions for picoJava-II.
+<P>
+<B><font face="courier">iam/src/breakpoints.c iam/src/breakpoints.h</font></b><BR>
+IAS code and data breakpoint functionality. This code is not the same as 
+picoJava hardware breakpoint registers.
+<P>
+<B><font face="courier">iam/src/checkpoint.c iam/src/checkpoint.h</font></b><BR>
+IAS code for checkpoint and restart commands, which in turn calls the
+checkpoint and restart functions inside each module.
+<P>
+<B><font face="courier">iam/src/chk2mem.c iam/src/chk2mem.h</font></b><BR>
+Source for the chk2mem utility - a standalone utility, and a binary
+built from this directory.
+<P>
+<B><font face="courier">iam/src/commands.c iam/src/commands.h</font></b><BR>
+Implementations of a few cache control commands.
+<P>
+<B><font face="courier">iam/src/display.c</font></b><BR>
+Implementations of a few display commands.
+<P>
+<B><font face="courier">iam/src/dprint.h</font></b><BR>
+Implementations of a debug print mechanism which controls verbosity of
+various <code>itrace</code> levels.
+<P>
+<B><font face="courier">iam/src/exception.c iam/src/exception.h</font></b><BR>
+Implementation of exception mechanism for picoJava.
+<P>
+<B><font face="courier">iam/src/ext_ops.c iam/src/ext_ops.h</font></b><BR>
+Implementation of picojava specific "extended" bytcodes.
+<P>
+<B><font face="courier">iam/src/gdb_interface.c iam/src/gdb_interface.h</font></b><BR>
+Adapter to the gdb frontend requirements. The gdb interface is not
+supported, may not have all features and may not be available to all 
+IAS users.
+<P>
+<B><font face="courier">iam/src/global_regs.c iam/src/global_regs.h</font></b><BR>
+Implementation of picojava registers, and some
+pseudo-registers. Basically, IAS global variables.
+<P>
+<B><font face="courier">iam/src/iam.c iam/src/iam.h</font></b><BR>
+Main IAS loop and control.
+<P>
+<B><font face="courier">iam/src/interrupts.c iam/src/interrupts.h</font></b><BR>
+IAS implementation of scheduling interrupts feature.
+<P>
+<B><font face="courier">iam/src/javamem.c iam/src/javamem.h</font></b><BR>
+Implements the memory interface of the simulator. All memory accesses
+go through the functions or macros defined in these files.
+<P>
+<B><font face="courier">iam/src/jmath.h iam/src/jmath_md.h</font></b><BR>
+A couple of floating point macros for picoJava <code>drem</code> instruction.
+<P>
+<B><font face="courier">iam/src/jvm_ops.c iam/src/jvm_ops.h</font></b><BR>
+Source for most simple Java Virtual Machine instructions.
+<P>
+<B><font face="courier">iam/src/object_ops.c iam/src/object_ops.h</font></b><BR>
+Source for all the object related Java Virtual Machine instructions.
+<P>
+<B><font face="courier">iam/src/opcode_names.h iam/src/opcodes.h</font></b><BR>
+Opcode values and names.
+<P>
+<B><font face="courier">iam/src/report.c iam/src/report.h</font></b><BR>
+Code to print out final statistics, pass or fail, and any failure message.
+<P>
+<B><font face="courier">iam/src/sample_libtrace.c</font></b><BR>
+A very simple example to demonstrate use of the IAS program tracing feature.
+<P>
+<B><font face="courier">iam/src/scache.c iam/src/scache.h</font></b><BR>
+Implementation of the picoJava stack cache.
+<P>
+<B><font face="courier">iam/src/serial_port.c iam/src/serial_port.h</font></b><BR>
+Code for <code>PJSIM_PORT_HANDLER</code>, the virtual serial port attached to IAS.
+
+<P>
+<B><font face="courier">iam/src/sim_config.h</font></b><BR>
+A "control" file which control the defines to be used when building
+the IAM module. Some defines can be removed to reduce IAS functionality,
+and possibly increase simulation speed. The default configuration has full 
+functionality, except tracing, which is not required for correctness. 
+Leave this file as is, unless you  understand all the implications 
+of the <code>#define</code>s.
+<P>
+<B><font face="courier">iam/src/statistics.c iam/src/statistics.h</font></b><BR>
+Code to implement various kinds of statistics objects.
+<P>
+<B><font face="courier">iam/src/test.c</font></b><BR>
+An old test program. No longer used.
+<P>
+<B><font face="courier">iam/src/tracing.c iam/src/tracing.h</font></b><BR>
+Code to implement the tracing functionality.
+<P>
+<B><font face="courier">iam/src/traps.c iam/src/traps.h</font></b><BR>
+Code for picoJava traps.
+<P>
+<B><font face="courier">ldr/src/binit.h</font></b><BR>
+Header file for the binary <code>init</code> feature of IAS. 
+<P>
+<B><font face="courier">ldr/src/bool.h</font></b><BR>
+Defines boolean type. Rarely used.
+<P>
+<B><font face="courier">ldr/src/classDump.c</font></b><BR>
+Source for a standalone binary called <code>classDump</code> built from this directory.
+<P>
+<B><font face="courier">ldr/src/cm.c ldr/src/cm.h</font></b><BR>
+The lowest level of the memory. Allocates and owns the memory. Also
+provides read and write calls on the memory.
+<P>
+<B><font face="courier">ldr/src/copy.c</font></b><BR>
+Routines to copy over the loader data structures from IAS memory into
+the picoJava memory.
+<P>
+
+<code><B>ldr/src/debug.h</B></code><BR>
+Required by <code>oobj.h</code>
+<P>
+<B><font face="courier">ldr/src/decaf.h</font></b><BR>
+Definitive guide to the picoJava class data structures.
+<P>
+<B><font face="courier">ldr/src/dis.c</font></b><BR>
+Disassembly routine.
+<P>
+<B><font face="courier">ldr/src/dump.c</font></b><BR>
+Routines to print out various class data structures.
+<P>
+<B><font face="courier">ldr/src/loader.c ldr/src/loader.h</font></b><BR>
+The class loading functions.
+<P>
+<B><font face="courier">ldr/src/loadtraps.c ldr/src/loadtraps.h</font></b><BR>
+The trap handler loading function.
+<P>
+<B><font face="courier">ldr/src/oobj.h ldr/src/oobj_md.h</font></b><BR>
+Inherited from JDK source code.
+<P>
+<B><font face="courier">ldr/src/opcodes.h</font></b><BR>
+Enum type declarations for opcodes.
+<P>
+<B><font face="courier">ldr/src/res.c ldr/src/res.h</font></b><BR>
+Resolves method names.
+<P>
+<B><font face="courier">ldr/src/rw.c</font></b><BR>
+Verilog PLI routines.
+<P>
+<B><font face="courier">ldr/src/signature.h</font></b><BR>
+Signature characters for various types.
+<P>
+<B><font face="courier">ldr/src/syscall.c ldr/src/syscall.h</font></b><BR>
+Code for system call functionality in the IAS/RTL environment.
+<P>
+<B><font face="courier">ldr/src/test_loader.c</font></b><BR>
+A test program for the loader. Not actively used.
+<P>
+<B><font face="courier">ldr/src/traptypes.h</font></b><BR>
+Definitions of various trap types. Unfortunate duplication
+with <code>iam/src/traps.h</code>
+<P>
+<B><font face="courier">ldr/src/tree.h</font></b><BR>
+Definitions for class/method/field attributes.
+<P>
+<B><font face="courier">ldr/src/typedefs.h ldr/src/typedefs_md.h</font></b><BR>
+Type definitions.
+<P>
+<B><font face="courier">ldr/src/veriuser.h ldr/src/vmacro.h</font></b><BR>
+Verilog PLI stuff.
+<P>
+<B><font face="courier">sim/src/ack.c</font></b><BR>
+Function to send <code>cosim</code> acknowlegment to RTL.
+<P>
+<B><font face="courier">sim/src/build_info.h</font></b><BR>
+Stub file, to be updated before every build with revison or build information.
+<P>
+<B><font face="courier">sim/src/cache.c</font></b><BR>
+Tcl frontend cache commands.
+<P>
+<B><font face="courier">sim/src/dis.c</font></b><BR>
+Tcl frontend disassembly commands.
+<P>
+<B><font face="courier">sim/src/dump.c</font></b><BR>
+Tcl frontend dump commands.
+<P>
+<B><font face="courier">sim/src/elf.c sim/src/exechdr.h</font></b><BR>
+Tcl frontend elf loader.
+<P>
+<B><font face="courier">sim/src/init.c</font></b><BR>
+Function called at init to set up Tcl commands, link vars between Tcl 
+and C.
+<P>
+<B><font face="courier">sim/src/load.c</font></b><BR>
+Tcl frontend <code>loadclass</code> command.
+<P>
+<B><font face="courier">sim/src/memfile.c</font></b><BR>
+Tcl frontend <code>memfile</code> and <code>bmemfile</code>
+commands.
+<P>
+<B><font face="courier">sim/src/option.c</font></b><BR>
+Tcl frontend random commands.
+<P>
+<B><font face="courier">sim/src/run.c</font></b><BR>
+Tcl frontend <code>run</code> commands.
+<P>
+<B><font face="courier">sim/src/sim.h</font></b><BR>
+General header file for this directory.
+<P>
+<code><B>sim/src/sim.tcl</B></code><BR>
+Tcl frontend interpreter. Also receives results from RTL and performs
+comparisons during <code>cosim</code>
+<P>
+<B><font face="courier">sim/src/tclAppInit.c</font></b><BR>
+Tcl function.
+<p>
+<B><font face="courier">sim/src/trace.c</font></b><BR>
+Tcl frontend <code>itrace</code> command.
+<P>
+<B><font face="courier">sim/src/update-build-info</font></b><BR>
+Script to  update the <code>build_info.h</code> file automatically.
+</BLOCKQUOTE>
+<P>
+<P>
+<A HREF="./ias.html">IAS</A></font>
+
+<HR SIZE=4 WIDTH="100%">
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+<P>
+
+</font>
+</body>
+</html>
+

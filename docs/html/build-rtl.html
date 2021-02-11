@@ -1,0 +1,149 @@
+<html> <head> <TITLE>Building the RTL Model</TITLE> </head>
+<body bgcolor="white">
+
+<FONT FACE="arial, helvetica">
+<center> <h1>Building the RTL Model</h1> </center>
+
+<HR SIZE=4 WIDTH="100%">
+<BLOCKQUOTE>
+<p>
+To simulate the picoJava<SUP><small>TM</small></sup>-II RTL core, you need a Verilog simulator such as
+<A href="http://www.cadence.com/software/verilog.html">
+Cadence's Verilog-XL</A><SUP><small>TM</small></sup>
+or 
+<A href="http://www.synopsys.com/products/simulation/simulation.html">Synopsys's VCS</A><SUP><small>TM</small></sup>. 
+Though the design is likely to work
+correctly with other Verilog simulators, the picoJava-II core has been 
+extensively tested only with these two simulators.
+<p>
+Before building the RTL model, you need to have
+<a href=setenv.html>set up your environment</a>.
+These sections step you through the process of building a
+picoJava-II RTL model. 
+
+</p>
+<ul>
+<a href="#configure">Configuring the core </a><br>
+<a href="#makevlog">Compiling custom Verilog-XL executable</a><br>
+<a href="#makevcs">Compiling custom vcs executable</a><br>
+<a href="#addtortl">Adding Signalscan and other 3rd party PLIs</a><br>
+</ul>
+
+</BLOCKQUOTE>
+<a name="configure">
+<h2>Configuring the core</h2>
+<BLOCKQUOTE>
+<P>
+The default configuration of the core is:<BR>
+<UL> 
+<LI>16KB I-Cache,
+<LI>16KB D-Cache 
+<LI> FPU present
+</UL>
+<p>
+If you need to change the configuration of the core, 
+<a href="configure.html">follow these instructions</a>.
+</BLOCKQUOTE>
+<a name="makevlog">
+<h2>Compiling a custom Cadence Verilog-XL executable </h2>
+<blockquote>
+<p>The custom Verilog executable for the picoJava-II environment is called <code>pj2vlog</code>.
+The steps to compile <code>pj2vlog</code> are:
+
+<OL>
+<LI><code>cd</code> into the <code>$DSVHOME</code> directory.</LI>
+<LI>Look at the <code>verilog/src/Makefile.in</code>. <BR>
+Verify that you have the correct libaries necessary for the version of
+Verilog-XL that you are using.  The default settings here refer to
+Verilog-XL 2.3.3 from the 95.04 release. Other setting are given for
+various other versions that have been successfully compiled.
+For more information, go to 
+<A href="http://www.cadence.com/software/verilog.html">
+  Cadence Verilog-XL</a>.</LI>
+<LI>Type <B><code>make pj2vlog</code></B>.  This builds the custom
+    executable
+<code>pj2vlog</code> in the <code>$DSVHOME/bin</code> directory
+if everything builds correctly.</LI>
+<LI>A quick way to check if you build pj2vlog correctly is to 
+<a href=sampletest.html#runvlog> run some sample tests</a>.
+</OL>
+
+</blockquote>
+
+<a name="makevcs">
+<h2>Compiling a custom Synopsys VCS executable</h2>
+<blockquote>
+<p>The custom VCS executable for the picoJava-II environment is called <code>pj2vcs</code>.
+The steps to compile <code>pj2vcs</code> are:
+<OL>
+<LI><code>cd</code> into the <code>$DSVHOME</code> directory.</LI>
+<LI>Verify that the command <code>vcs</code> is in your search path. </LI>
+<LI>Type <B><code>make pj2vcs</code></B>. This builds the custom
+    executable
+<code>pj2vcs</code> in the <code>$DSVHOME/bin</code> directory <BR>
+if everything builds correctly.</LI>
+<LI>A quick way to check if you build pj2vcs correctly is to 
+<a href=sampletest.html#runvcs> run some sample tests</a>.
+</OL>
+
+</blockquote>
+<a name="addtortl">
+<h2>Adding Signalscan and other 3rd party PLIs</h2>
+<blockquote>
+<p>
+You can view graphical waveforms of the logic inside the picoJava-II core 
+using the Signalscan<SUP><SMALL>TM</SMALL></SUP> tool from
+Design Automation. If you have access to Signalscan 
+and would like to be able to use it, you need to add in support for
+Signalscan when building the custom RTL model. 
+</p>
+<p>
+Support for generating DAI's Signalscan database of the simulation
+is included in the picoJava-II testbench environment.  By default, this
+support is not enabled.  
+<P>
+To enable this feature, you must <code>define
+SIGNALSCAN</code> in <code>$PICOJAVAHOME/$PROJECT/sim/env/sys.h</code>.
+</p>
+<p>
+The steps to produce a Verilog/VCS executable, which includes the 
+PLIs are: 
+</p>
+ 
+<a name="addtoverilog">
+<h3>Verilog-XL</h3>
+<OL>
+<LI><code>cd</code> into <code>$DSVHOME/verilog/src.</code></LI>
+<LI>Modify <code>pj_user.c</code> to add the new PLI functions.</LI>
+<LI>Modify <code>Makefile.in</code> to include the PLI libraries in
+the EXTRA_LIB line. </LI>
+<LI>Compile the executable as described <a href="#makevlog">above</a>.</LI>
+</OL>
+
+<a name="addtovcs">
+<h3>VCS</h3>
+<OL>
+<LI><code>cd</code> into <code>$DSVHOME/verilog/src.</code></LI>
+<LI>Modify <code>vcs.tab</code> to add the new PLI functions.</LI>
+<LI>Modify <code>$DSVHOME/bin/vcsc</code> to include the PLI libraries 
+    in the <code>vcs</code> compile line. </LI>
+<LI>Compile the executable as described <a href="#makevcs">above</a>.</LI>
+</OL>
+
+<p>
+You can follow these steps for linking in any third-party (or even your own) PLI
+routines.
+</p>
+</BLOCKQUOTE>
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</body>
+</html>

@@ -1,0 +1,216 @@
+<html>
+<head>
+<TITLE>picoJava(TM)-II Project:Cosim FAQ</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<body>
+
+<br><br>
+<center>
+<H1>The RTL Environment and Cosimulation: <BR>
+            Frequently Asked Questions </H1>
+</center>
+
+
+<HR SIZE=4 WIDTH="100%">
+
+Note: This document will guide the reader through picoJava-II cosimulation.
+It provides answers to the following questions:
+<UL>
+<LI> <A HREF="#1">  How does cosimulation work?</A>
+<LI> <A HREF="#2">  How is folding handled?</A>
+<LI> <A HREF="#3">  How are interrupts handled?</A>
+<LI> <A HREF="#4">  How are the stackTop contents handled?</A>
+<LI> <A HREF="#5">  Are memory or cache contents compared between IAS and RTL?</A>
+<LI> <A HREF="#6">  What is small compare and big compare?</A>
+<LI> <A HREF="#7">  What options does <code>pj2vlog</code> or <code>pj2vcs</code> take?</A>
+<LI> <A HREF="#8">  How are these options communicated to IAS?</A>
+<LI> <A HREF="#9">  Where is the memory map documented?</A>
+<LI> <A HREF="#10"> What PLI functions are linked in to the RTL?</A>
+<LI> <A HREF="#11"> What files contain the relevant code for cosimulation?</A>
+</UL>
+<P>
+<A NAME="1">
+<B>Q. How does cosimulation work?</B></A>
+<P>
+Cosimulation works by executing a program in picoJava RTL (pj2vcs/pj2vlog) 
+and in picoJava IAS. The user executes cosimulation by invoking the 
+RTL binary <code>pj2vcs</code> or <code>pj2vlog</code> with the
+<code>+cosim</code> option. Specifying this option causes
+ <code>pj2vcs</code> or <code>pj2vlog</code> to fire off an IAS process.
+the RTL maintains an unnamed pipe along which it communicates to this
+child IAS process. Communication between the RTL and IAS is 
+mostly one-way (RTL to IAS) with only acknowledgments flowing back the other 
+way (IAS to RTL).
+<P>
+IAS is not invoked specially or with any options - RTL redirects
+IAS's standard input, and sends along commands on it's STDIN.
+IAS thinks it's simply reading regular user input.
+<P>
+Note that RTL and IAS are two different processes, with only
+a pipe connection to communicate on. There is no shared memory -
+specifically, even though the same loader module (libloader.a) 
+is *linked* in with both the RTL and IAS, there are 2 different 
+instances of this module at run-time, one in each process.
+<P>
+At the end of each instruction or set of instructions completed
+by the RTL - that is, when the instruction reaches W-stage, 
+the <code>compareResults</code> command is sent across 
+to IAS along with the values of all RTL 
+registers, and the top 5 entries of the stack. IAS executes
+the instruction(s) using the <code>step</code> command, and then performs a 
+comparison between register values and stackTop 1..5 it sees, and 
+the values it received from RTL. 
+<P>
+At the end of the program, RTL sends across <code>compareMemory</code> commands
+for each memory location which cause IAS to compare that memory
+location in it's own memory with the RTL's value. 
+<P>
+<A NAME="2"><B>Q. How is folding handled?</B></A>
+<P>
+Folding is handled by sending across the number of instructions folded
+together in the instruction group which reached the RTL's W-stage. this 
+information is kept around in the RTL (purely for cosimulation purposes) in a signal
+called <code>CPU.iu.ifu.instrs_folded_w</code>. This value is sent as part of 
+the arguments to the <code>compareResults</code> command. IAS then knows how many
+instructions to step before performing the comparison.
+<P>
+<A NAME="3"><B>Q. How are interrupts handled?</B></A>
+<P>
+In the RTL, interrupts and traps are handled just like 
+an instruction. A trap pseudo-instruction is introduced into
+the pipe, flows down, and completes in the W-stage. Similarly, IAS
+counts the action of taking a trap or interrupt as one instruction.
+Hence, cosimulation treats each interrupt just like any other instruction, 
+except that <code>instrs_folded_w</code> is 0 - if IAS sees this value as 0 in
+the <code>compareResults</code> function, it knows that this must be due to an 
+interrupt, so it simply steps once.
+<P>
+<B>Note:</B> While IAS takes it's own (emulation and other kinds of) traps, 
+it is explicitly told by RTL about when to take an interrupt using the 
+<code>intr</code> command. Since RTL can be given random interrupts using the 
+<code>+int_random</code> option, it is up to RTL to inform IAS 
+exactly when after which instruction it has taken an interrupt. This means that if for 
+some reason the RTL does not take an interrupt it should have, this error 
+will be masked out by cosimulation because IAS on it's own has no way of knowing 
+that an interrupt was supposed to be taken.
+<P>
+The scheduling feature of IAS interrupts is never used during cosimulation -
+(RTL gives IAS only non-repeating interrupts with count 0).
+<P>
+<A NAME="4"><B>Q. How are the stackTop contents handled?</B></A>
+<P>
+The top 5 entries on the stack are compared, *provided* they are 
+available in the S-Cache memory in the RTL. The number of Stack
+Cache entries which
+are valid in any given clock can be determined by comparing OPTOP and 
+SC_BOTTOM. If all top 5 entries are not available in S-Cache memory in the
+RTL, a magic value (0xdeeddeed) is sent across to IAS in it's place - 
+IAS suppresses compares of that stackTop location if it sees that magic 
+value.
+<P>
+<A NAME="5"><B>Q. Are memory or cache contents compared between IAS and RTL?</B></A>
+<P>
+Cache contents cannot be compared between IAS and RTL since there are dribbling
+differences in IAS and RTL. See<a HREF="./ias.html"> IAS documentation</A> on exactly how the stack
+cache is handled in IAS. This changes D-cache access patterns between IAS
+and RTL. Therefore, for cosimulation, memory contents are compared between 
+IAS and RTL only at the end of the program. For this comparison to be valid, 
+there must also be no dirty data in the D-Cache, since the IAS and RTL cache 
+contents can be different. Hence, most tests specify an option "-flush" 
+to flush the Dcache at the end of the program. 
+<P>
+However, since IAS and RTL implement scache dribbling differently, 
+we could end up with mismatches even after cache flushing in
+memory locations which have possibly been dribbled to, in either 
+the IAS or RTL.
+<P>An example scenario is this: The temporary stack data gets
+dribbled out to memory in IAS when the number of entries becomes greater than
+the high watermark. Before RTL can dribble the same data out, the stack
+entries get popped by the program such that the number
+of entries is no longer greater than the high watermark.
+Hence that temporary stack data is never committed to memory in RTL, 
+but has already
+been committed in IAS.
+<P> Such false mismatches occur fairly frequently in 
+practice, so they are suppressed by IAS maintaining watermarks for the
+minimum and maximum value of sc_bottom whichever occurred during the
+program, and disabling comparison on this memory area and a small 
+area surrounding this.
+<P>
+<A NAME="6"><B>Q. What is small compare and big compare?</B></A>
+<P>
+After reset, only a few registers contain known initial values. Other
+registers are invalid. Hence we cannot initially compare all registers 
+between IAS and RTL. To solve this problem, we start off in "small compare" 
+mode where only registers known to have a poweron value and the stackTop
+contents are compared. When reset code sets up deterministic values for 
+all the registers, it typically enables "big compare" (by writing to a magic 
+memory location) and all registers and stacktop contents are compared. 
+A warning is printed when only small compare is being performed, since it
+could mask miscompares if only small compare is on throughout the 
+simulation. 
+<P>
+<A NAME="7"><B>Q. What options does <code>pj2vlog</code> or <code>pj2vcs</code> take?</B></A>
+<P>
+Here is a detailed list of
+<A HREF="./rtl_options.html">RTL options</a>.
+The command "pj2vcs/pj2vlog +usage" will list out the options.
+<P>
+<A NAME="8"><B>Q. How are these options communicated to IAS?</B></A>
+<P>
+Usually with a set of magic memory locations. Before the program starts,
+RTL sends across a few memPoke commands, which control IAS behaviour.
+classes loaded with the +class+&lt;classfile&gt; option are communicated to IAS using 
+the <code>loadClass</code> command. RTL also creates a file called 
+<code>"cos"</code> in the current
+directory which contains the commands it sent across to IAS to perform
+the necessary set up. It is useful to execute command <code>"source cos"</code>
+ in IAS if you are running IAS standalone to recreate a problem 
+which occurred during cosimulation.
+<P>
+<A NAME="9"><B>Q. Where is the memory map documented?</B></A>
+<P>
+In Chapter 2 of the <I>picoJava-II Verification Guide</I>. Also 
+check <code>$DSVHOME/ldr/src/cm.h</code>.
+<P>
+<A NAME="10"><B>Q. What PLI functions are linked in to the RTL?</B></A>
+<P>
+The functions in <code>$DSVHOME/ldr/src/rw.c</code> are linked into the RTL.
+You can link in PLI's for 3rd party tools like Signalscan following
+<a href=build-rtl.html#addtortl>add PLI instructions.</a>
+<P>
+<A NAME="11"><B>Q. What files contain the relevant code for cosimulation?</B></A>
+<P>
+Some important files:<BR>
+<code>$PICOJAVAHOME/$PROJECT/sim/env/sys.v</code> and <code>$PICOJAVAHOME/$PROJECT/sim/env/*.v</code> - 
+System level testbench - Processes all the 
+options, communicates with IAS, etc. A thorough read of <code>sys.v</code> should
+answer most questions.
+<P>
+<code>$DSVHOME/ldr/src/rw.c</code> - PLI functions
+<P>
+<code>$DSVHOME/sim/src/sim.tcl</code> - Tcl frontend for IAS - provides the functions
+for comparison of register or memory contents.
+<P>
+
+</font>
+
+
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</body>
+</html>

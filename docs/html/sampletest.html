@@ -1,0 +1,102 @@
+<html> <head> <TITLE>Running Sample Tests</TITLE>
+</head>
+<body bgcolor="white">
+
+
+<FONT FACE="arial, helvetica">
+<center> <H1>Running Sample Tests </h1> </center>
+<a href=#runvlog>Run sample tests in Verilog-XL</a><br>
+<a href=#runvcs>Run sample tests in vcs</a><br>
+<a href=#runcosim>Run sample tests in cosimulation</a><br>
+
+<p>
+The following 5 sample test cases that have been precompiled and are 
+present in the directory $PICOJAVAHOME/$PROJECT/sim/test/sample_tests. 
+</p>
+<blockquote>
+<table>
+<tr><td><FONT FACE="courier">dcu_2_7.class</FONT></td><td><FONT FACE="arial, helvetica">Tests load cache hits</font></td></tr>
+<tr><td><FONT FACE="courier">icu_3_1_1.class</font></td><td><FONT FACE="arial, helvetica">Tests Icache control during ICache hits.</font></td></tr>
+<tr><td valign=top><FONT FACE="courier">push_pop_1.class</font></td><td>
+<FONT FACE="arial, helvetica">256 pushes, 256 pops. This test verifies the normal conditions of the stack
+manager. In filing up the stack cache with 256 entries, the Dribble Manager
+fills and spills entries according to the settings of the high and low
+watermarks.</font></td></tr><br>
+
+<tr><td><FONT FACE="courier">FADD_000.class</font></td><td><FONT FACE="arial, helvetica">Tests the FADD operation.</font></td></tr>
+
+<tr><td valign=top><FONT FACE="courier">arithm_int.class</font></td><td>
+<FONT FACE="arial, helvetica">Verifies the results of iadd, isub, idiv, imul, irem and ineg. This test
+picks operands arbitrarily and performs one calculation for each intruction.
+</font></td></tr></table>
+</blockquote>
+
+<a name=runvlog>
+<h2>Run Sample Tests in Verilog-XL</h2>
+<blockquote>
+<OL>
+<LI>Make sure that the "pj2vlog" binary is in your shell's search path.
+   If you want to build pj2vlog, <a href=build-rtl.html#makevlog>here</a> is how.</LI><br>
+ 
+<LI>Change directory into the test directory, e.g., cd FADD_000.</LI> <br>
+
+<LI>Make sure there is link to the picoJava-II directory. 
+   This will tell verilog where to look for the rtl files.</LI> <br>
+
+<LI>Type "pj2vlog -f $VFILES_PATH".
+   The output from the simulation will be sent to standard IO.</LI><br>
+
+</OL>
+</blockquote>
+
+<a name=runvcs>
+<h2>Run Sample Tests in vcs</h2>
+<blockquote>
+<OL>
+<LI>Make sure that the "pj2vcs" binary is in your shell's search path.
+   If you want to build pj2vcs, <a href=build-rtl.html#makevcs>here</a> is how.</LI><br>
+ 
+<LI>Change directory into the test directory, e.g., cd FADD_000.</LI> <br>
+
+<LI>Type "pj2vcs".
+   The output from the simulation will be sent to standard IO.</LI><br>
+</OL>
+</blockquote>
+
+<a name=runcosim>
+<h2>Run Sample Tests in cosimulation</h2>
+<blockquote>
+<OL>
+<LI>Make sure that the "ias" and "pj2vlog(or pj2vcs" binary is in your shell's search path.
+   If you want to build pj2vlog, <a href=build-rtl.html#makevlog>here</a> is how.
+   If you want to build pj2vcs, <a href=build-rtl.html#makevcs>here</a> is how.</LI><br>
+ 
+<LI>Change directory into the test directory, e.g., cd FADD_000.</LI> <br>
+
+<LI>Execute pj2vlog from this directory with the following option:<br>
+<blockquote>
+   pj2vlog -f +cosim+ias $VFILES_PATH<br>
+</blockquote>
+
+   Or execute pj2vcs from this directory with the following option:<br>
+<blockquote>
+   pj2vcs +cosim+ias<br>
+</LI>
+</blockquote>
+<OL>
+</blockquote>
+
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+</body></html>

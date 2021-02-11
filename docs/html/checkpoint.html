@@ -1,0 +1,209 @@
+<html>
+<head>
+<TITLE>IAS: Checkpoints</TITLE>
+</head>
+
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1>IAS:<br>
+Checkpoints</H1>
+</center>
+
+<HR SIZE=4 WIDTH="100%"><BR>  
+<P>
+<UL>
+<LI> <A HREF="#1">  Overview</A>
+<LI> <A HREF="#2">  Sample Run</A>
+</UL>
+<P>
+<A NAME="1">
+<h2>Overview</h2></A>
+<BLOCKQUOTE>
+You can use the IAS checkpoint/restart feature to 
+save the entire state of IAS to a file and later restore that state
+and restart execution from the same point in a different
+run. Because youcan save state just before a crash, and restart
+from the same point you can quickly debug long-running programs.
+<P>
+In the Tcl interface, the commands are:<BR>
+<UL>
+<code>checkpoint</code> <I>filename</I> - Save the state to a file<BR>
+<code>restart</code> <I>filename</I> - Initialize the IAS state to the state stored in the file<BR>
+</UL>
+<P>
+The commands are also available through the (officially unsupported) gdb 
+interface as:<BR>   
+<UL>
+<code> sim</code> <code>checkpoint </code><I>filename</I><BR>
+<code>sim</code> <code>restart</code> <I>filename</I><BR>
+</UL>
+<P>
+Internal to IAS, the following modules are checkpointed:
+<UL>
+Simulation control<BR>
+Main memory<BR>
+Global registers (including instruction counts)<BR>
+Statistics objects<BR>
+I-Cache<BR>
+D-Cache<BR>
+S-Cache<BR>
+Simulation breakpoints module<BR>
+Interrupts module<BR>
+</UL><P>
+No other restrictions exist on checkpoints. The cache can be on or
+off; the stack cache can be on or off; the cache size can be set to one value,
+and the restart can resize the cache to another size if specified
+by the checkpoint file. Interrupts or breakpoints which you have 
+set up should transparently come back as well. 
+<P>
+An exception to this scenerio is that IAS reads environment variables that affect
+IAS (IAS_MAX_INSTRUCTIONS, DSV_HOME, PJSIM_TRACE_LIB, and so on)
+from the new environment so that you can change this control.
+IAS maintains instruction counts and other statistics from the 
+checkpoint to the restarted run.
+<P>
+Checkpoint files have an embeddeed signature and version number to
+ensure that you use checkpoint files that are applicable for a given
+version of IAS only.
+</BLOCKQUOTE><P>
+<A NAME="2">
+<h2>Sample Run</h2></A>
+
+<pre>
+machine_name% ias
+picoJava IAS version <>, built <>
+SunOS machine_name 5.5.1 Generic_103640-08 sun4u sparc SUNW,Ultra-2
+Simulator Configuration:
+Pico breakpoints registers  : enabled
+Simulator breakpoints       : enabled
+Interrupt functionality     : enabled
+Memory protection checks    : enabled
+Tracing functionality       : disabled
+ 
+class java/lang/Class loaded
+class java/lang/Field loaded
+class java/lang/Method loaded
+class java/lang/ExceptionBlock loaded
+class java/lang/DecafString loaded
+reset class and handler loaded
+invokestatic class and handler loaded
+getstatic class and handler loaded
+putstatic class and handler loaded
+ldc class and handler loaded
+ldc_w class and handler loaded
+ldc2_w class and handler loaded
+invokeinterface class and handler loaded
+invokevirtual class and handler loaded
+new class and handler loaded
+newarray class and handler loaded
+getfield class and handler loaded
+putfield class and handler loaded
+invokespecial class and handler loaded
+aastore class and handler loaded
+anewarray class and handler loaded
+getfield_quick_w class and handler loaded
+putfield_quick_w class and handler loaded
+lookupswitch class and handler loaded
+multianewarray class and handler loaded
+checkcast class and handler loaded
+instanceof class and handler loaded
+athrow class and handler loaded
+new_quick class and handler loaded
+anewarray_quick class and handler loaded
+checkcast_quick class and handler loaded
+instanceof_quick class and handler loaded
+multianewarray_quick class and handler loaded
+invokeinterface_quick class and handler loaded
+% loadClass QueensBenchmark
+<clinit> inside
+% steps 375000               <---||||| run for 375000 instructions
+% where
+PC=00051aa7 PSR=00722ef0 Optop=003ffa68 Vars=003ffa9c Frame=003ffa88 Constpool=000516B0 Trapbase=000105e0
+0x00051aa7 54           bastore
+% checkpoint abc <---|||||| checkpoint into file "abc" here
+% cont           <---|||||| continue, checkpoint has no effect on current run
+IAS: Test PASSED, 1017780 instructions, 0 interrupts taken, 187 total traps
+% exit
+machine_name%
+<P>
+<P>
+
+machine_name% ias
+picoJava IAS version <>, built <>
+SunOS machine_name 5.5.1 Generic_103640-08 sun4u sparc SUNW,Ultra-2
+Simulator Configuration:
+Pico breakpoints registers  : enabled
+Simulator breakpoints       : enabled
+Interrupt functionality     : enabled
+Memory protection checks    : enabled
+Tracing functionality       : disabled
+ 
+class java/lang/Class loaded
+class java/lang/Field loaded
+class java/lang/Method loaded
+class java/lang/ExceptionBlock loaded
+class java/lang/DecafString loaded
+reset class and handler loaded
+invokestatic class and handler loaded
+getstatic class and handler loaded
+putstatic class and handler loaded
+ldc class and handler loaded
+ldc_w class and handler loaded
+ldc2_w class and handler loaded
+invokeinterface class and handler loaded
+invokevirtual class and handler loaded
+new class and handler loaded
+newarray class and handler loaded
+getfield class and handler loaded
+putfield class and handler loaded
+invokespecial class and handler loaded
+aastore class and handler loaded
+anewarray class and handler loaded
+getfield_quick_w class and handler loaded
+putfield_quick_w class and handler loaded
+lookupswitch class and handler loaded
+multianewarray class and handler loaded
+checkcast class and handler loaded
+instanceof class and handler loaded
+athrow class and handler loaded
+new_quick class and handler loaded
+anewarray_quick class and handler loaded
+checkcast_quick class and handler loaded
+instanceof_quick class and handler loaded
+multianewarray_quick class and handler loaded
+invokeinterface_quick class and handler loaded
+% restart abc    <---|||| restart from state stored in file abc, 
+                 <---|||| no need to load classes, etc.
+                 <---|||| no harm if other programs are run before this,
+                 <---|||| with different simulation controls, since entire 
+                 <---|||| simulator is reinitialised to checkpointed values
+% where
+PC=00051aa7 PSR=00722ef0 Optop=003ffa68 Vars=003ffa9c Frame=003ffa88 Constpool=000516B0 Trapbase=000105e0
+0x00051aa7 54           bastore
+% cont          <---|||| program continues exactly like original run
+IAS: Test PASSED, 1017780 instructions, 0 interrupts taken, 187 total traps
+% exit
+</pre>
+<P>
+<P>
+
+<A HREF="./ias.html">IAS</A></font>
+
+<HR SIZE=4 WIDTH="100%">
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+<P>
+
+
+</font>
+</body>
+</html>

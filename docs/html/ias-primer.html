@@ -1,0 +1,405 @@
+<html>
+<head>
+<TITLE>Beginner's  Guide To Using IAS</TITLE>
+</head>
+<body bgcolor="white">
+<font face="arial, helvetica">
+
+<center>
+<H1><B>Beginner's Guide To Using IAS</B></H1> 
+</center>
+
+<P>This guide provides answers to the following questions: 
+
+<Blockquote>
+<A HREF="ias-primer.html#whatis">What is IAS?</A><BR>
+<A HREF="ias-primer.html#machines">What platforms does IAS run on?</A><BR>
+<A HREF="ias-primer.html#interface">What is the user interface provided by IAS?</A><BR>
+<A HREF="ias-primer.html#run">How do I run IAS?</A><BR>
+<A HREF="ias-primer.html#inside">How do I get help while inside the simulator?</A><BR>
+<A HREF="ias-primer.html#env">How should I set up my environment to run IAS?</A><BR>
+<A HREF="ias-primer.html#state">What is the state of the machine at startup?</A><BR>
+<A HREF="ias-primer.html#load">How do I load a program (.class file) into the simulator?</A><BR>
+<A HREF="ias-primer.html#control">How does control reach this program?<A><BR>
+<A HREF="ias-primer.html#dynamics">Are classes loaded dynamically as in the Java<small><sup>TM</sup></small> virtual machine?<A><BR>
+<A HREF="ias-primer.html#runtime">What runtime environment is available to the program?<A><BR>
+<A HREF="ias-primer.html#debug">What debugging features are available?<A><BR>
+<A HREF="ias-primer.html#mt">Can I run multithreaded programs on the simulator?<A><BR>
+<A HREF="ias-primer.html#hello">What are the steps for running through a <font face="courier">Hello, world</font> program?<A><BR>
+<A HREF="ias-primer.html#tools">What other tools are available that are specific to the picoJava<small><sup>TM</sup></small> environment?<A><BR>
+<A HREF="ias-primer.html#jasm">How do I write a program in picoJava assembly?<A><BR>
+<A HREF="ias-primer.html#questions">Frequently asked questions<A><BR>
+</Blockquote>
+
+<HR SIZE=4 WIDTH="60%"> 
+
+<A name="whatis"></A>
+<P>
+<B>Q.   What is IAS?</B>
+
+<P>
+IAS is a simulator which models
+the picoJava family of processors. Specifically, the current version of
+the simulator models picoJava-II accurately. (You may occasionally see
+IAS being referred to as PJSIM - both are synonyms for the same simulator)
+
+<P>
+IAS models the following:
+
+<UL>
+<LI>The picoJava instruction set, including <code>*_quick</code> and other instructions 
+that the picoJava hardware implements, as well as the on-core 
+caches, such as the D-Cache, I-Cache, and S-Cache.
+<p>
+<LI>The processor registers, the dribbler, 
+the FPU, exceptions, emulations, and other kinds of traps, interrupts to 
+the processor, and so on. 
+</UL>
+
+<P>
+Basically, IAS models all functionality in the
+picoJava-II Programmer's Reference Manual and is a 
+comprehensive and accurate functional model of the 
+picoJava hardware.  It does not model precise timing (clock cycle) 
+information since it goes by instruction boundaries only.  Its primary 
+purpose is to serve as a golden model for verifying the hardware 
+implementation.  However, it is also useful 
+for those who need access to the picoJava functionality via a simulator 
+before they have access to actual picoJava-based hardware.
+
+<A name="machines"></A>
+<P>
+<B>Q.    What platforms does IAS run on?</B>
+
+<P>
+IAS runs on SPARC platforms running Solaris 2.5.1 and up. 
+For information on running IAS on other
+platforms, see the document <a href="./ias-porting.html">Porting IAS</A>.
+
+<A name="interface"></A>
+<P>
+<B>Q.    What is the user interface provided by IAS?</B>
+
+<P>
+The simulator is based on a Tcl frontend, which automatically provides
+a Tcl environment for the user interface and the ability to use the Tcl
+language to extend the command set. It should be easy to bolt on a
+Tk-based GUI frontend to it, if someone is interested. 
+ 
+<P>
+You can use the picoJava simulation backend in other ways without the 
+Tcl interface, such as <code>gdb</code> for picoJava which links to the
+simulation backend, and provide its own frontend.  
+<P>
+
+<A name="run"></A>
+<P>
+<B>Q.     How do I run IAS?</B>
+<P>
+Type ias at the command prompt. In the picoJava-II environment, the 
+binary for ias usually resides in the directory $DSVHOME/bin
+
+<A name="inside"></A>
+<P>
+<B>Q.     How do I get help while inside the simulator?</B>
+<P>
+Type <code>usage</code> for online help, which prints a one-line
+summary for each of the commands that are available.
+
+<A name="env"></A>
+<P>
+<B>Q.    How should I set up my environment to run IAS?</B>
+<P>
+Set the environment variable <code>DSVHOME</code> to the root of
+a decaf system verification (<code>DSV</code>) tree. 
+
+<P>The <code>DSVHOME</code> environment variable:
+
+<UL>
+<LI>Locates Tcl scripts from <code>$DVSHOME/etc/tcl</code>.
+<LI>Locates the frontend Tcl-based interpreter from the file 
+<code>$DSVHOME/etc/sim/sim.tcl</code>. 
+<LI>Locates trap handlers, which the program looks for in <code>$DSVHOME/class/<var>trap_name</var>.class</code>. However, if a file called 
+
+<code><em>trap_name</em>.class</code> already exists in the current
+directory, then that file name is used instead for the various
+trap-related class files. See the next question.
+</UL>
+
+<A name="state"></A>
+<P>
+<B>Q.   What is the state of the machine at startup?</B>
+<P>
+At startup, IAS first looks at <code>$DSVHOME/class</code> and in the current directory (see the <A HREF="ias-primer.html#env">previous</A> question)
+and loads in the trap handlers it can find from these two locations. 
+The names of the trap handlers are preassigned and fixed. 
+<P>
+IAS loads the following three types of trap handlers:
+<UL> 
+<LI>Reset code, which IAS looks for in <code>reset.class</code>
+and loads at address 0
+<LI>Handlers for exceptions, such as divisions by zero, 
+misaligned or out-of-range addresses, different kinds of interrupts, and so
+on. The default handler terminates the program on encountering any 
+such exceptions.
+<LI>Emulation traps: Some of the higher-level Java instructions that are 
+complex to implement in hardware cause a trap in order that the 
+instruction may be emulated by software. Examples are: 
+<code>invokevirtual</code>, <code>getstatic</code>, <code>ldc</code>, 
+and so on. The emulation trap handlers implement this functionality 
+and must be loaded in order to properly run Java programs which have
+these instructions in them.
+<P>
+See the <em>picoJava-II Programmer's Reference Manual</em> for
+details about which of the Java virtual machine instructions take 
+emulation traps. 
+</UL>
+<P>
+<em>Note</em> - By default, IAS outputs a warning if it cannot 
+find any of these trap handlers, except for the exception handlers.
+<P>
+All exceptions and traps have an associated trap type (see Table 12-1
+in the <em>picoJava-II Programmer's Reference Manual</em>). 
+The trap vector table is initialized to point to the
+respective trap handlers. In the current picoJava environment, the trap
+vector is hardcoded to address 0x10000; the trapbase register is initialized 
+to 0x10000.
+<P>
+Next, the machine initializes the registers to the power-on values
+(see Table 8-1 in the specification). As a debug feature, all uninitialized
+memory and the stack cache are initialized to the pattern 0xdeadbeef.
+The machine is now at pc 0, ready to execute instructions.
+<P>
+Finally, IAS reads the file <code>.iasrc</code> in the current 
+directory and executes the commands in that file.  The simulator is 
+then ready to accept user commands. 
+
+<A name="load"></A>
+<P>
+<B>Q. How do I load a program (<code>.class</code> file) into the 
+simulator?</B>
+<P>
+Use the <code>loadClass</code> command, which installs the class file 
+into the machine's memory and sets up the tables for class structures 
+and so forth. If any of the superclasses of this class have not been
+loaded, IAS loads them as well.  The simulator searches for
+these classes in the same locations as those for the trap handlers: first 
+in the current directory, and if it cannot find the classes there, 
+then under <code>$DSVHOME/class</code>.  
+<P>
+If a class is already loaded, 
+<code>loadClass</code> prints an error; 
+it is illegal for the same class to be loaded twice in the same system.
+
+<A name="control"></A>
+<P>
+<B>Q. How does control reach this program?</B>
+<P>
+The reset code (from reset.class) is loaded at address 0.
+The default is to pick up reset.class from the $DSVHOME/class directory.
+(You can also customize the 
+initializations and override them with a <code>reset.class</code> in 
+the current directory, however.  See the 
+<A HREF="ias-primer.html#lastpara">last paragraph</A>.)
+<P>
+The default version of the reset code does the following: 
+<UL>
+<LI>Performs system initializations, such as turning on dribbling, 
+initializing the registers, and so on.
+<LI>Executes all <code>.clinit</code> methods in classes which
+contain these methods. 
+<LI>Searches all the classes for a static method called <code>main</code> and jumps to it. 
+</UL>
+<P>
+After <code>main</code> has finished executing, IAS returns 
+an integer value, which the reset code then picks up and emits as the 
+final status of the run with the following message:
+<blockquote>
+<code>IAS: TEST PASSED</code><br>
+(meaning that the exit code is 0)</blockquote>
+<P>or:
+<blockquote><code>IAS: TEST FAILED - Return Code xx</code><br>
+(meaning that the exit code is nonzero)</blockquote>
+<P>
+<b>Note</b> - The signature for the <code>main</code> method is:<br> 
+<code>public static int main ()</code><br>
+not:<br> 
+<code>public static void main (String[] argv)</code><br> 
+as in regular Java virtual machines.
+<P>
+The default reset code launches <code>main</code> in superuser mode 
+(<code>PSR.SU</code> = 1).  This methodology should not affect high-level 
+Java code, but may have some bearing on programs that contain low-level 
+machine details that are written in picoJava assembly.
+
+<A name="lastpara"></A>
+<P>
+If you want more control over how the reset code sets things up, 
+create your own <code>reset.class</code> in the current directory. You 
+can either disassemble the default <code>reset.class</code>, patch it and assemble it back, or write your own.
+
+<A name="dynamics"></A>
+<P>
+<B>Q. Are classes loaded dynamically ? </B>
+<P>
+No, we do not support dynamic loading.  Unless you load all the 
+classes that your program needs during execution,
+you may see a cryptic <code>TEST FAILED: CLASS NOT LOADED</code> error later on. 
+<P>
+Be sure to find out what classes you may possibly need and load them 
+all with the <code>loadClass</code> command. A common gotcha is not 
+loading the classes for exception objects, which may be created along
+the way.
+
+<A name="runtime"></A>
+<P>
+<B>Q. What runtime environment is available to the program?</B>
+<P>
+Very little, since porting of the bulk of the runtime environment to 
+picoJava hasn't happened yet. However, the basic functionality that is
+required to implement the Java virtual machine instruction set (such as 
+memory allocation) is handled internally by a small kernel embedded into 
+the trap handlers. Beyond that, all API functionality has to be created
+for the simulator. There is a system call mechanism the simulator supports
+which should be used as the basis for implementing native code functionality.
+
+<A name="debug"></A>
+<P>
+<B>Q. What debugging features are available?</B>
+<P>
+Debugging features include: <code>run2</code>, 
+<code>dumpStack</code>, <code>dumpReg</code>, <code>dis*</code>, and <code>itrace</code>. 
+
+<UL>
+<LI><code>itrace</code> level 1 prints out trap and exception entries, as well as exit messages. 
+<LI><code>itrace</code> level 2 prints out all method calls and returns, <code>jsr</code>s, and <code>ret</code>s in addition to the level 1 output.
+<LI><code>itrace</code> level 3 prints out the disassembly of each 
+instruction as it is being executed in addition to the level 2 output. 
+This is probably the most useful level.
+<LI><code>itrace</code> level 4 prints out register contents after 
+every instruction in addition to the level 3 output.
+<LI><code>itrace</code> level 8 prints out <em>every</em> memory reference as it occurs in addition to the level 4 output.  This output is <em>very</em> verbose.
+</UL>
+
+<A name="mt"></A>
+<P>
+<B>Q. Can I run multithreaded programs on the simulator?</B>
+<P>
+Not unless you provide the software layer for locking, thread creation, 
+scheduling, and other features, which is not yet available. This is part of 
+runtime software functionality, not hardware functionality; ias models only the
+hardware.
+
+<A name="hello"></A>
+<P>
+<B>Q. What are the steps for running through a <code>Hello, world</code> program?</B>
+<P>
+Well, <code>Hello, world</code> is more difficult since you need to have system
+call support in your runtime environment.  However, here's a simple example of a Java 
+program that adds two numbers together.
+
+<p>
+<code>
+add.java:<br>
+class add { <br>
+public static int main () { <br>
+int a = 3, b = 4, c = 7;<br>
+if (a + b == c)<br>
+&nbsp;&nbsp;return (0); // indicates pass<br>
+else<br>
+&nbsp;&nbsp;return (2); // indicates fail<br>
+}}<br>
+</code>
+
+<P>
+Follow these steps:
+<OL>
+<LI>Create <code>add.class</code> by typing at the prompt: 
+<code>javac add.java</code>.
+<P>
+<LI>Type: <code>ias</code> at the prompt.
+<P>
+this emits a bunch of messages about loading trap handlers, etc, then gives
+you a prompt and is ready for program execution.
+<P>
+<LI>Type <code>loadClass add</code> at the prompt.
+<P>
+<LI>Type <code>run</code>.
+<P>
+IAS then runs and ouputs a message like this at the end:<br>
+<code>IAS: Test PASSED, 189 instructions, 0 interrupts taken, 0 total traps</code>
+<P>
+<LI>Type <code>exit</code>.
+</OL>
+
+<A name="tools"></A>
+<P>
+<B>Q. What other tools are available that are specific to the 
+picoJava environment?</B>
+<P>
+A picoJava assembler, called <code>jasm</code>, can assemble picoJava and Java virtual machine instructions. The 
+corresponding disassembler is called <code>jdis</code>.
+<P>
+Another tool, called <code>classDump</code>, provides information about 
+class files.
+
+<A name="jasm"></A>
+<P>
+<B>Q. How do I write a program in picoJava assembly language?</B>
+<P>
+Presumably, you want to write code that is specific to the picoJava
+environment and which uses the picoJava instruction set. To do so, you 
+can use the <code>jasm</code> assembler (see the <A href=ias-primer.html#tools> previous</A> question) to write your own assembly. 
+<P>
+You write a user program in exactly the same way as mentioned 
+<A href=ias-primer.html#hello>above</A> for Java programs: The entry point 
+should be a static method called <code>main</code>.
+<P>
+Here is a minimalist, complete version of an assembly-level <code>main</code> program:
+<P>
+<code>
+nop.jasm:<br>
+public class nop {<br>
+public static Method main:"()I"<br>
+&nbsp;&nbsp;stack 1 locals 0<br>
+{<br>
+&nbsp;&nbsp;sipush  0; // simply return a 0 exit code<br>
+&nbsp;&nbsp;ireturn;<br>
+}<br>
+}<br>
+</code>
+
+<P>
+Type <code>jasm nop.jasm</code> to create <code>nop.class</code>, then
+run <code>ias</code> and <code>loadClass nop</code>, and execute <code>run</code> and other commands just as you do with a high-level 
+Java program.
+
+<P>
+Be sure to use the versions of <code>jasm</code> and <code>jdis</code> from the picoJava environment. 
+
+<Center>
+<HR SIZE=4 WIDTH="60%"> 
+</Center>
+
+<A name="questions"></A>
+<P>
+<B>More questions....</B>
+<P>
+The <A HREF="ias-faq.html">Frequently Asked Questions document</A> provides 
+answers to more advanced questions, which are not covered in this document.
+</BLOCKQUOTE>
+
+<A HREF="./ias.html">IAS</A></font>
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</font>
+</BODY>
+</HTML>

@@ -1,0 +1,543 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ 
+//
+// Trap "athrow" -
+//
+//	Search for an appropriate handler for an incoming exception OR an error,
+//	either from the current method frame, or any of the current method's
+//	invoker, or fram another trap handler, and then pass the control to
+//	the acquired exception handler.
+//
+//	When a handler is found, this trap executes the handler by returning
+//	to the handler with 'ret_from_trap'.  Before jumping into the handler,
+//	the registers are restored with the value saved in the current frame.
+//	VARS, FRAME, PSR(if jmping directly from trap), CP(if jmping from a
+//	method) and finally OPTOP whose value will be determined by the number
+//	of locals allocated for the method.  Notice that the execution resuming
+//	from the handler, executes a finally block(if any exists).  After that,
+//	normal method execution begins.
+//
+//	If no handler is found, then pass the control over to the kernel to
+//	abort the current thread's execution and to generate an error message.
+//	(this may or may not result in thread switching...)
+//
+//	When this trap is entered, the operand stack has the following:
+//		|          ...		|
+//		+-----------------------+
+//	FRAME->	|        returnPC	|<------+
+//		+-----------------------+	|
+//		|          VARS		|	|
+//		+-----------------------+	|
+//		|         FRAME 	|	|
+//		+-----------------------+	|
+//		|	    CP		|	|
+//		+-----------------------+	|
+//		|     MethodBlockPtr	|	|
+//		+-----------------------+	|
+//		|	   ...		|	|
+//		+-----------------------+	|
+//	 	|	   ...		|	|
+//		+=======================+	|
+//		|   aThrowable Object	|	|	local var 0
+//		+-----------------------+	|
+//		|	   PSR		|	|	local var 1
+//		+-----------------------+	|
+//		|	    PC		|	|
+//		+-----------------------+	|
+//		|          VARS		|	|
+//		+-----------------------+	|
+//		|	  FRAME  	|-------+	local var 4
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+
+// And the stack is pushed with the args to Java-level static method,
+// except_handler_search, before invoking.
+//		+-----------------------+
+//		|        returnPC	|<------+
+//		+-----------------------+	|
+//		|          VARS		|	|
+//		+-----------------------+	|
+//		|         FRAME 	|	|
+//		+-----------------------+	|
+//		|	    CP		|	|
+//		+-----------------------+	|
+//		|     MethodBlockPtr	|	|
+//		+-----------------------+	|
+//		|       ObjectRef   	|	|
+//		+-----------------------+	|
+//		|	   ...		|	|
+//		+-----------------------+	|
+//	 	|	   ...		|	|
+//		+=======================+	|
+//		|   aThrowable Object	|	|	local var 0
+//		+-----------------------+	|
+//		|	   PSR		|	|	local var 1
+//		+-----------------------+	|
+//		|	    PC		|	|
+//		+-----------------------+	|
+//		|          VARS		|	|
+//		+-----------------------+	|
+//		|	  FRAME  	|-------+	local var 4
+//		+=======================+
+//		|	   MBP		|		local var 5
+//		+-----------------------+
+//		| CP(or catch class idx)|		local var 6
+//		+-----------------------+
+//		|	   MBP		|
+//		+-----------------------+
+//		|	    PC		|
+//		+-----------------------+
+//	OPTOP->	|	  ....		|   
+//
+
+#include	"struct.h"
+
+public class athrow
+{
+
+    public static Method athrow:"()v"
+    {
+Prologue:
+
+// Set the register VARS to access the Throwable Object and PC.
+//------0123456789-----
+	 read_optop;	// push OPTOP
+	  bipush 20;	// Thrown Object is at 5 words below
+	 iadd;
+	write_vars;	// set the VAR, Throwable==local_0, PC==local_2
+	 iload_0;	// the thrown object
+
+// Check for a NullObjectRef in the thrown object. If a Null object is found,
+// instantiate NullPointerException object and replace with the null object.
+//------0123456789-----
+	  dup;
+	 ifnonnull CheckTrapFrame;
+	  read_const_pool;
+	   sipush 0xBF;	// vectore number for 'athrow'
+	   jsr GetTrapCP;
+	  write_const_pool;
+           new class java/lang/NullPointerException;
+           swap;
+          write_const_pool;      // restore original CP
+	  swap;			// NullPointerException, null_objref
+	 pop;
+	istore_0;
+	 iload_0;
+
+// First, check if the previous frame is a trap frame: this occurs when
+// 'athrow' is executed from a trap.  When a trap executes 'athrow', it must
+// push 0 into the 1st operand stack location(right below the trap frame) to
+// indicate that it is a trap frame.
+CheckTrapFrame:
+//------0123456789-----
+	  read_vars;	// save VARS
+           iload 4;	// saved FRAME reg in 'athrow's trap frame 
+          write_vars;     // Now, VARS points to the previous frame's PC
+           iload_3;       // will get 0 for trap frame,OR 'CP' for method frame
+	  ifeq FoundTrapFrame;
+	 write_vars;	// restore VARS
+	pop;
+        goto TraverseFrameChain;
+ 
+// Make the old trapped frame as the 'athrow's trap frame.  Lift the frame
+// by 1 word, and put the thrown object into right below the saved PSR
+FoundTrapFrame:
+//------0123456789-----
+	 pop;		// no need of the saved vars
+	  read_vars;
+	   iconst_4;
+	  isub;
+	 write_frame;	// normalize the current FRAME reg
+	  read_vars;
+	   iconst_4;
+	  iadd;
+	 write_vars;	// now, the PSR(in the old trap frame) is the local 0
+//------0123456789-----
+	  iload_3;	// saved FRAME
+	 istore 4;
+	  iload_2;	// saved VARS
+	 istore_3;
+	  iload_1;	// saved PC
+	 istore_2;
+	 iinc 2, 1;	// since we need to subtract 1 later!
+	  iload_0;	// saved PSR
+	 istore_1;
+	istore_0;	// finally, put the thrown object
+
+// Pop off the trap frame built for this trap(the old trap frame will be used)
+//------0123456789-----
+	 read_vars;
+	  bipush 20;	// the frame has 4 words plus the thrown object
+	 isub;
+	write_optop;
+
+// Start traversing the chain of method frames to search the handler for the
+// passed exception(aThrowable object). When this method frame traversing
+// reaches to the end, which is indicated by the 0 value in saved FRAME reg,
+// abort the current thread.
+
+// Get the current method's frame to access the method block pointer, before
+// invoking an instance method to search the handler for the passed exception
+// (a throwable object).
+TraverseFrameChain:
+//------0123456789-----
+	 read_vars;	// save the current VARS, pointing 'aThrowable'
+	  iload 4;	// caller's FRAME register saved in the trap frame
+	   dup;
+	  ifeq NoHandlerFound;
+	 write_vars;	// returnPC in the caller's FRAME becomes local_0
+	  iload 4;	// Method Block Ptr then becomes local_4
+	  swap;		// ..., MBP, oldVARS
+	   iload 3;	// ..., MBP, oldVARS, CP
+	   swap;	// ..., MBP, CP, oldVARS
+	  write_vars;	// restore VARS, MBP = local var 5, CP = local var 6
+
+// Use JASM routine, as the Javatized data structure is still not ready.
+// For JASM routine, may not need the CP(local 6) at all.
+// Get the number of exception blk in the current method frame, start
+// searching if the counter is greater than 0.
+
+// Normalize the PC first.  This routine must be removed for Java handler.
+//------0123456789-----
+	 iload_2;	// this is the returnPC for the current frame
+	  iload 5;
+	  load_word;	// 1st word is the entry point of the method
+	 isub;		// normalizedPC = returnPC - methodEntry
+	istore_2;	// store back to the returnPC area!
+	iinc 2, -1;	// to avoid problem when returnPC is the startPC of
+			// another exception coverage block, Hangel found it.
+
+#ifdef UNDEFINED
+// Build argument stack to invoke a Java method which will search the handler.
+// Need to normalize the PC, which is in absolute physical address.
+//------0123456789-----
+	 iload 5;	// MBP is the target object for invoking search method
+	  iload_0;	// ..., MBP, aThrowable
+	   iload 5;	// ..., MBP, aThrowable, MBP
+	    iconst_4;	// the method entry point is the 1st word
+	   iadd;
+	   load_word;	// method entry point in physical address
+	    iload_2;	// ..., MBP, aThrowable, methodEntry, PC
+	    swap;
+	   isub;	// normalized PC
+	    iload 6;	// ..., MBP, aThrowable, normalizedPC, CP
+
+// The 4 args are ready(MBP, aThrowable, normalizedPC, CP) for the method,
+// "FindHandlerForException(aThrowable, PC, CP)".  Invoke the method and
+// check the result.
+//------0123456789-----
+	 invokevirtual Method "Method.FindHandlerForException":
+		"(Ljava/lang/Throwable;I[I)Ljava/pico/ExceptionBlock";
+
+	  dup;			// ExceptionHandlerPtr, ExceptionHandlerPtr
+	 ifne MoveTrapFrame;	// a exception handler is found
+
+// The current method frame doesn't have a handler.  Modify the trap frame
+// contents with the frame contents of the caller of the current frame.
+#endif
+
+// start of JASM search routine. The stack has: ..., MBP, CP (local 5 and 6)
+//------0123456789-----
+	pop;		// remove the CP, not necessary for JASM search routine
+	 iload 5;	// MBP
+	  bipush M_EXPT_BLK;
+	 iadd;
+	 load_word;	// ptr to 1st except blk(MBP+M_EXP_BLK), local 6
+	  bipush 8;
+	 iadd;
+	  iload 5;
+	   bipush M_NUMOFEXPT;
+	  iadd;		// ptr to the number of exception blks
+	  load_word;	// num of exception blks for this method, local 7
+
+SearchHandlerInThisFrame:
+//------0123456789-----
+	 iload 7;	// num of exception blks
+	ifeq NoHandlerThisFrame;
+	iinc 7, -1;	// decrement by 1
+	 iload 6;	// ptr to an exception blk object
+	 load_word;
+	  bipush E_START_PC_4;
+	 iadd;
+	 load_word;	// get the start PC
+	  iload_2;	// PC where the exception is originated
+	if_icmpgt NextExptBlk;	// startPC > PC
+
+//------0123456789-----
+	 iload 6;	// ptr to the exception blk
+	 load_word;
+	  bipush E_END_PC_4;
+	 iadd;
+	 load_word;	// get the endPC of the exception handler
+	  iload_2;	// PC
+	if_icmple NextExptBlk;	// endPC <= PC
+
+// this exception blk matches the PC.  Checks the exception object class now.
+ExptBlkMatchPC:
+//------0123456789-----
+	 iload 6;
+	 load_word;
+	  bipush E_CATCH_OBJ_4;
+	 iadd;
+	 load_word;	// CP index of the catch class, now becomes local var 8
+	 iload 8;	// get the catch class index
+	ifeq ExptBlkFound;	// default handler catches any exception
+//------0123456789-----
+	 iload 5;
+	  bipush M_CONSTPOOL;
+	 iadd;
+	 load_word;	// the method block's constant pool base address
+	 load_word;	// CP[0]
+	  iload 8;	// get the catch class index
+	 iadd;
+	 load_ubyte;		// CP[0][ClassIndex]
+	  bipush 7;
+	 ishr;
+// Check if the exception class(defined in an exception blk) has been resolved
+//------0123456789-----
+	ifeq ResolveCatchClass;
+	 iload 5;
+	  bipush M_CONSTPOOL;
+	 iadd;
+	 load_word;	// the method block's constant pool base address
+	  iload 8;
+	   iconst_2;
+	  ishl;
+	 iadd;
+	 load_word;	// get the class pointer from the constant pool
+	istore 8;	// save into local 8
+	goto GetThrownClass;
+
+ResolveCatchClass:
+//------0123456789-----
+	 iload 5;
+	  bipush M_CONSTPOOL;
+	 iadd;
+	 load_word;	// the method block's constant pool base address
+	  dup;
+	   iload 8;	// get the catch class index
+	    iconst_2;
+	   ishl;		// to make word-index of the class index
+	  iadd;		// CP[ClassIndex]
+//------0123456789-----
+	  load_word;	// index to CP for the class name string
+	   iconst_2;
+	  ishl;
+	 iadd;
+	 load_word;
+	  bipush 31;	// service request 31 == resolve class
+	  jsr PicoKernel;
+	   dup;
+	  ifeq ClassCannotBeResolved;
+	  swap;		// class_ptr, name_ptr
+	 pop;
+	  dup;		// class_ptr, class_ptr
+
+// class is resolved.  Update the CP[INDEX] and CP[0][INDEX] for the result.
+CatchClassResolved:
+//------0123456789-----
+	   iload 5;
+	    bipush M_CONSTPOOL;
+	   iadd;
+	   load_word;	// the method block's constant pool base address
+            iload 8;
+             iconst_2;
+            ishl;
+           iadd;
+         store_word;    // store the resolved class ptr into CP[INDEX]
+//------0123456789-----
+	  iload 5;
+	   bipush M_CONSTPOOL;
+	  iadd;
+	  load_word;	// the method block's constant pool base address
+          load_word;
+           iload 8;             // CP index for the class reference
+          iadd;                 // CP[0][INDEX]
+           dup;
+           load_ubyte;
+            sipush 0x80;
+           ior;
+         swap;                  // type_byte, &(CP[0][INDEX])
+         store_byte;
+	istore 8;		// keep the catch class's ptr into local 8
+
+// Get the thrown object's class
+GetThrownClass:
+//------0123456789-----
+	 iload_0;		// thrown object
+	  sipush 0xFFFC;
+	 iand;
+	 load_word;		// the object's method vector table
+	  bipush 8;		// the class ptr is at -8
+	 isub;
+	 load_word;		// this is the class ptr of the thrown object
+				// put into local 9
+
+// Now compare the thrown object's class and the catch class
+CheckClassLoop:
+//------0123456789-----
+	 iload 9;		// thrown object's class
+	  iload 8;		// catch class's class ptr
+	if_icmpeq HandlerFound;
+	 iload 9;
+	  bipush C_SUPERCLASS;
+	 iadd;
+	 load_word;
+	  iconst_4;
+	 iadd;
+	  dup;		// to check if the superclass is equal to itself
+	   iload 9;
+	 if_icmpeq ClassNotMatch;
+	istore 9;		// update thrown object's class with its super
+	goto CheckClassLoop;
+
+// This exception blk doesn't match.  Go and check the next exception blk.
+ClassNotMatch:
+//------0123456789-----
+	 pop2;			// local 9 & aTmp
+	pop;			// local 8
+NextExptBlk:
+//------0123456789-----
+//	 iload 6;		// ptr to the current exception blk
+//	  bipush E_BLOCKSIZE;
+//	 iadd;
+//	istore 6;
+
+	iinc 6, 4;
+	goto SearchHandlerInThisFrame;
+
+// The trap_frame will be retained during the traverse, with the VARS, FRAME,
+// PC values in the frame updated with the new value from the caller frame in
+// the chain.  Loop until a handler is found OR reaches the end.
+NoHandlerThisFrame:
+//------0123456789-----
+	 pop2;		// pop off local 6 & 7
+	pop;		// pop off local 5
+	 read_vars;	// save the current VARS, pointing 'aThrowable'
+	  iload 4;	// caller's FRAME register saved in the trap frame
+	 write_vars;	// returnPC in the caller's FRAME becomes local_0
+	  iload_0;	// caller's returnPC: ..., oldVARS, rPC
+	  swap;
+	   iload_1;	// caller's VARS: ..., rPC, oldVARS, VARS
+	   swap;
+	    iload_2;	// caller's FRAME: ..., rPC, VARS, oldVARS, FRAME
+	    swap;
+	   write_vars;	// restore VARS: ..., rPC, VARS, FRAME
+
+// Update the trap_frame's contents with the caller's frame register value
+//------0123456789-----
+	  istore 4;	// update the FRAME
+	 istore_3;	// update the VARS
+	istore_2;	// update the PC
+
+	goto TraverseFrameChain;	// search the new frame
+
+// The handler is found.  Extract the entry point of the handler and the number
+// of locals of the method.  Restore PC and OPTOP from the result and other
+// registers using the value stored in the current frame.
+
+// First, push the 'thrown' object onto the bottom of the current method's
+// operand stack.  Also, get the current method's Method Block Ptr too.
+HandlerFound:
+ExptBlkFound:
+//------0123456789-----
+	 read_vars;	// current VARS pointing to the thrown object
+	  aload_0;	// thrown object
+	   iload 4;	// caller's FRAME saved in the current trap frame
+	  write_vars;	// The rPC of caller's frame now becomes local 0
+	 astore 5;	// put the thrown object right above the method frame
+	write_vars;	// restore it
+
+// Build a trap frame to branch into the handler, with the method frame intact
+// but all the operand stack contents are popped off.
+//------0123456789-----
+	 iload 6;	// the exception blk matching the thrown object
+	 load_word;
+	  bipush E_HANDLER_PC_4;
+	 iadd;
+	 load_word;		// 'handlerPC'
+	  iload 5;		// 'handlerPC', MBP
+	   bipush M_ENTRY_PTR;
+	  iadd;
+	  load_word;		// method entry point in physical address
+	 iadd;			// absolute physical address into the handler
+	istore_2;		// update the returnPC to jmp into the handler
+
+// Restore the CP reg, as the CP may have been changed if the method call chain
+// bypassed class boundaries!
+//------0123456789-----
+	 iload 5;
+	  bipush M_CONSTPOOL;
+	 iadd;
+	 load_word;	// the method block's constant pool base address
+	write_const_pool;
+
+// Update the FRAME and VARS to guide the 'ret_from_trap'
+//------0123456789-----
+	 read_vars;
+	  bipush 8;
+	 isub;
+	write_frame;		// FRAME now points to the handlerPC
+
+	 iload 4;		// trap frame's FRAME, points to returnPC
+	  bipush 24;		// the new OPTOP point next of the thrown obj
+	 isub;
+	write_vars;
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+// PC is calculated.  Need to get the numLocals to calculate new OPTOP,
+// and then restore VARS and FRAME from the frame, then execute 'ret_from_trap'.
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+	priv_ret_from_trap;
+
+NoHandlerFound:
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+// No Exception Handler matching the PC and the Class is found.
+// Abort the current thread and schedule another thread to run.
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//------0123456789------
+         sipush 0xC8;         // "Exception Handler is not found"
+         sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+          sethi 0x0;
+        ncstore_word;
+        goto NoHandlerFound;
+
+ClassCannotBeResolved:
+//*********************** initially, take it as an error **********************
+//------0123456789------
+         bipush 0x72;         // "Class Not Loaded"
+         sethi 0x0002;
+          sipush 0xFFFC;      // msg box location
+          sethi 0x0;
+        ncstore_word;
+        goto ClassCannotBeResolved;
+
+#include "picokernel.s"
+    }
+}

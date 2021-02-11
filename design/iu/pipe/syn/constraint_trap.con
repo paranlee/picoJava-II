@@ -1,0 +1,87 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+ set_input_delay -clock clk 4.00 all_inputs()
+set_max_delay 0.00 -to all_outputs()
+set_load LOAD_30_INV all_outputs()
+
+set_input_delay -clock clk 3.0 {pj_resume} 
+set_input_delay -clock clk 1.0 {pj_irl} 
+set_input_delay -clock clk 1.0 {pj_nmi} 
+set_input_delay -clock clk 1.0 {pj_no_fpu} 
+set_input_delay -clock clk 1.0 {iu_psr_pil} 
+set_input_delay -clock clk 1.0 {iu_psr_ie} 
+set_input_delay -clock clk 4.0 {hold_r} 
+set_input_delay -clock clk 1.0 {ucode_abort} 
+set_input_delay -clock clk 1.0 {iu_psr_ace} 
+set_input_delay -clock clk 1.0 {iu_psr_fpe} 
+set_input_delay -clock clk 1.0 {iu_psr_aem} 
+set_input_delay -clock clk 3.5 {inst_brk1_r} 
+set_input_delay -clock clk 3.5 {inst_brk2_r} 
+set_input_delay -clock clk 1.0 {imem_acc_err_r} 
+set_input_delay -clock clk 3.5 {illegal_r} 
+set_input_delay -clock clk 3.0 {soft_trap_r} 
+set_input_delay -clock clk 3.5 {priv_inst_r} 
+set_input_delay -clock clk 3.5 {fpu_inst_r} 
+set_input_delay -clock clk 1.5 {zero_trap_e} 
+set_input_delay -clock clk 4.0 {null_ptr_exe_e} 
+set_input_delay -clock clk 4.0 {arithm_exe_e} 
+set_input_delay -clock clk 4.0 {lock_trap_e} 
+set_input_delay -clock clk 1.0 {u_ref_null_c} 
+set_input_delay -clock clk 1.0 {u_ary_ovf_c} 
+set_input_delay -clock clk 1.0 {u_ptr_un_eq_c} 
+set_input_delay -clock clk 1.0 {dcu_err_ack} 
+set_input_delay -clock clk 2.5 {async_mem_prot_err} 
+set_input_delay -clock clk 3.0 {mem_prot_err_c} 
+set_input_delay -clock clk 1.0 {powerdown_op_e} 
+set_input_delay -clock clk 2.8 {data_brk1_c} 
+set_input_delay -clock clk 2.8 {data_brk2_c} 
+set_input_delay -clock clk 3.0 {oplim_trap_c} 
+set_input_delay -clock clk 2.0 {align_err_c} 
+set_input_delay -clock clk 3.5 {emul_op_r} 
+set_input_delay -clock clk 1.0 {gc_trap_c} 
+set_input_delay -clock clk 1.0 {opcode_c} 
+set_input_delay -clock clk 1.0 {fold_c} 
+set_input_delay -clock clk 1.5 {fold_sc_miss_e} 
+set_input_delay -clock clk 3.5 {iu_brtaken_e} 
+set_input_delay -clock clk 1.0 {brk12c_halt} 
+set_input_delay -clock clk 3.0 {ucode_done} 
+set_input_delay -clock clk 2.0 {ucode_last} 
+set_input_delay -clock clk 4.0 {hold_e} 
+set_input_delay -clock clk 4.0 {hold_c} 
+
+set_max_delay 4.5 -to {tt_c}
+set_max_delay 4.5 -to {tt_we}
+set_max_delay 3.1 -to {iu_trap_c}
+set_max_delay 4.0 -to {trap_vld_r}
+set_max_delay 4.0 -to {trap_vld_e}
+set_max_delay 3.2 -to {trap_in_progress}
+set_max_delay 0.6 -to {iu_trap_r}
+set_max_delay 3.2 -to {iu_kill_fpu}
+set_max_delay 3.2 -to {iu_kill_dcu}
+set_max_delay 3.3 -to {iu_kill_ucode}
+set_max_delay 1.0 -to {kill_powerdown}
+set_max_delay 3.0 -to {pj_brk1_sync}
+set_max_delay 3.0 -to {pj_brk2_sync}
+set_max_delay 1.5 -to {pj_in_halt}

@@ -1,0 +1,155 @@
+<html> <head> <TITLE>Building and Running Tests</TITLE>
+</head>
+<body bgcolor="white">
+
+
+<FONT FACE="arial, helvetica">
+<center> <H1>Building and Running Tests </h1> </center>
+
+<HR SIZE=4 WIDTH="100%">
+
+<h2>Building tests</h1>
+<BLOCKQUOTE>
+<p>
+To build tests, you need to have <code>gnu m4</code> and <code>cpp</code> in
+your path.
+You also need to have
+<a href=setenv.html>set up your environment</a>.
+The entire picoJava VTS takes about 137MB of disk space.
+</p>
+
+<p>The steps to build tests in picoJava source distribution are:</p>
+<OL>
+<blockquote>
+<LI>cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts</LI>
+<LI>For each test suite under this directory, type: <br>
+      gunzip &lt;test-suite&gt;tar.gz <BR>
+      or uncompress &lt;test-suite&gt;.tar.Z<br>
+Then type: tar -xvf &lt;test-suite&gt;.tar</LI>
+<LI>type 'make' in every subdirectory under
+<code>pico_vts</code></LI>
+</OL>
+</blockquote>
+
+<p>
+If you need to write additional tests for picoJava-II, refer to Chapter 3 of the
+<a href=../pj2-verif-guide.pdf><I>picoJava-II Verification Guide</I></a>.
+</blockquote>
+</p>
+
+</blockquote>
+<h2><a href=build-ias.html#runias>Running tests on IAS only </a></h2>
+<h2>Running tests on the RTL model</h2>
+
+<blockquote><p>
+You can run tests on the RTL model either standalone or in cosimulation mode.
+Before running any tests on the RTL model, you must have built
+<code>pj2vcs</code> or <code>pj2vlog</code> present in your path. 
+If you don't have either one of these, see <a href="build-rtl.html">Build RTL</a> 
+on how to build the model.
+<P>
+If you want to run simulations in cosimulation mode,
+you need to have <A href="ias.html">IAS</A> in your path.
+A version of ias for Sparc/Solaris platforms is provided with the distribution. 
+If you would like to build your own version of ias, refer to
+<a href="build-ias.html">Building IAS</a>. 
+</blockquote><p>
+</p>
+
+</blockquote><p>
+<h3>Running tests using steam</h3>
+<blockquote><p>
+<code>steam</code> is the script used to run simulations in the picoJava-II environment.<BR>
+You can use it to run a single test, a suite of tests, or the entire
+picoJava <code>VTS</code>.
+<P>
+See <a href="steam.html">steam guide</a>, for a simple guide on how to
+use <code>steam</code>.<BR>
+See Chapter 4 of the <a href="../pj2-verif-guide.pdf">
+<I>picoJava-II Verification Guide</I></a> for detailed information.
+
+<P>
+<B>Note:</B> <code>steam</code> is a <code>perl</code> script.  
+You must have <code>perl</code> in your path to be able to run 
+<code>steam</code>.
+</p>
+
+</blockquote><p>
+<h3>Running tests without using steam</h3>
+<BLOCKQUOTE>
+<p>
+There are two types of tests in picoJava<small><sup>TM</sup></small>-II verification environment: RC tests and RT tests. For more information on these types of tests, 
+see Chapter 3 of the 
+<a href=../pj2-verif-guide.pdf><I>picoJava-II Verification Guide</I></a>.
+</UL>
+<p>
+</BLOCKQUOTE>
+
+<blockquote><p>
+<p>To run a <code>RT</code> type test, compile the test code
+into a class file and copy the class file to <code>reset.class</code>.
+
+<P>
+For example, the steps to run
+<code>test/pico_vts/basic/arithm_int</code>
+with <code>pj2vcs</code> are: </p>
+<BLOCKQUOTE>
+<OL>
+<LI>cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts/basic</LI>
+<LI>make</LI>
+<LI>mkdir arithm_int_output</LI>
+<LI>cp class/arithm_int.class</LI>
+<LI>cd arithm_int_output</LI>
+<LI>pj2vcs +cosim+ias</LI>
+</OL>
+</BLOCKQUOTE>
+
+
+<p>
+To run a <code>RC</code> type test, compile the test code
+into a class file and verify that the file <code>reset.class</code>
+is present in the directory <code>$DSVHOME/class</code>.
+<P>
+For example, the steps to run <code>test/pico_vts/basic_java/allinst</code>
+with <code>pj2vlog</code> are: </P>
+<BLOCKQUOTE>
+<OL>
+<LI>
+cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts/basic_java</LI>
+<LI>make</LI>
+<LI>mkdir allinst_output </LI>
+<LI>cp class/allinst.class allinst_output/allinst.class</LI>
+<LI>cd allinst_output</LI>
+<LI>pj2vlog +cosim+ias +class+allinst.class -f $VFILES_PATH</LI>
+</OL>
+</BLOCKQUOTE>
+</BLOCKQUOTE>
+<h2>Running regression on the entire picoJava-II VTS</h2>
+<BLOCKQUOTE>
+You can run all the tests in the picoJava-II <code>VTS</code> with the following commands: 
+<br>
+<blockquote>
+<OL>
+<LI>cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts</LI>
+<LI>steam .</LI>
+</OL>
+</blockquote>
+
+<p>
+Note that it takes a long time to sequentially run all the tests in the VTS.
+You may prefer to dispatch different test runs in parallel to a server pool using
+load sharing software.
+
+</p>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+</body></html>

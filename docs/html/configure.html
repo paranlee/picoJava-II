@@ -1,0 +1,95 @@
+<html> <head> <TITLE>Configure the core</TITLE> </head>
+<body bgcolor="white">
+
+<FONT FACE="arial, helvetica">
+<center> <h1>Configure the core</h1> </center>
+
+<HR SIZE=4 WIDTH="100%">
+
+<a name="change$">
+<h2>Changing I-Cache and D-Cache size</h2>
+<BLOCKQUOTE>
+I-Cache and D-Cache size can be configured to 0K, 1K, 2K, 4K, 8K, and
+16K.
+<P>
+The default configuration of the core is:<BR>
+<UL> 
+<LI>16KB I-Cache,
+<LI>16KB D-Cache 
+<LI> FPU present
+</UL>
+<p>
+The configurations are defined in 
+<code>$PICOJAVAHOME/$PROJECT/design/rtl/defines.h</code>.
+To change the I-Cache size and D-Cache size you need to edit this
+file to:
+<UL>
+<LI>Comment out the lines which specify the default size and
+<LI>Uncomment the line which specifies the setting you prefer.
+</UL>
+</p>
+<p>
+<h3>No I-Cache</h3>
+If you wish to specify no I-Cache, you must:
+<OL>
+<LI>Edit <code>$PICOJAVAHOME/$PROJECT/design/rtl/defines.h</code> <BR>
+to comment out these lines:
+<ul type=fill>
+<LI><code>`define ICU_MODULE icu</code></LI>
+<LI><code>`define ITAG_MODULE itag_shell</code></LI>
+<LI><code>`define ICRAM_MODULE icram_shell</code></li>
+</ul>
+<LI>Uncomment all the defines under <code>0KB I-cache</code>.</LI>
+</p>
+</OL>
+<p>
+<h3>No D-Cache</H3>
+If you wish to specify no D-Cache, you must:
+<OL>
+<LI>Edit <code>$PICOJAVAHOME/$PROJECT/design/rtl/defines.h</code> <BR>
+    to comment out these lines:
+<ul type=fill>
+<LI><code>`define DCU_MODULE dcu</code></LI>
+<LI><code>`define DTAG_MODULE dtag_shell</code></LI>
+<LI><code>`define DCRAM_MODULE dcram_shell</code></LI>
+</ul>
+<LI>Uncomment all the defines under <code>0KB D-cache</code>.</LI>
+</OL>
+</p>
+</BLOCKQUOTE>
+<a name="rmfpu">
+<h2>Removing the FPU</h2>
+<BLOCKQUOTE>
+<p>
+The steps to configure the core without the floating-point unit (FPU) are:<br>
+<OL>
+<LI>Edit <code>$PICOJAVAHOME/$PROJECT/design/rtl/defines.h</code> <BR>
+   to comment out the line:<br>
+<ul>
+<code>`define FPU_MODULE fpu</code>
+</ul>
+</LI>
+<LI>Uncomment the following lines:<br>
+    <ul type=fill> 
+<LI><code>`define FPU_MODULE fpu_dummy</code></LI>
+<LI><code>`define NO_FPU</code></LI>
+</ul>
+</OL>
+</blockquote>
+</p>
+
+</blockquote>
+</BLOCKQUOTE>
+<a href="build-rtl.html">Back to building the RTL model</a>
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</body>
+</html>

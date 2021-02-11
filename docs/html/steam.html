@@ -1,0 +1,131 @@
+<html> <head> <TITLE>Steam Usage</TITLE> </head>
+<body bgcolor="white">
+
+
+<FONT FACE="arial, helvetica">
+<center> <H1>Steam Usage</h1> </center>
+
+<HR SIZE=4 WIDTH="100%">
+
+<p>
+This is a simple guide for using the steam script.
+For detailed information on steam, please refer to Chapter 4 of
+<a href=../pj2-verif-guide.pdf>Verification Guide</a>.
+</p>
+
+<p>
+To get a list of options, type "steam -h" or "steam -help".
+Before you use steam, you need to <a href=setenv.html>
+set up your environment</a>.
+</p>
+
+<h2>suite.control file</h2>
+steam uses a file "suite.control" to determine which tests to run
+and what options to apply to each test. Following is a sample
+suite.control file.
+</p>
+
+<blockquote>
+suite <br>
+  files = class/$this.class <br>
+  flags = -vlog -rt <br>
+allinst <br>
+</blockquote>
+
+<p>
+This suite.control file tells steam to run one testcase "allinst",
+and the class file for "allinst" is ./class/allinst.class. 
+The flag "-vlog" tells steam to run this test
+with executable defined by $VLOG_NAME (default is pj2vlog). 
+If "-vlog" flag is not specified, steam will use
+executable defined by $VCS_NAME (default is pj2vcs) to run the test.
+The flag "-rt" tells steam that this test is "rt" type.
+For more information on "rt" and "rc" type of tests, please
+refer to <a href=tests.html>building and running tests.</a>
+</p>
+
+<p>
+Before you run a test with steam, make sure you have steam on your path,
+a "suite.control" file in the current directory, 
+and the class file for the test.
+</p>
+
+<p>
+Syntax for using steam to run a single test is
+<blockquote>
+steam $testcase  [option]  
+</blockquote>
+To run the test "allinst" with no options, type command
+<blockquote>
+steam allinst
+</blockquote>
+</p>
+
+In summary, the steps to use steam are:<br>
+<blockquote>
+1. change directory to where the test is. <br>
+2. make sure "suite control" exists. If it doesn't, please generate one. <br>
+2. make sure the test entry is in the suite control file. <br>
+3. run steam <br>
+4. examine the steam.log and test specific output for result. <br>
+5. examine the testcase.log file in the test specific directory for detail <br>
+</blockquote>
+
+<p>The following example runs testcase "allinst" with option "flush"
+under directory $PICOJAVAHOME/$PROJECT/sim/test/pico_vts/basic_java.  
+The output is saved in the out_dir directory.
+</p>
+
+<blockquote>
+% cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts/basic_java  <br>
+% mkdir out_dir <br>
+% steam allinst  -flush -outdir out_dir <br><br>
+</blockquote>
+
+The following example runs ias only. 
+<blockquote>
+% cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts/basic_java <br>
+% mkdir out_dir<br>
+% steam allinst  -ias -outdir out_dir<br>
+</blockquote>
+
+<p>
+If you want to use steam to run all the tests in "suite.control"
+in the current directory, the syntax is </p>
+<blockquote>
+steam .  [option]  
+</blockquote>
+ 
+<p> The following is an example to run all tests under directory 
+test/basic_java with option "flush" using default suite contorl file.
+The output is saved in the out_dir directory.
+</p>
+<blockquote>
+% cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts/basic_java  <br>
+% steam . -flush -outdir out_dir <br>
+</blockquote>
+
+<p>
+You can use a suite control file of a name other than "suite.control".
+You need to generate a new suite control file with the desired name.
+The easiest way is to copy an existing one and modify it.
+Then you run steam with -scf option to use the new suite control file.
+<blockquote>
+steam . -scf new.control -outdir outdir <br>
+</blockquote>
+</p>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+
+</body></html>

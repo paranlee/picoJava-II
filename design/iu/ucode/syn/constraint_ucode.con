@@ -1,0 +1,134 @@
+/****************************************************************
+ ---------------------------------------------------------------
+     Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+     Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+     The contents of this file are subject to the current
+     version of the Sun Community Source License, picoJava-II
+     Core ("the License").  You may not use this file except
+     in compliance with the License.  You may obtain a copy
+     of the License by searching for "Sun Community Source
+     License" on the World Wide Web at http://www.sun.com.
+     See the License for the rights, obligations, and
+     limitations governing use of the contents of this file.
+
+     Sun, Sun Microsystems, the Sun logo, and all Sun-based
+     trademarks and logos, Java, picoJava, and all Java-based
+     trademarks and logos are trademarks or registered trademarks 
+     of Sun Microsystems, Inc. in the United States and other
+     countries.
+ ----------------------------------------------------------------
+******************************************************************/
+
+
+
+
+
+
+/*** input  delay ***/
+set_input_delay -clock "clk" -max 1.25 {"opcode_1_op_r"};
+set_input_delay -clock "clk" -max 1.25 {"opcode_2_op_r"};
+set_input_delay -clock "clk" -max 1.25 {"opcode_3_op_r"};
+set_input_delay -clock "clk" -max 1.25 {"valid_op_r"};
+set_input_delay -clock "clk" -max 1.00 {"iu_trap_r"};
+set_input_delay -clock "clk" -max 4.25 {"ie_stall_ucode"};
+set_input_delay -clock "clk" -max 4.00 {"ie_alu_cryout"};
+set_input_delay -clock "clk" -max 4.25 {"iu_hold_e"};
+set_input_delay -clock "clk" -max 1.50 {"iu_psr_gce"};
+set_input_delay -clock "clk" -max 4.00 {"ie_comp_a_eq0"};
+set_input_delay -clock "clk" -max 4.00 {"ie_kill_ucode"};
+set_input_delay -clock "clk" -max 1.00 {"dreg"};
+set_input_delay -clock "clk" -max 1.50 {"rs1"};
+set_input_delay -clock "clk" -max 1.50 {"rs2"};
+set_input_delay -clock "clk" -max 1.50 {"rs1_0_l"};
+set_input_delay -clock "clk" -max 1.50 {"rs2_0_l"};
+set_input_delay -clock "clk" -max 1.50 {"iu_optop"};
+set_input_delay -clock "clk" -max 4.00 {"alu_data"};
+set_input_delay -clock "clk" -max 1.50 {"archi_data"};
+set_input_delay -clock "clk" -max 4.00 {"ucode_addr_d"};
+                   
+/*** output valid time ***/
+set_output_delay -clock "clk" -max 4.00 {"u_f01_wt_stk"};
+set_output_delay -clock "clk" -max 4.00 {"u_f02_rd_stk"};
+set_output_delay -clock "clk" -max 3.50 {"u_addr_st_rd"};
+set_output_delay -clock "clk" -max 3.50 {"u_areg0"};
+set_output_delay -clock "clk" -max 3.00 {"ucode_porta"};
+set_output_delay -clock "clk" -max 3.00 {"ucode_portb"};
+set_output_delay -clock "clk" -max 1.00 {"ucode_portc"};
+set_output_delay -clock "clk" -max 3.00 {"ialu_a"};
+set_output_delay -clock "clk" -max 3.00 {"m_adder_porta"};
+set_output_delay -clock "clk" -max 3.00 {"m_adder_portb"};
+set_output_delay -clock "clk" -max 4.00 {"u_f00"};
+set_output_delay -clock "clk" -max 4.00 {"u_f01"};
+set_output_delay -clock "clk" -max 4.00 {"u_f02"};
+set_output_delay -clock "clk" -max 4.00 {"u_f03"};
+set_output_delay -clock "clk" -max 4.00 {"u_f04"};
+set_output_delay -clock "clk" -max 4.00 {"u_f05"};
+set_output_delay -clock "clk" -max 4.00 {"u_f07"};
+set_output_delay -clock "clk" -max 4.00 {"u_f17"};
+set_output_delay -clock "clk" -max 4.00 {"u_f19"};
+set_output_delay -clock "clk" -max 4.00 {"u_f21"};
+set_output_delay -clock "clk" -max 4.00 {"u_f22"};
+set_output_delay -clock "clk" -max 4.00 {"u_f23"};
+set_output_delay -clock "clk" -max 4.00 {"u_done"};
+set_output_delay -clock "clk" -max 4.00 {"udone_l"};
+set_output_delay -clock "clk" -max 4.00 {"u_last"};
+set_output_delay -clock "clk" -max 4.00 {"u_abt_rdwt"};
+set_output_delay -clock "clk" -max 4.00 {"u_ary_ovf"};
+set_output_delay -clock "clk" -max 4.00 {"u_ref_null"};
+set_output_delay -clock "clk" -max 4.00 {"u_ptr_un_eq"};
+set_output_delay -clock "clk" -max 4.00 {"u_gc_notify"};
+
+/*** input  load ***/ 
+set_drive 0.10 {"opcode_1_op_r"};   /* top first  byte of ibuffer of R_stage */
+set_drive 0.10 {"opcode_2_op_r"};   /* top second byte of ibuffer of R_stage */
+set_drive 0.10 {"opcode_3_op_r"};   /* top third  byte of ibuffer of R_stage */
+set_drive 0.10 {"valid_op_r"};      /* the opcode is valid        of R_stage */
+set_drive 0.10 {"ie_alu_cryout"};   /* the carry-out of the ALU adder        */
+set_drive 0.10 {"iu_trap_r"};       /* IU issue trap operation    of R_stage */
+set_drive 0.10 {"ie_stall_ucode"};  /* IE unit holds off ucode execution     */
+set_drive 0.10 {"ie_alu_cryout"};   /* the carry-out of the ALU adder        */
+set_drive 0.10 {"iu_hold_e"};       /* IU unit hold E_stage information(registers) */
+set_drive 0.10 {"iu_psr_gce"};      /* IU provide Garbage_Collector_Enable   */
+set_drive 0.10 {"ie_kill_ucode"};   /* IU kill current operation in ucode    */
+set_drive 0.15 {"dreg"};            /* read_data_cache data,[31:0]           */
+set_drive 0.07 {"rs1"};             /* first  of the top of the stack_cache  */
+set_drive 0.15 {"rs2"};             /* second of the top of the stack_cache  */
+set_drive 0.08 {"rs1_0_l"};         /* rs1[0], active low, from IU           */
+set_drive 0.08 {"rs2_0_l"};         /* rs2[0], active low, from IU           */
+set_drive 0.15 {"iu_optop"};        /* the optop IU sent to start ucode      */
+set_drive 0.15 {"alu_data"};        /* ieu_alu data output                   */
+set_drive 0.15 {"archi_data"};      /* architecture register output          */
+set_drive 0.15 {"ucode_addr_d"};    /* memory_adder output                   */
+ 
+/*** output load ***/ 
+set_load 0.70 {"u_f01_wt_stk"};     /* ucode write stack request               */
+set_load 0.70 {"u_f02_rd_stk"};     /* ucode  read stack request               */
+set_load 0.70 {"u_addr_st_rd"};     /* ucode to stack_cache  read_address      */
+set_load 0.70 {"u_areg0"};          /* ucode output of the areg0 register      */
+set_load 0.70 {"ucode_porta"};      /* ucode output data to ie       porta     */
+set_load 0.70 {"ucode_portb"};      /* ucode output data to ie       portb     */
+set_load 0.70 {"ucode_portc"};      /* ucode output data to stcak_/data_cache  */
+set_load 0.50 {"ialu_a"};           /* ucode output data to ie_alu's porta     */
+set_load 0.70 {"m_adder_porta"};    /* ucode output data to imem_adder's porta */
+set_load 0.70 {"m_adder_portb"};    /* ucode output data to imem_adder's portb */
+set_load 0.70 {"u_f00"};            /* field_00: IU_zero_comparator            */
+set_load 0.70 {"u_f01"};            /* Field_01: Ucode and StacK         WT    */
+set_load 0.70 {"u_f02"};            /* Field_02: Ucode and Stack         RD    */
+set_load 0.70 {"u_f03"};            /* Field_03: Ucode and Data_cache          */
+set_load 0.70 {"u_f04"};            /* Field_04: Ucode and Architech_reg RD    */
+set_load 0.70 {"u_f05"};            /* Field_05: Ucode and Architech_reg WT    */
+set_load 0.70 {"u_f07"};            /* Field_07: Integer Unit ALU b_operand    */
+set_load 0.70 {"u_f17"};            /* field_17: IU_adder operations           */
+set_load 0.70 {"u_f19"};            /* field_19: Mem_adder a_operand           */
+set_load 0.70 {"u_f21"};            /* field_21: Mem_adder operations          */
+set_load 0.70 {"u_f22"};            /* field_22: Sel stack_cache address       */
+set_load 0.70 {"u_f23"};            /* field_23: Sel alu_adder input port_a    */
+set_load 0.70 {"u_done"};           /* the ucode is done                            */
+set_load 0.70 {"udone_l"};          /* the ucode is done, active low                */
+set_load 0.70 {"u_last"};           /* the last cycle of the ucode                  */
+set_load 0.70 {"u_abt_rdwt"};       /* abort read and/or write requested by ucode   */
+set_load 0.70 {"u_ary_ovf"};        /* array_index exceeds array_length             */
+set_load 0.70 {"u_ref_null"};       /* the reference is a null one                  */
+set_load 0.70 {"u_ptr_un_eq"};      /* the ptr is unqual. used in checkcast_quick   */
+set_load 0.70 {"u_gc_notify"};      /* ucode detect gc condition                    */
+ 

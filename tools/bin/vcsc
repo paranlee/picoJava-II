@@ -1,0 +1,49 @@
+#!/bin/csh -f
+#
+# ****************************************************************
+# ***
+# ***    Copyright 1999 Sun Microsystems, Inc., 901 San Antonio
+# ***    Road, Palo Alto, CA 94303, U.S.A.  All Rights Reserved.
+# ***    The contents of this file are subject to the current
+# ***    version of the Sun Community Source License, picoJava-II
+# ***    Core ("the License").  You may not use this file except
+# ***    in compliance with the License.  You may obtain a copy
+# ***    of the License by searching for "Sun Community Source
+# ***    License" on the World Wide Web at http://www.sun.com.
+# ***    See the License for the rights, obligations, and
+# ***    limitations governing use of the contents of this file.
+# ***
+# ***    Sun, Sun Microsystems, the Sun logo, and all Sun-based
+# ***    trademarks and logos, Java, picoJava, and all Java-based
+# ***    trademarks and logos are trademarks or registered trademarks
+# ***    of Sun Microsystems, Inc. in the United States and other
+# ***    countries.
+# ***
+# *****************************************************************
+
+
+if ( ! -e $PROJECT ) ln -s $PICOJAVAHOME/$PROJECT
+
+if ($#argv == 2) then
+  set cache_size_changed = 1
+  set_pico_params -dcs=$1 -ics=$2
+  set outputfile = ./pj2vcs.$1.$2
+else
+  set outputfile = ./pj2vcs
+endif
+
+if (-e $outputfile.old) rm -f $outputfile.old
+if (-e $outputfile) mv -f $outputfile $outputfile.old
+
+vcs -Mupdate=1 -f $PROJECT/sim/env/vfiles -P $DSVHOME/verilog/src/vcs.tab -o $outputfile \
+       $DSVHOME/lib/libloader.a $DSVHOME/lib/libtamv.a $DSVHOME/lib/libz.a -lXt -lX11 -ldl
+
+rm $PROJECT
+
+if ($?cache_size_changed) then
+  rm -f ./pj2vcs
+  rm -rf ./pj2vcs.daidir
+  ln -s $outputfile pj2vcs
+  ln -s $outputfile.daidir pj2vcs.daidir
+  set_pico_params -restore
+endif

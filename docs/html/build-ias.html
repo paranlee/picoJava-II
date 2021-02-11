@@ -1,0 +1,123 @@
+<html> <head> <TITLE>Building IAS Simulator</TITLE> </head>
+<body bgcolor="white">
+
+<FONT FACE="arial, helvetica">
+<center> <h1>Building The Instruction-Accurate Simulator (IAS)</h1> </center>
+
+<HR SIZE=4 WIDTH="100%">
+<BLOCKQUOTE>
+<p>
+IAS has been extensively tested only on the Sparc/Solaris platform.
+It is compiled with the Sun Workshop C compiler. If you do not have access to
+this compiler, you can try compiling with <code>gcc</code>. 
+<P>
+If you need to build IAS on a different platform, 
+you should read the <A href="ias-porting.html">IAS Porting Notes</A>. 
+</p>
+
+<p>
+For more on the build structure and details on the source code, please
+refer to <a href=ias.html>IAS web pages</a>.
+</p>
+</BLOCKQUOTE>
+<h2>Building IAS</h2>
+<BLOCKQUOTE>
+<p>
+A default SPARC/Solaris binary for the Instruction-accurate simulator
+(IAS) is supplied with the distribution in 
+<code>$DSVHOME/bin</code>. 
+<P>
+The steps to recompile IAS for your SPARCstation running Solaris are:
+</p>
+<OL>
+<LI>Ensure your environment variables are set.
+ See <a href=setenv.html>setting up your environment</a>.</LI>
+<LI>Change your directory to $DSVHOME</LI>
+<LI>Type <B><code>make ias</code></B>.  The <code>ias</code> executable
+   appears in the directory <code>$DSVHOME/bin</code> if
+   everything builds correctly. (If you see warnings of the form: " warning: typedef redeclared: uint64_t", you can ignore them)</LI>
+</OL>
+</blockquote>
+</blockquote>
+<h2>Installing trap handlers</h2>
+<BLOCKQUOTE>
+<p>
+Before you can run a program on IAS or on the RTL model, 
+you must have all picoJava-II 
+trap handlers present in the directory <code>$DSVHOME/class</code>. 
+The picoJava-II processor distributions
+already contain default trap handlers in this directory. Note that these
+trap handlers are example implementations only, and may have to be
+substantially modified before being used in a real system.
+<P>
+If you need to modify
+or recompile these handlers, the source code is present in 
+<code>$PICOJAVAHOME/$PROJECT/design/traps</code> (for emulation traps) and 
+<code>$PICOJAVAHOME/$PROJECT/design/exception</code> (for all other
+traps).
+<P>
+The steps to build the trap handlers are:
+</p>
+
+<OL>
+<LI><code>cd $PICOJAVAHOME/$PROJECT/tools/traps</code></LI>
+<LI><code>make</code></LI>
+<LI><code>cp class/*.class $DSVHOME/class</code></LI>
+<LI><code>cd $PICOJAVAHOME/$PROJECT/tools/exception</code></LI>
+<LI><code>make</code></LI>
+<LI><code>cp class/*.class $DSVHOME/class</code></LI>
+</OL>
+</blockquote>
+</BLOCKQUOTE>
+
+</p>
+
+
+<a name=runias>
+<h2>Running tests on IAS</h2>
+<p>
+A quick way to check if you built IAS correctly is to 
+run some sample tests.
+The steps to run the sample tests in IAS are:
+</p>
+<blockquote>
+<OL>
+ 
+<LI> Change directory to
+$PICOJAVAHOME/$PROJECT/sim/test/sample_tests. This directory has 5 
+precompiled sample tests.</LI><br>
+
+<LI> Select one of the tests, e.g., FADD_000 and change to that directory. </LI><br>
+
+<LI>Type "ias". </LI><br>
+
+<LI>Type "run" at ias prompt "% ".  </LI><br>
+
+<LI>The output should be something like: <br>
+"IAS: Test PASSED, 3721 instructions, 0 interrupts taken, 0 total traps".</LI>
+</OL>
+</blockquote>
+
+
+To run all the tests in the picoJava verification test suite on ias, you 
+you need to <a href=tests.html>build the tests</a> first.<br>
+
+You can then run all the tests on ias with the following commands: <br>
+<blockquote>
+<OL>
+<LI>cd $PICOJAVAHOME/$PROJECT/sim/test/pico_vts</LI>
+<LI>Type <B>steam -ias .</B></LI>
+</OL>
+</blockquote>
+
+<HR SIZE=3>
+<FONT SIZE=-2>Copyright &copy; 1999
+   <A HREF="http://www.sun.com/">Sun Microsystems, Inc.</A>
+   901 San Antonio Road, Palo Alto, CA 94303-4900  USA. 
+   All rights reserved. <BR>
+<BR>
+Last modified 24-March-1999
+<BR>
+
+
+</body></html>

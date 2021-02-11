@@ -1,0 +1,21 @@
+This is the README file for tools directory:
+          
+      README		This file
+      bin		Executables for design verification tools (DSV)
+      cache		Cache access routines sources
+      class		The traps, exceptions, and runtime classes
+      com		The assembler and disassembler package
+      config		Makefile for the tools directory
+      dsv		Common headers used by all DSV tools 
+      exception         Contains the exception routines
+      etc	        Tcl files used by IAS
+      iam		The simulation engine sources
+      include	        Include files used by tools	
+      jasm		Assembler sources
+      jdis		Disassembler sources
+      ldr		Class loader sources
+      lib		Library files depository (.a files)
+      sim		Simulation front end routines sources
+      tam		Transaction accurate model sources
+      traps		Contains the trap routines
+      verilog		Custom Verilog sources
